@@ -1,3 +1,4 @@
+"use client";
 import Retro from "@/components/ui/Retro";
 import Link from "next/link";
 import React from "react";

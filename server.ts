@@ -5,7 +5,6 @@ import LoginRoute from "./routes/LoginRoute";
 import signupRoute from "./routes/signupRoute";
 import bodyParser from "body-parser";
 import connectDB from "./routes/db"; // Import the db module
-import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import passport from "passport";

@@ -1,6 +1,5 @@
 import React from 'react'
 import Hero from '@/components/Hero'
-import Navbar from '@/components/Navbar'
 import { Exprience } from '@/components/Experience'
 import Credits from '@/components/Credits'
 
@@ -8,7 +7,6 @@ import Credits from '@/components/Credits'
 function Home() {
   return (
     <div>
-      <Navbar />
       <Hero />
       <Exprience />
       <Credits />

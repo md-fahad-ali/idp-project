@@ -1,5 +1,17 @@
 {
-  "watch": ["server.ts", "routes/", "models/"],
-  "ext": "ts",
-  "exec": "ts-node server.ts"
+  "port": 3000,
+  "watch": [
+    "server.ts"
+  ],
+  "exec": "node -r @swc-node/register server.ts",
+  "ext": "ts,js,json",
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "ignore": [
+    ".git",
+    "node_modules",
+    ".next",
+    "dist"
+  ]
 }
