@@ -14,6 +14,6 @@ if (!JWT_REFRESH_SECRET) {
 }
 
 export const generateToken = (_id: string, email: string, isRefreshToken = false) => {
-  const expiresIn = isRefreshToken ? "30d" : "10s";
+  const expiresIn = isRefreshToken ? "30d" : "10m";
   return jwt.sign({ _id, email }, isRefreshToken ? JWT_REFRESH_SECRET : JWT_SECRET, { expiresIn });
 };
