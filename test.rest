@@ -1,0 +1,35 @@
+### Variables
+@baseUrl = http://localhost:3000/api
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2N2NlMThlNDE4MGNhNDFiM2U3ZjZmYzQiLCJlbWFpbCI6IndpbnVkZW15QGdtYWlsLmNvbSIsImlhdCI6MTc0Mjg0NDkxNCwiZXhwIjoxNzQyODQ4NTE0fQ.vd_zPF9J8LyzLfwJk8MDQ7CbRNbNtIwqCoQmwScN73I
+
+### 1. Test Login with valid credentials
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "winudemy@gmail.com",
+  "password": "1234"
+}
+
+### 2. Test Protected Route with valid token
+GET {{baseUrl}}/protected
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+### 3. Test Protected Route without token (should fail)
+GET {{baseUrl}}/protected
+Content-Type: application/json
+
+### 4. Test Protected Route with invalid token (should fail)
+GET {{baseUrl}}/protected
+Authorization: Bearer invalid.token.here
+Content-Type: application/json
+
+### 5. Test Login Route (protected) with valid token
+GET {{baseUrl}}/auth/login
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+### 6. Test Login Route (protected) without token (should fail)
+GET {{baseUrl}}/auth/login
+Content-Type: application/json 

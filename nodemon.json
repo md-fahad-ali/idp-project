@@ -1,9 +1,13 @@
 {
   "port": 3000,
   "watch": [
-    "server.ts"
+    "server.ts",
+    "routes/*",
+    "lib/*",
+    "models/*",
+    ".env"
   ],
-  "exec": "node -r @swc-node/register server.ts",
+  "exec": "npx tsx server.ts",
   "ext": "ts,js,json",
   "env": {
     "NODE_ENV": "development"
@@ -13,5 +17,7 @@
     "node_modules",
     ".next",
     "dist"
-  ]
+  ],
+  "delay": "1000",
+  "restartable": "rs"
 }

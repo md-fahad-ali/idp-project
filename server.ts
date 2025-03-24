@@ -3,12 +3,12 @@ import { createServer } from "http";
 import next from "next";
 import LoginRoute from "./routes/LoginRoute";
 import signupRoute from "./routes/signupRoute";
+import protectedRoute from "./routes/protectedRoute";
 import bodyParser from "body-parser";
 import connectDB from "./routes/db"; // Import the db module
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import passport from "passport";
-
+import passport from "./lib/authMiddleware"; // Import the configured passport instance
 
 const dev = process.env.NODE_ENV !== "production";
 const app = next({ dev });
@@ -19,15 +19,33 @@ app
   .then(async () => {
     const server = express();
 
+    // Debug middleware to log all requests (moved to top)
+    // server.use((req, res, next) => {
+    //   console.log('\n=== New Request ===');
+    //   console.log(`${req.method} ${req.url}`);
+    //   console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    //   console.log('Body:', JSON.stringify(req.body, null, 2));
+    //   console.log('==================\n');
+    //   next();
+    // });
+
+    // Middleware
     server.use(bodyParser.json());
     server.use(express.json());
+    server.use(cookieParser());
+
+    // CORS configuration
     server.use(
       cors({
-        origin: "http://localhost:3000",
+        origin: ['http://localhost:3000'],
         credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+        exposedHeaders: ['Authorization'],
       })
     );
-    server.use(cookieParser());
+
+    // Initialize Passport
     server.use(passport.initialize());
 
     // Check database connection
@@ -38,21 +56,15 @@ app
       console.error("❌ Database connection failed:", error);
     }
 
-    server.get("/api/hello", (req: Request, res: Response) => {
-      res.json({ message: "hello world!" });
-    });
-
+    // API Routes with error handling
     server.use("/api/auth/signup", signupRoute);
     server.use("/api/auth/login", LoginRoute);
+    server.use("/api/protected", protectedRoute);
 
+    // Handle all other routes with Next.js
     server.all("*", (req: Request, res: Response) => {
+      // console.log('Fallback route hit:', req.url);
       return handle(req, res);
-    });
-
-    // Add a catch-all route for unmatched requests
-    server.use((req: Request, res: Response) => {
-      console.log(`404 Not Found: ${req.method} ${req.originalUrl}`);
-      res.status(404).json({ error: "Not Found" });
     });
 
     const httpServer = createServer(server);

@@ -15,14 +15,16 @@ const jwtOptions = {
 };
 
 interface JwtPayload {
-  username: string;
-  jti: string;
+  _id: string;
+  email: string;
+  iat: number;
+  exp: number;
 }
 
 passport.use(
   new JwtStrategy(jwtOptions, (payload: JwtPayload, done) => {
-    if (payload.username) {
-      return done(null, { username: payload.username, jti: payload.jti });
+    if (payload._id) {
+      return done(null, { _id: payload._id, email: payload.email });
     }
     return done(null, false);
   })
@@ -42,7 +44,7 @@ router.post("/", async (req: Request, res: Response) => {
     const newUser = new User({ firstName, lastName, username, email, password, role });
     await newUser.save();
 
-    const payload = { username: newUser.username, jti: crypto.randomUUID() };
+    const payload = { _id: newUser._id, email: newUser.email };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "10m", algorithm: "HS256" });
     const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: "7d", algorithm: "HS256" });
 

@@ -1,0 +1,16 @@
+GET http://localhost:3000/api/auth/login
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3Y2UxOGU0MTgwY2E0MWIzZTdmNmZjNCIsImVtYWlsIjoid2ludWRlbXlAZ21haWwuY29tIiwiaWF0IjoxNzQyODM5MjQ2LCJleHAiOjE3NDI4NDI4NDZ9.4Jtp0Rdqp5594R9qfFfjlAwlfWeNP8lIdbrsousZz6Y
+
+###
+
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "winudemy@gmail.com",
+  "password": "1234"
+}
+
+###
+
