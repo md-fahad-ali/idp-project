@@ -1,29 +1,52 @@
+"use client";
+
 import Retro from "@/components/ui/Retro";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import React from "react";
+import toast from 'react-hot-toast';
 
 
 const SignUp = () => {
+  
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    const response = await fetch('/api/auth/signup', {
-      method: 'POST',
-      credentials: 'include', // Add this line to handle cookies
-      body: JSON.stringify({
-      firstName: (e.currentTarget.elements.namedItem('firstName') as HTMLInputElement).value,
-      lastName: (e.currentTarget.elements.namedItem('lastName') as HTMLInputElement).value,
-      username: (e.currentTarget.elements.namedItem('username') as HTMLInputElement).value,
-      email: (e.currentTarget.elements.namedItem('email') as HTMLInputElement).value,
-      password: (e.currentTarget.elements.namedItem('password') as HTMLInputElement).value,
-      role: (e.currentTarget.elements.namedItem('role') as HTMLSelectElement).value,
-      }),
-      headers: {
-      'Content-Type': 'application/json',
-      },
-    });
-    console.log(await response.json());
+
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        credentials: 'include', // Add this line to handle cookies
+        body: JSON.stringify({
+          firstName: (e.currentTarget.elements.namedItem('firstName') as HTMLInputElement).value,
+          lastName: (e.currentTarget.elements.namedItem('lastName') as HTMLInputElement).value,
+          username: (e.currentTarget.elements.namedItem('username') as HTMLInputElement).value,
+          email: (e.currentTarget.elements.namedItem('email') as HTMLInputElement).value,
+          password: (e.currentTarget.elements.namedItem('password') as HTMLInputElement).value,
+          role: (e.currentTarget.elements.namedItem('role') as HTMLSelectElement).value,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        
+        
+        toast.error(errorData.msg || 'Something went wrong');
+      } else {
+        console.log(await response.json());
+        toast.success('Account created successfully');
+        router.push('/auth/login');
+      }
+    } catch (err) {
+      console.error(err);
+      
+      toast.error('Network error');
+    }
   };
 
   return (
@@ -39,6 +62,10 @@ const SignUp = () => {
         <h1 className="text-3xl sm:text-4xl font-bold text-center mb-6 sm:mb-8 tracking-wider bg-gradient-to-r from-[#0298a3] to-[#a302a3] bg-clip-text text-transparent">
           Sign Up
         </h1>
+
+        {/* Error Message */}
+        
+      
 
         {/* Sign-up Form */}
         <form className="space-y-5 sm:space-y-6 font-mono" onSubmit={handleSubmit}>
@@ -56,7 +83,7 @@ const SignUp = () => {
                 type="text"
                 id="firstName"
                 name="firstName"
-                placeholder="Enter your firstname"
+                placeholder="Enter your first name"
                 className="w-full p-2 sm:p-3 bg-white border-2 border-black rounded-md shadow-[4px_4px_0px_0px_black] text-lg sm:text-xl focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
               />
             </div>
@@ -73,7 +100,7 @@ const SignUp = () => {
                 type="text"
                 id="lastName"
                 name="lastName"
-                placeholder="Enter your lastname"
+                placeholder="Enter your last name"
                 className="w-full p-2 sm:p-3 bg-white border-2 border-black rounded-md shadow-[4px_4px_0px_0px_black] text-lg sm:text-xl focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
               />
             </div>

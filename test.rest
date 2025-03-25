@@ -1,6 +1,6 @@
 ### Variables
 @baseUrl = http://localhost:3000/api
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2N2NlMThlNDE4MGNhNDFiM2U3ZjZmYzQiLCJlbWFpbCI6IndpbnVkZW15QGdtYWlsLmNvbSIsImlhdCI6MTc0Mjg0NDkxNCwiZXhwIjoxNzQyODQ4NTE0fQ.vd_zPF9J8LyzLfwJk8MDQ7CbRNbNtIwqCoQmwScN73I
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2N2NlMThlNDE4MGNhNDFiM2U3ZjZmYzQiLCJlbWFpbCI6IndpbnVkZW15QGdtYWlsLmNvbSIsImlhdCI6MTc0Mjg5MTM0OSwiZXhwIjoxNzQyODkxMzU5fQ.t0rzga60EdJeAq6xVrp_4_NjwkoNTIu4M2H_n6LcT_g
 
 ### 1. Test Login with valid credentials
 POST {{baseUrl}}/auth/login

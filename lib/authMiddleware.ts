@@ -52,14 +52,14 @@ passport.use(jwtStrategy);
 export const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
   console.log('Auth Header:', req.headers.authorization);
   
-  passport.authenticate('jwt', { session: false }, async (err: any, user: any) => {
+  passport.authenticate('jwt', { session: false }, async (err: unknown, user: unknown) => {
     console.log('Passport authenticate callback');
     console.log('Error:', err);
     console.log('User:', user);
 
     if (err) {
       console.error('Authentication error:', err);
-      return res.status(500).json({ message: "Internal server error", error: err.message });
+      return res.status(500).json({ message: "Internal server error", error: (err as Error).message });
     }
     
     if (!user) {
@@ -77,7 +77,7 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
           if (decodedRefreshToken) {
             const user = await User.findById(decodedRefreshToken._id);
             if (user) {
-              const newToken = jwt.sign({ _id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '10m' });
+              const newToken = jwt.sign({ _id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '10s' });
               console.log('New token:', newToken);
               res.cookie('access_token', newToken, { httpOnly: true, secure: true, sameSite: 'strict' });
               req.user = user;
@@ -92,6 +92,10 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
       console.log('No user found - Unauthorized');
       return res.status(401).json({ message: "Unauthorized - Invalid token" });
     }
+
+    // if (!user) {
+    //   return res.status(401).json({ message: "Unauthorized - Invalid token" });
+    // }
 
     console.log('Authentication successful');
     req.user = user;

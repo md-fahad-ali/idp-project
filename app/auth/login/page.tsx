@@ -3,8 +3,11 @@ import Retro from "@/components/ui/Retro";
 import Link from "next/link";
 import React from "react";
 import { useEffect } from "react";
+import toast from 'react-hot-toast';
+import { useRouter } from "next/navigation";
 
 const Login = () => {
+  const router = useRouter();
 
   useEffect(()=>{
 
@@ -17,15 +20,29 @@ const Login = () => {
     const email = form.elements.namedItem("email") as HTMLInputElement;
     const password = form.elements.namedItem("password") as HTMLInputElement;
     console.log(email.value, password.value);
-    const response = await fetch("/api/auth/login", {
+    try {
+      const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ email: email.value, password: password.value }),
-    });
-    const data = await response.json();
-    console.log(data);
+      });
+      const data = await response.json();
+      console.log(data);
+      // Show success toast
+      if (response.ok) {
+        toast.success("Login successful");
+        router.push("/dashboard");
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      const errorMessage = (error instanceof Error) ? error.message : "Unknown error"; 
+      console.error("Error during login:", errorMessage);
+      // Show error toast
+      toast.error("Login failed. Please try again.");
+    }
     
   }
 

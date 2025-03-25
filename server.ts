@@ -4,6 +4,8 @@ import next from "next";
 import LoginRoute from "./routes/LoginRoute";
 import signupRoute from "./routes/signupRoute";
 import protectedRoute from "./routes/protectedRoute";
+import refreshRoute from "./routes/refreshRoute";
+import meRoute from "./routes/meRoute";
 import bodyParser from "body-parser";
 import connectDB from "./routes/db"; // Import the db module
 import cookieParser from "cookie-parser";
@@ -59,7 +61,9 @@ app
     // API Routes with error handling
     server.use("/api/auth/signup", signupRoute);
     server.use("/api/auth/login", LoginRoute);
+    server.use("/api/auth/refresh", refreshRoute);
     server.use("/api/protected", protectedRoute);
+    server.use("/api/auth/me",meRoute);
 
     // Handle all other routes with Next.js
     server.all("*", (req: Request, res: Response) => {
