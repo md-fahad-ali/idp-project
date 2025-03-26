@@ -7,7 +7,7 @@
     "models/*",
     ".env"
   ],
-  "exec": "npx tsx server.ts",
+  "exec": "ts-node --swc --project tsconfig.server.json server.ts",
   "ext": "ts,js,json",
   "env": {
     "NODE_ENV": "development"

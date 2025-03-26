@@ -130,7 +130,7 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body{
+  body {
     background-color: #160226;
   }
 }
@@ -139,7 +139,6 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  
 }
 
 @layer utilities {
@@ -150,5 +149,244 @@ html, body {
   .clip-circle-full {
     clip-path: circle(150% at 90% 5%);
   }
+
+  /* Retro styled scrollbar */
+  ::-webkit-scrollbar {
+    width: 15px;
+    height: 15px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: #460c8c;
+    border-radius: 20px;
+    border: 3px solid var(--background);
+}
 }
 
+
+.prose ul {
+  list-style-type: disc; /* Ensures bullet points appear */
+  padding-left: 1.5rem;  /* Ensures indentation for nested lists */
+}
+
+.prose ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+}
+
+.prose blockquote {
+  border-left: 4px solid #6016a7;
+  padding: 0.5rem 1rem;
+  background-color: #f8f5ff;
+  border-radius: 0 0.25rem 0.25rem 0;
+  font-style: italic;
+  color: #333;
+  margin: 1.5rem 0;
+}
+
+/* Basic editor styles */
+.tiptap {
+  color: black;
+  line-height: 1.5;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.tiptap :first-child {
+  margin-top: 0;
+}
+
+/* Heading styles */
+.tiptap h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  color: #111;
+}
+
+.tiptap h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+  color: #111;
+}
+
+.tiptap h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #111;
+}
+
+.tiptap h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.5rem;
+  color: #111;
+}
+
+.tiptap h5 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+  color: #111;
+}
+
+.tiptap h6 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+  color: #111;
+}
+
+/* List styles */
+.tiptap ul,
+.tiptap ol {
+  padding: 0 1rem;
+  margin: 1rem 1rem 1rem 0.4rem;
+}
+
+.tiptap ul li p,
+.tiptap ol li p {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+  color: black;
+}
+
+.tiptap blockquote {
+  border-left: 4px solid #6016a7;
+  margin: 1.5rem 0;
+  padding: 0.5rem 1rem;
+  background-color: #f8f5ff;
+  border-radius: 0 0.25rem 0.25rem 0;
+  font-style: italic;
+  color: #333;
+}
+
+.tiptap hr {
+  border: none;
+  border-top: 1px solid var(--gray-2);
+  margin: 2rem 0;
+  color: black;
+}
+
+.tiptap table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  border: 2px solid #333;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.tiptap table th,
+.tiptap table td {
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  text-align: left;
+}
+
+.tiptap table th {
+  background-color: #6016a7;
+  color: white;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.875rem;
+}
+
+.tiptap table tr:nth-child(even) {
+  background-color: #f5f5dc;
+}
+
+.tiptap table tr:nth-child(odd) {
+  background-color: #ffffff;
+}
+
+.tiptap table tr:hover {
+  background-color: #f0f0f0;
+}
+
+/* Code styling */
+.tiptap code {
+  background-color: #f0f0ff;
+  color: #6016a7;
+  font-family: 'Courier New', Courier, monospace;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+  border: 1px solid #d0d0ff;
+  white-space: nowrap;
+}
+
+.tiptap pre {
+  background-color: #1a1a2e;
+  color: #e6e6ff;
+  font-family: 'Courier New', Courier, monospace;
+  padding: 1.5rem;
+  border: 4px solid #000;
+  border-radius: 0;
+  box-shadow: 8px 8px 0px 0px #000;
+  overflow-x: auto;
+  margin: 2rem 0;
+  position: relative;
+  z-index: 10;
+  transform: translateY(-5px);
+  transition: transform 0.3s ease;
+}
+
+.tiptap pre:hover {
+  transform: translateY(-10px);
+}
+
+/* .tiptap pre::before {
+  content: attr(data-language);
+  position: absolute;
+  top: -12px;
+  left: 10px;
+  background: #6016a7;
+  color: white;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: bold;
+  border: 2px solid #000;
+  text-transform: uppercase;
+} */
+
+.tiptap pre::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 100%;
+  height: 100%;
+  border-radius: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  z-index: -1;
+}
+.tiptap pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+  border: none;
+  white-space: pre;
+  font-size: 0.9em;
+  display: block;
+}
+
+/* Syntax highlighting */
+.tiptap pre .keyword { color: #ff79c6; }
+.tiptap pre .function { color: #50fa7b; }
+.tiptap pre .string { color: #f1fa8c; }
+.tiptap pre .number { color: #bd93f9; }
+.tiptap pre .comment { color: #6272a4; font-style: italic; }
+.tiptap pre .operator { color: #ff79c6; }
+.tiptap pre .variable { color: #8be9fd; }

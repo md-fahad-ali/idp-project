@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 
 const Login = () => {
   const router = useRouter();
+  
 
   useEffect(()=>{
 
@@ -15,35 +16,33 @@ const Login = () => {
 
   async function getLogin(e: React.FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
-    console.log(e);
     const form = e.target as HTMLFormElement;
     const email = form.elements.namedItem("email") as HTMLInputElement;
     const password = form.elements.namedItem("password") as HTMLInputElement;
-    console.log(email.value, password.value);
+
     try {
       const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email: email.value, password: password.value }),
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: email.value, password: password.value }),
       });
+
       const data = await response.json();
-      console.log(data);
-      // Show success toast
+
       if (response.ok) {
         toast.success("Login successful");
+        
         router.push("/dashboard");
       } else {
         toast.error(data.message);
       }
     } catch (error) {
-      const errorMessage = (error instanceof Error) ? error.message : "Unknown error"; 
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
       console.error("Error during login:", errorMessage);
-      // Show error toast
       toast.error("Login failed. Please try again.");
     }
-    
   }
 
   return (
