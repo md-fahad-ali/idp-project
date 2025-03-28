@@ -1,12 +1,12 @@
 'use client';
 
 import React from 'react';
-import Tiptap from '@/components/Tiptap';
+
 
 const TestPage = () => {
     return (
         <div className="pt-[100px]">
-           <Tiptap/>
+           <pre className="bg-gray-900 text-white p-4 rounded-md font-mono overflow-auto"><code>python - progamminn</code></pre>
         </div>
     );
 };

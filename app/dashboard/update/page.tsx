@@ -24,19 +24,6 @@ const GamifiedCourse: React.FC = () => {
     };
   }
 
-  // interface CoursesData {
-  //   courses?: {
-  //     title?: string;
-  //     category?: string;
-  //     description?: string;
-  //     lessons?: {
-  //       title?: string;
-  //       content?: string;
-  //       points?: number;
-  //     }[];
-  //   }[];
-  // }
-
   const [, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -63,8 +50,18 @@ const GamifiedCourse: React.FC = () => {
         }
         const data = await response.json();
         console.log("Profile data:", data);
-        if (data?.courses.length != 0) {
-          router.push("/dashboard");
+        if (data?.courses.length !== 0) {
+          const course = data.courses[0];
+          setTitle(course.title || "");
+          setCategory(course.category || "");
+          setDescription(course.description || "");
+          setLessons(
+            course.lessons?.map((lesson: { title: string; content: string; points: number; }) => ({
+              title: lesson.title || "",
+              content: lesson.content || "",
+              points: lesson.points || 10,
+            })) || []
+          );
         }
         return data;
       } catch (error) {
@@ -74,7 +71,7 @@ const GamifiedCourse: React.FC = () => {
     };
 
     return fetchApi();
-  }, [initialCategory, initialTitle, router, token]);
+  }, [initialCategory, initialTitle, token]);
 
   useEffect(() => {
     if (userDataMemo) {

@@ -1,11 +1,10 @@
 // components/Navbar.tsx
 "use client";
 
-import { useState, useEffect} from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 // import { useRouter } from "next/navigation";
 import Avatar from "boring-avatars";
-
 
 const Navbar = ({
   access_token,
@@ -31,33 +30,32 @@ const Navbar = ({
   //   email: "john.doe@example.com",
   // };
 
-
   useEffect(() => {
     async function fetchApi() {
       try {
-      const response = await fetch("/api/auth/me", {
-        method: "GET",
-        headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${access_token}`,
-        },
-      });
-      if (!response.ok) {
-        console.log(`HTTP error! status: ${response.status}`);
-        setIsUserLoggedIn(false);
-        return;
-      }
-      const data = await response.json();
-      if (data?.user) {
-        setIsUserLoggedIn(true);
-        setUser({
-        fullName: `${data.user.firstName} ${data.user.lastName}`,
-        email: data.user.email,
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${access_token}`,
+          },
         });
-      }
-      console.log("Profile data from navbar:", data);
+        if (!response.ok) {
+          console.log(`HTTP error! status: ${response.status}`);
+          setIsUserLoggedIn(false);
+          return;
+        }
+        const data = await response.json();
+        if (data?.user) {
+          setIsUserLoggedIn(true);
+          setUser({
+            fullName: `${data.user.firstName} ${data.user.lastName}`,
+            email: data.user.email,
+          });
+        }
+        console.log("Profile data from navbar:", data);
       } catch (error) {
-      console.error("Error fetching profile data:", error);
+        console.error("Error fetching profile data:", error);
       }
     }
     fetchApi();
@@ -80,7 +78,7 @@ const Navbar = ({
               {item.name}
             </Link>
           ))}
-          
+
           {!isUserLoggedIn ? (
             <Link href="/auth/login" className="relative">
               <button className="px-6 py-2 bg-transparent text-white text-sm font-bold rounded-full border-2 border-[#1a004f] hover:bg-[#1a004f] hover:text-white transition-all duration-200 shadow-[0_1px_4px_rgba(0,221,235,0.3)] hover:shadow-[0_6px_8px_rgba(0,221,235,0.5)]">
@@ -88,17 +86,16 @@ const Navbar = ({
               </button>
             </Link>
           ) : (
-            <div className="flex">
+            <div className="flex relative">
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="text-white focus:outline-none"
                 aria-label="Toggle user menu"
               >
-                <Avatar name={user?.fullName} variant="beam"  size={30}/>
-                
+                <Avatar name={user?.fullName} variant="beam" size={30} />
               </button>
               {isDropdownOpen && (
-                <div className="absolute right-0 mt-[30px] w-64 bg-[#8f36d6] border-4 border-black rounded-md shadow-[8px_8px_0px_0px_black]">
+                <div className="absolute right-0 top-full mt-2 w-64 bg-[#8f36d6] border-4 border-black rounded-md shadow-[8px_8px_0px_0px_black]">
                   <div className="p-4">
                     <h3 className="text-xl font-bold text-black">
                       {user.fullName}
@@ -209,9 +206,7 @@ const Navbar = ({
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                     className="text-white focus:outline-none"
                     aria-label="Toggle user menu"
-                  >
-                 
-                  </button>
+                  ></button>
                   {isDropdownOpen && (
                     <div className="absolute right-0 mt-2 w-64 bg-[#8f36d6] border-4 border-black rounded-md shadow-[8px_8px_0px_0px_black]">
                       <div className="p-4">

@@ -6,6 +6,7 @@ import signupRoute from "./routes/signupRoute";
 import protectedRoute from "./routes/protectedRoute";
 import refreshRoute from "./routes/refreshRoute";
 import meRoute from "./routes/meRoute";
+import courseRoute from "./routes/courseRoute";
 import bodyParser from "body-parser";
 import connectDB from "./routes/db"; // Import the db module
 import cookieParser from "cookie-parser";
@@ -64,6 +65,7 @@ app
     server.use("/api/auth/refresh", refreshRoute);
     server.use("/api/protected", protectedRoute);
     server.use("/api/auth/me",meRoute);
+    server.use("/api/course",courseRoute);
 
     // Handle all other routes with Next.js
     server.all("*", (req: Request, res: Response) => {

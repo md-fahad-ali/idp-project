@@ -8,6 +8,7 @@ import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Highlight from '@tiptap/extension-highlight';
 import React, { useEffect, useState, useMemo, useCallback } from "react";
+// import { generateHTML } from '@tiptap/core'
 
 
 import { Plus } from 'lucide-react';
@@ -61,14 +62,14 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
         },
         bulletList: {
           keepMarks: true,
-          keepAttributes: false,
+          keepAttributes: true,
           HTMLAttributes: {
             class: 'list-disc ml-2',
           },
         },
         orderedList: {
           keepMarks: true,
-          keepAttributes: false,
+          keepAttributes: true,
           HTMLAttributes: {
             class: 'list-decimal ml-2',
           },
@@ -79,6 +80,18 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
           },
         },
         horizontalRule: false,
+        codeBlock: {
+            // keepAttributes:true,
+          HTMLAttributes: {
+            class: 'bg-gray-700 border-4 border-black shadow-[8px_8px_0px_0px_black] text-white p-4 rounded-md font-mono overflow-auto',
+          },
+        },
+        code: {
+        //    keepAttributes:true,
+          HTMLAttributes: {
+            class: 'bg-gray-800 text-white px-1 rounded font-mono',
+          },
+        },
       }),
       Underline,
       Link.configure({ openOnClick: true }),
@@ -105,7 +118,8 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
         return false;
       },
     },
-    content: content || `<p>${title} - ${category}</p>`,
+    content: content || `<div>${title} - ${category}</div>`,
+    immediatelyRender:false,
   }), [title, category, content]);
 
   const editor = useEditor(editorConfig);
@@ -136,6 +150,11 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
 
     const updateContent = () => {
       const html = editor.getHTML();
+    //   console.log(editor.getJSON())
+
+
+    //   const htmlOutput = generateHTML(editor.getJSON(), [StarterKit])
+    //   console.log('Generated HTML:', htmlOutput) // Output the HTML
       handleUpdate(html);
     };
 
@@ -169,6 +188,8 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
     }
     setShowInsertMenu(false);
   }, [editor]);
+
+
 
   return (
     <EditorErrorBoundary>
@@ -310,7 +331,7 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
               return empty && isEmptyTextBlock;
             }}
           >
-            <div className="bg-[#e0e0e0] border-2 border-black shadow-[4px_4px_0px_0px_black] rounded-none p-1 min-w-[auto]">
+            <div className="bg-[#e0e0e0] border-2 border-black shadow-[4px_4px_0px_0px_black] mt-[100px] rounded-none p-1 min-w-[auto]">
               <button
                 className="w-8 h-8 flex items-center justify-center bg-[#c0c0c0] border-2 border-black shadow-[2px_2px_0px_0px_black] text-black hover:bg-[#a0a0a0]"
                 onClick={() => setShowInsertMenu(!showInsertMenu)}
