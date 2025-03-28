@@ -13,8 +13,37 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 
 import { Plus } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { common, createLowlight } from 'lowlight';
+import 'highlight.js/styles/atom-one-dark.css';
+import js from 'highlight.js/lib/languages/javascript';
+import python from 'highlight.js/lib/languages/python';
+import java from 'highlight.js/lib/languages/java';
+import css from 'highlight.js/lib/languages/css';
+import html from 'highlight.js/lib/languages/xml';
+import typescript from 'highlight.js/lib/languages/typescript';
+import json from 'highlight.js/lib/languages/json';
+import bash from 'highlight.js/lib/languages/bash';
 
+// Create a custom lowlight instance
+const lowlight = createLowlight(common);
 
+// Only register languages on the client side
+if (typeof window !== 'undefined') {
+  // Register languages
+  lowlight.register('javascript', js);
+  lowlight.register('js', js);
+  lowlight.register('python', python);
+  lowlight.register('py', python);
+  lowlight.register('java', java);
+  lowlight.register('css', css);
+  lowlight.register('html', html);
+  lowlight.register('typescript', typescript);
+  lowlight.register('ts', typescript);
+  lowlight.register('json', json);
+  lowlight.register('bash', bash);
+  lowlight.register('sh', bash);
+}
 
 // Error boundary component
 class EditorErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
@@ -49,6 +78,8 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
   const title = searchParams.get('title') || 'Default Title';
   const category = searchParams.get('category') || 'Default Category';
   const [showInsertMenu, setShowInsertMenu] = useState(false);
+  const [imageWidth, setImageWidth] = useState(300);
+  const [imageHeight, setImageHeight] = useState(200);
 
   // Memoize editor configuration
   const editorConfig = useMemo(() => ({
@@ -80,17 +111,18 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
           },
         },
         horizontalRule: false,
-        codeBlock: {
-            // keepAttributes:true,
-          HTMLAttributes: {
-            class: 'bg-gray-700 border-4 border-black shadow-[8px_8px_0px_0px_black] text-white p-4 rounded-md font-mono overflow-auto',
-          },
-        },
+        codeBlock: false,
         code: {
-        //    keepAttributes:true,
           HTMLAttributes: {
             class: 'bg-gray-800 text-white px-1 rounded font-mono',
           },
+        },
+      }),
+      CodeBlockLowlight.configure({
+        lowlight,
+        defaultLanguage: 'javascript',
+        HTMLAttributes: {
+          class: 'bg-gray-900 border-4 border-black shadow-[8px_8px_0px_0px_black] text-white p-4 rounded-md font-mono overflow-auto my-4 not-prose',
         },
       }),
       Underline,
@@ -101,7 +133,6 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
         },
       }),
       Highlight,
-     
     ],
     editorProps: {
       attributes: {
@@ -119,10 +150,32 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
       },
     },
     content: content || `<div>${title} - ${category}</div>`,
-    immediatelyRender:false,
+    immediatelyRender: false,
   }), [title, category, content]);
 
+  // Initialize editor first
   const editor = useEditor(editorConfig);
+
+  // When an image is selected, get its current dimensions
+  useEffect(() => {
+    if (!editor) return;
+    
+    if (editor.isActive('image')) {
+      const imageAttrs = editor.getAttributes('image');
+      if (imageAttrs.style) {
+        // Extract width and height from style attribute if available
+        const widthMatch = imageAttrs.style.match(/width:\s*(\d+)px/);
+        const heightMatch = imageAttrs.style.match(/height:\s*(\d+)px/);
+        
+        if (widthMatch && widthMatch[1]) {
+          setImageWidth(parseInt(widthMatch[1]));
+        }
+        if (heightMatch && heightMatch[1]) {
+          setImageHeight(parseInt(heightMatch[1]));
+        }
+      }
+    }
+  }, [editor]);
 
   // Memoize content update handler
   const handleUpdate = useCallback(
@@ -170,10 +223,65 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
 
     switch (type) {
       case 'codeBlock': {
-        const language = prompt('Enter the language for syntax highlighting (e.g., javascript, python):', 'javascript');
-        if (language) {
+        const languages = [
+          'javascript',
+          'python',
+          'java',
+          'css',
+          'html',
+          'typescript',
+          'json',
+          'bash',
+          'plaintext'
+        ];
+        
+        // Create language options for the dialog
+        const languageOptions = languages.map(lang => 
+          `<option value="${lang}"${lang === 'javascript' ? ' selected' : ''}>${lang}</option>`
+        ).join('');
+        
+        // Create custom dialog for language selection
+        const dialog = document.createElement('div');
+        dialog.innerHTML = `
+          <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div class="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000] w-96">
+              <h3 class="text-xl font-bold text-[#E6F1FF] mb-4 font-mono">Insert Code Block</h3>
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-[#8892B0] mb-2">
+                  Select Language
+                </label>
+                <select id="language-select" class="w-full p-2 bg-[#2A3A4A] text-[#E6F1FF] border-2 border-black rounded">
+                  ${languageOptions}
+                </select>
+              </div>
+              <div class="flex space-x-4">
+                <button id="dialog-cancel" class="flex-1 p-2 text-white bg-[#666666] border-2 border-black rounded-md shadow-[2px_2px_0px_0px_#000000]">
+                  Cancel
+                </button>
+                <button id="dialog-confirm" class="flex-1 p-2 text-white bg-[#9D4EDD] border-2 border-black rounded-md shadow-[2px_2px_0px_0px_#000000]">
+                  Insert
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(dialog);
+        
+        const selectElement = dialog.querySelector('#language-select') as HTMLSelectElement;
+        const cancelButton = dialog.querySelector('#dialog-cancel');
+        const confirmButton = dialog.querySelector('#dialog-confirm');
+        
+        cancelButton?.addEventListener('click', () => {
+          document.body.removeChild(dialog);
+        });
+        
+        confirmButton?.addEventListener('click', () => {
+          const language = selectElement?.value || 'javascript';
           editor.chain().focus().toggleCodeBlock({ language }).run();
-        }
+          document.body.removeChild(dialog);
+        });
+        
         break;
       }
       case 'image': {
@@ -278,39 +386,93 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
               placement: 'top',
               offset: [0, 10],
               zIndex: 999,
-              appendTo: () => document.body, // Ensure it renders outside container
+              appendTo: () => document.body,
             }}
             shouldShow={({ editor }) => editor.isActive('image')}
           >
-            <div className="flex flex-wrap gap-2 bg-gray-200 border border-gray-400 shadow-md p-2 rounded-md">
-              <button
-                onClick={() => {
-                  const newWidth = prompt('Enter new width (e.g., 300px or 50%):', '300px');
-                  if (newWidth) {
-                    editor.chain().focus().updateAttributes('image', { style: `width: ${newWidth};` }).run();
-                  }
-                }}
-                className="px-2 py-1 border border-gray-400 shadow-sm text-black bg-gray-300 hover:bg-gray-400"
-              >
-                Resize Width
-              </button>
-              <button
-                onClick={() => {
-                  const newHeight = prompt('Enter new height (e.g., 200px or auto):', 'auto');
-                  if (newHeight) {
-                    editor.chain().focus().updateAttributes('image', { style: `height: ${newHeight};` }).run();
-                  }
-                }}
-                className="px-2 py-1 border border-gray-400 shadow-sm text-black bg-gray-300 hover:bg-gray-400"
-              >
-                Resize Height
-              </button>
-              <button
-                onClick={() => editor.chain().focus().deleteSelection().run()}
-                className="px-2 py-1 border border-gray-400 shadow-sm text-black bg-red-300 hover:bg-red-400"
-              >
-                Remove Image
-              </button>
+            <div className="flex flex-col gap-2 bg-[#e0e0e0] border-2 border-black shadow-[4px_4px_0px_0px_black] p-4 rounded-none min-w-[300px]">
+              <h3 className="text-sm font-bold mb-2">Resize Image</h3>
+              
+              <div className="mb-2">
+                <div className="flex justify-between mb-1">
+                  <span>Width: {imageWidth}px</span>
+                  <button 
+                    onClick={() => {
+                      editor.chain().focus().updateAttributes('image', { 
+                        style: `width: 100%; height: auto;` 
+                      }).run();
+                      setImageWidth(100);
+                    }}
+                    className="text-xs bg-[#c0c0c0] px-1 border border-black"
+                  >
+                    Full Width
+                  </button>
+                </div>
+                <input
+                  type="range"
+                  min="50"
+                  max="800"
+                  value={imageWidth}
+                  onChange={(e) => {
+                    const newWidth = parseInt(e.target.value);
+                    setImageWidth(newWidth);
+                    editor.chain().focus().updateAttributes('image', { 
+                      style: `width: ${newWidth}px; height: ${imageHeight}px` 
+                    }).run();
+                  }}
+                  className="w-full bg-[#a0a0a0] appearance-none h-2 rounded-none"
+                />
+              </div>
+              
+              <div className="mb-2">
+                <div className="flex justify-between mb-1">
+                  <span>Height: {imageHeight}px</span>
+                  <button 
+                    onClick={() => {
+                      editor.chain().focus().updateAttributes('image', { 
+                        style: `width: ${imageWidth}px; height: auto;` 
+                      }).run();
+                      setImageHeight(0);
+                    }}
+                    className="text-xs bg-[#c0c0c0] px-1 border border-black"
+                  >
+                    Auto Height
+                  </button>
+                </div>
+                <input
+                  type="range"
+                  min="50"
+                  max="600"
+                  value={imageHeight}
+                  onChange={(e) => {
+                    const newHeight = parseInt(e.target.value);
+                    setImageHeight(newHeight);
+                    editor.chain().focus().updateAttributes('image', { 
+                      style: `width: ${imageWidth}px; height: ${newHeight}px` 
+                    }).run();
+                  }}
+                  className="w-full bg-[#a0a0a0] appearance-none h-2 rounded-none"
+                />
+              </div>
+              
+              <div className="flex justify-between gap-2">
+                <button
+                  onClick={() => {
+                    editor.chain().focus().updateAttributes('image', { 
+                      style: `width: ${imageWidth}px; height: ${imageHeight}px` 
+                    }).run();
+                  }}
+                  className="flex-1 px-2 py-1 border-2 border-black shadow-[2px_2px_0px_0px_black] text-black bg-[#c0c0c0] hover:bg-[#a0a0a0]"
+                >
+                  Apply
+                </button>
+                <button
+                  onClick={() => editor.chain().focus().deleteSelection().run()}
+                  className="flex-1 px-2 py-1 border-2 border-black shadow-[2px_2px_0px_0px_black] text-black bg-[#ff9999] hover:bg-[#ff7777]"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
           </BubbleMenu>
         )}

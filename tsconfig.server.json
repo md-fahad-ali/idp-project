@@ -1,9 +1,12 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
     "outDir": "./dist",
-    "target": "es2020"
+    "target": "es2020",
+    "esModuleInterop": true,
+    "noEmit": false
   },
-  "include": ["server.ts", "routes/**/*"]
+  "include": ["server.ts", "simple-server.ts", "routes/**/*", "lib/**/*", "models/**/*"]
 }

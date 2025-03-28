@@ -1,0 +1,95 @@
+/* Code block styles */
+.prose pre {
+  margin: 0 !important;
+  padding: 1rem 0 !important;
+  overflow-x: auto !important;
+}
+
+.prose pre code {
+  padding: 0 1rem !important;
+  display: block !important;
+  line-height: 1.5 !important;
+  font-size: 0.9rem !important;
+  white-space: pre !important;
+}
+
+.line-numbers .line-numbers-rows {
+  border-right: 2px solid #444 !important;
+  padding-right: 10px !important;
+}
+
+/* Syntax highlighting colors */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #8892b0 !important;
+}
+
+.token.punctuation {
+  color: #9CDCFE !important;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol {
+  color: #FF9D00 !important;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin {
+  color: #CE9178 !important;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: #D4D4D4 !important;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #569CD6 !important;
+}
+
+.token.function {
+  color: #9CDCFE !important;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: #9CDCFE !important;
+}
+
+/* Fix for line numbers */
+.line-numbers-rows > span:before {
+  color: #666 !important;
+}
+
+/* Fix spacing */
+.prose p {
+  margin-bottom: 1rem !important;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  margin-bottom: 1rem !important;
+  margin-top: 1.5rem !important;
+}
+
+.prose ul, .prose ol {
+  margin-bottom: 1rem !important;
+}
+
+.prose li {
+  margin-bottom: 0.5rem !important;
+} 

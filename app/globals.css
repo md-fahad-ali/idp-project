@@ -390,3 +390,129 @@ html, body {
 .tiptap pre .comment { color: #6272a4; font-style: italic; }
 .tiptap pre .operator { color: #ff79c6; }
 .tiptap pre .variable { color: #8be9fd; }
+
+/* Code block styling */
+pre[class*="language-"] {
+  margin: 1.5em 0;
+  padding: 1.5em;
+  border-radius: 0.5rem;
+  border: 2px solid black;
+  box-shadow: 4px 4px 0px 0px #000000;
+  background-color: #1a1a2e !important;
+  overflow: auto;
+  font-family: 'Fira Code', 'Courier New', monospace;
+}
+
+code[class*="language-"] {
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.9rem;
+  text-shadow: none;
+}
+
+/* Add line numbers */
+pre.line-numbers {
+  position: relative;
+  padding-left: 3.8em;
+  counter-reset: linenumber;
+}
+
+pre.line-numbers > code {
+  position: relative;
+}
+
+.line-numbers .line-numbers-rows {
+  position: absolute;
+  pointer-events: none;
+  top: 0;
+  font-size: 100%;
+  left: -3.8em;
+  width: 3em;
+  letter-spacing: -1px;
+  border-right: 2px solid #404040;
+  user-select: none;
+}
+
+.line-numbers-rows > span {
+  display: block;
+  counter-increment: linenumber;
+}
+
+.line-numbers-rows > span:before {
+  content: counter(linenumber);
+  color: #606060;
+  display: block;
+  padding-right: 0.8em;
+  text-align: right;
+}
+
+/* Token colors - customize for our retro theme */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #6a9955;
+}
+
+.token.punctuation {
+  color: #d4d4d4;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: #ffd700;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: #ce9178;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: #d4d4d4;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #9D4EDD;
+}
+
+.token.function,
+.token.class-name {
+  color: #5CDB95;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: #ff9d00;
+}
+
+/* Code block title style */
+.code-title {
+  background-color: #2f235a;
+  color: #E6F1FF;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.5rem 1rem;
+  border-top-left-radius: 0.25rem;
+  border-top-right-radius: 0.25rem;
+  border: 2px solid black;
+  border-bottom: none;
+  margin-bottom: -0.5rem;
+  width: fit-content;
+}

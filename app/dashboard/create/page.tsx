@@ -191,7 +191,7 @@ const GamifiedCourse: React.FC = () => {
         const result = await response.json();
         console.log(result);
         alert("Course saved successfully!");
-        router.push("/admin/dashboard");
+        router.push("/dashboard");
       } else {
         const error = await response.json();
 

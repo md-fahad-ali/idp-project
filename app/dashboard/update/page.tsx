@@ -77,12 +77,19 @@ const GamifiedCourse: React.FC = () => {
     if (userDataMemo) {
       userDataMemo.then((data) => {
         setUserData(data?.user);
+        
+        // Redirect to 404 if no courses found
+        if (!data?.courses || data.courses.length === 0) {
+          router.push('/404');
+          return;
+        }
+        
         setLoading(false);
       });
     } else {
       setLoading(false);
     }
-  }, [userDataMemo]);
+  }, [userDataMemo, router]);
 
   //print the course
 
@@ -160,23 +167,37 @@ const GamifiedCourse: React.FC = () => {
       lessons: updatedLessons,
     };
 
-    console.log(!title || !category);
-    if (
-      !title ||
-      !category ||
-      !description ||
-      courseData.lessons.some(
-        (lesson) => lesson.content.length === 0 || lesson.content.length === 7
-      )
-    ) {
-      alert("Please fill in all fields and ensure lesson content is valid.");
-      return;
-    }
+   
 
     console.log(courseData);
     try {
-      const response = await fetch("/api/course/add", {
-        method: "POST",
+      // Get the course ID from the API response when the course was loaded
+      const response = await fetch(`/api/course/get?title=${initialTitle}&category=${initialCategory}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        alert("Failed to get course information");
+        return;
+      }
+      
+      const data = await response.json();
+      
+      if (!data?.courses || data.courses.length === 0) {
+        alert("Course not found");
+        router.push('/404');
+        return;
+      }
+      
+      const courseId = data.courses[0]._id;
+      
+      // Make the PUT request to update the course
+      const updateResponse = await fetch(`/api/course/update/${courseId}`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -184,15 +205,14 @@ const GamifiedCourse: React.FC = () => {
         body: JSON.stringify(courseData),
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      if (updateResponse.ok) {
+        const result = await updateResponse.json();
         console.log(result);
-        alert("Course saved successfully!");
-        router.push("/admin/dashboard");
+        alert("Course updated successfully!");
+        router.push("/dashboard");
       } else {
-        const error = await response.json();
-
-        alert("Failed to save course: " + error.error);
+        const error = await updateResponse.json();
+        alert("Failed to update course: " + error.error);
       }
     } catch (err) {
       console.error("Unexpected error:", err);

@@ -1,26 +1,27 @@
-import express, { Request, Response } from "express";
-import { createServer } from "http";
-import next from "next";
-import LoginRoute from "./routes/LoginRoute";
-import signupRoute from "./routes/signupRoute";
-import protectedRoute from "./routes/protectedRoute";
-import refreshRoute from "./routes/refreshRoute";
-import meRoute from "./routes/meRoute";
-import courseRoute from "./routes/courseRoute";
-import bodyParser from "body-parser";
-import connectDB from "./routes/db"; // Import the db module
-import cookieParser from "cookie-parser";
-import cors from "cors";
-import passport from "./lib/authMiddleware"; // Import the configured passport instance
+import * as express from 'express';
+import { Request, Response } from 'express';
+import { createServer } from 'http';
+import * as next from 'next';
+import LoginRoute from './routes/LoginRoute';
+import signupRoute from './routes/signupRoute';
+import protectedRoute from './routes/protectedRoute';
+import refreshRoute from './routes/refreshRoute';
+import meRoute from './routes/meRoute';
+import courseRoute from './routes/courseRoute';
+import * as bodyParser from 'body-parser';
+import connectDB from './routes/db'; // Import the db module
+import * as cookieParser from 'cookie-parser';
+import * as cors from 'cors';
+import passport from './lib/authMiddleware'; // Import the configured passport instance
 
-const dev = process.env.NODE_ENV !== "production";
-const app = next({ dev });
-const handle = app.getRequestHandler();
+const dev = process.env.NODE_ENV !== 'production';
+const nextApp = next.default({ dev });
+const handle = nextApp.getRequestHandler();
 
-app
+nextApp
   .prepare()
   .then(async () => {
-    const server = express();
+    const server = express.default();
 
     // Debug middleware to log all requests (moved to top)
     // server.use((req, res, next) => {
@@ -35,11 +36,11 @@ app
     // Middleware
     server.use(bodyParser.json());
     server.use(express.json());
-    server.use(cookieParser());
+    server.use(cookieParser.default());
 
     // CORS configuration
     server.use(
-      cors({
+      cors.default({
         origin: ['http://localhost:3000'],
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -64,8 +65,8 @@ app
     server.use("/api/auth/login", LoginRoute);
     server.use("/api/auth/refresh", refreshRoute);
     server.use("/api/protected", protectedRoute);
-    server.use("/api/auth/me",meRoute);
-    server.use("/api/course",courseRoute);
+    server.use("/api/auth/me", meRoute);
+    server.use("/api/course", courseRoute);
 
     // Handle all other routes with Next.js
     server.all("*", (req: Request, res: Response) => {
@@ -78,6 +79,6 @@ app
       console.log("🚀 Custom server listening on http://localhost:3000");
     });
   })
-  .catch((err) => {
+  .catch((err: Error) => {
     console.error("Error during app preparation:", err);
   });
