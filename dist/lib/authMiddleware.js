@@ -6,9 +6,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.authenticateJWT = void 0;
 const passport_1 = __importDefault(require("passport"));
 const passport_jwt_1 = require("passport-jwt");
-const User_1 = __importDefault(require("../models/User")); // Import your User model
+const User_1 = __importDefault(require("../models/User"));
 const dotenv_1 = require("dotenv");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const mongoose_1 = require("mongoose");
 (0, dotenv_1.configDotenv)();
 if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET is not defined in environment variables');
@@ -23,10 +24,15 @@ const jwtOptions = {
 const jwtStrategy = new passport_jwt_1.Strategy(jwtOptions, async (jwtPayload, done) => {
     try {
         console.log('JWT Payload:', jwtPayload);
-        const user = await User_1.default.findById(jwtPayload._id);
+        const user = await User_1.default.findById(new mongoose_1.Types.ObjectId(jwtPayload._id)).select('-password').lean();
         console.log('Found user:', user);
         if (user) {
-            return done(null, user);
+            // Convert ObjectId to string
+            const userWithStringId = {
+                ...user,
+                _id: user._id.toString()
+            };
+            return done(null, userWithStringId);
         }
         return done(null, false);
     }
@@ -60,12 +66,19 @@ const authenticateJWT = (req, res, next) => {
                     }
                     const decodedRefreshToken = jsonwebtoken_1.default.verify(refreshToken, refreshSecret);
                     if (decodedRefreshToken) {
-                        const user = await User_1.default.findById(decodedRefreshToken._id);
-                        if (user) {
-                            const newToken = jsonwebtoken_1.default.sign({ _id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '10s' });
+                        const refreshedUser = await User_1.default.findById(new mongoose_1.Types.ObjectId(decodedRefreshToken._id))
+                            .select('-password')
+                            .lean();
+                        if (refreshedUser) {
+                            // Convert ObjectId to string
+                            const userWithStringId = {
+                                ...refreshedUser,
+                                _id: refreshedUser._id.toString()
+                            };
+                            const newToken = jsonwebtoken_1.default.sign({ _id: userWithStringId._id, email: userWithStringId.email }, JWT_SECRET, { expiresIn: '1h' });
                             console.log('New token:', newToken);
                             res.cookie('access_token', newToken, { httpOnly: true, secure: true, sameSite: 'strict' });
-                            req.user = user;
+                            req.user = userWithStringId;
                             return next();
                         }
                     }
@@ -77,9 +90,6 @@ const authenticateJWT = (req, res, next) => {
             console.log('No user found - Unauthorized');
             return res.status(401).json({ message: "Unauthorized - Invalid token" });
         }
-        // if (!user) {
-        //   return res.status(401).json({ message: "Unauthorized - Invalid token" });
-        // }
         console.log('Authentication successful');
         req.user = user;
         next();

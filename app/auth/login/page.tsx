@@ -9,10 +9,18 @@ import { useRouter } from "next/navigation";
 const Login = () => {
   const router = useRouter();
   
-
-  useEffect(()=>{
-
-  },[])
+  // Clear any existing tokens on the login page
+  useEffect(() => {
+    // Clear localStorage browser state
+    localStorage.removeItem('auth_timestamp');
+    
+    // Force clear cookies by setting expired date
+    const clearCookie = (name: string) => {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    };
+    clearCookie('access_token');
+    clearCookie('refresh_token');
+  }, []);
 
   async function getLogin(e: React.FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
@@ -21,10 +29,15 @@ const Login = () => {
     const password = form.elements.namedItem("password") as HTMLInputElement;
 
     try {
-      const response = await fetch("/api/auth/login", {
+      // Add cache-busting timestamp
+      const timestamp = Date.now();
+      const response = await fetch(`/api/auth/login?_t=${timestamp}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+          "Expires": "0"
         },
         body: JSON.stringify({ email: email.value, password: password.value }),
       });
@@ -32,9 +45,12 @@ const Login = () => {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success("Login successful");
+        // Set authentication timestamp to help identify sessions
+        localStorage.setItem('auth_timestamp', timestamp.toString());
         
-        router.push("/dashboard");
+        toast.success("Login successful");
+        // Use replace to prevent back navigation to login
+        window.location.href= "/dashboard";
       } else {
         toast.error(data.message);
       }

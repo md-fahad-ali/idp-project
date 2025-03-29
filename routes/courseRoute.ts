@@ -76,27 +76,58 @@ router.post("/add", authenticateJWT, async (req, res): Promise<void> => {
 router.get("/get", authenticateJWT, async (req, res): Promise<void> => {
   const { title, category } = req.query; // Extract title and category from query parameters
   const userId = (req.user as AuthenticatedUser)?._id;
-  if(title === undefined || category === undefined) {
-    const courses = await Course.find();
-    res.status(200).json({ courses: courses, user: req.user });
-    
-  }else{
-    try {
-      // Find courses by title and category, and ensure they belong to the authenticated user
-      const courses = await Course.find({
-        title: title,
-        category,
-        user: userId,
-      }).populate("user", "firstName lastName email");
+  const userRole = (req.user as any)?.role;
   
-      res.status(200).json({ courses: courses, user: req.user });
-    } catch (error) {
-      console.error("Error fetching courses:", error);
-      res.status(500).json({ error: "Internal server error" });
+  console.log("User data:", JSON.stringify(req.user));
+  console.log("User role:", userRole, "User ID:", userId);
+  
+  try {
+    // Make sure we have a valid user before proceeding
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized: User ID is missing" });
+      return;
     }
-
-  }
+    
+    // For safety, get the user from the database to ensure we have fresh role information
+    const user = await User.findById(userId);
+    const freshUserRole = user?.role;
+    console.log("Fresh user role from DB:", freshUserRole);
+    
+    if(title === undefined || category === undefined) {
+      // For regular users (role === 'user'), return all courses
+      // For admins, only return their own courses
+      const query = freshUserRole === 'user' ? {} : { user: userId };
+      console.log("Query for all courses:", query);
+      const courses = await Course.find(query).populate("user", "firstName lastName email");
+      res.status(200).json({ 
+        courses: courses, 
+        user: req.user,
+        refreshedRole: freshUserRole 
+      });
+      
+    } else {
+      // Find courses by title and category
+      // For regular users (role === 'user'), return all matching courses
+      // For admins, only return their own courses
+      const query = {
+        title: title,
+        category: category,
+        ...(freshUserRole === 'user' ? {} : { user: userId })
+      };
+      
+      console.log("Query for filtered courses:", query);
+      const courses = await Course.find(query).populate("user", "firstName lastName email");
   
+      res.status(200).json({ 
+        courses: courses, 
+        user: req.user,
+        refreshedRole: freshUserRole 
+      });
+    }
+  } catch (error) {
+    console.error("Error fetching courses:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 router.put("/update/:id", authenticateJWT, async (req, res): Promise<void> => {
@@ -123,11 +154,9 @@ router.put("/update/:id", authenticateJWT, async (req, res): Promise<void> => {
       return;
     }
 
-    // Check if course exists and belongs to user
-    const existingCourse = await Course.findOne({
-      _id: courseId,
-      user: userId,
-    });
+    // Check if course exists and belongs to user (for both admin and regular users)
+    const query = { _id: courseId, user: userId };
+    const existingCourse = await Course.findOne(query);
 
     if (!existingCourse) {
       res.status(404).json({ error: "Course not found or you don't have permission to update it" });
@@ -171,11 +200,9 @@ router.delete("/delete/:id", authenticateJWT, async (req, res): Promise<void> =>
       return;
     }
 
-    // Check if course exists and belongs to user
-    const existingCourse = await Course.findOne({
-      _id: courseId,
-      user: userId,
-    });
+    // Check if course exists and belongs to user (for both admin and regular users)
+    const query = { _id: courseId, user: userId };
+    const existingCourse = await Course.findOne(query);
 
     if (!existingCourse) {
       res.status(404).json({ error: "Course not found or you don't have permission to delete it" });

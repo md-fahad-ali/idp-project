@@ -1,7 +1,7 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 
-interface IUser extends Document {
-  _id: string | Schema.Types.ObjectId;
+export interface IUser extends Document {
+  _id: Types.ObjectId;
   firstName: string;
   lastName: string;
   username: string;
@@ -9,6 +9,8 @@ interface IUser extends Document {
   password: string;
   role: 'user' | 'admin';
   points: number;
+  testsCompleted?: number;
+  averageScore?: number;
 }
 
 const UserSchema: Schema = new Schema({
@@ -18,7 +20,9 @@ const UserSchema: Schema = new Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['user', 'admin'], required: true },
-  points: { type: Number, default: 0 }
+  points: { type: Number, default: 0 },
+  testsCompleted: { type: Number, default: 0 },
+  averageScore: { type: Number, default: 0 }
 });
 
 const User = mongoose.model<IUser>('User', UserSchema);

@@ -34,16 +34,15 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-const UserSchema = new mongoose_1.Schema({
-    firstName: { type: String, required: true },
-    lastName: { type: String, required: true },
-    username: { type: String, required: true, unique: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    role: { type: String, enum: ['user', 'admin'], required: true },
-    points: { type: Number, default: 0 },
-    testsCompleted: { type: Number, default: 0 },
-    averageScore: { type: Number, default: 0 }
-});
-const User = mongoose_1.default.model('User', UserSchema);
-exports.default = User;
+const UserProgressSchema = new mongoose_1.Schema({
+    user: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
+    completedCourses: [
+        {
+            course: { type: mongoose_1.Schema.Types.ObjectId, ref: "Course", required: true },
+            completedAt: { type: Date, default: Date.now },
+            pointsEarned: { type: Number, required: true },
+        },
+    ],
+    totalPoints: { type: Number, default: 0 },
+}, { timestamps: true });
+exports.default = mongoose_1.default.model("UserProgress", UserProgressSchema);

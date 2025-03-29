@@ -1,9 +1,10 @@
 import passport from "passport";
 import { ExtractJwt, Strategy as JwtStrategy } from "passport-jwt";
-import User from "../models/User"; // Import your User model
+import User, { IUser } from "../models/User";
 import { configDotenv } from "dotenv";
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { Document, Types } from 'mongoose';
 
 // Define the JWT payload interface
 interface JwtPayload {
@@ -11,6 +12,16 @@ interface JwtPayload {
   email: string;
   iat?: number;
   exp?: number;
+}
+
+// Extend Express Request type
+declare global {
+  namespace Express {
+    // eslint-disable-next-line @typescript-eslint/no-empty-interface
+    interface User extends Omit<IUser, '_id'> {
+      _id: string;
+    }
+  }
 }
 
 configDotenv();
@@ -31,11 +42,16 @@ const jwtOptions = {
 const jwtStrategy = new JwtStrategy(jwtOptions, async (jwtPayload: JwtPayload, done) => {
   try {
     console.log('JWT Payload:', jwtPayload);
-    const user = await User.findById(jwtPayload._id);
+    const user = await User.findById(new Types.ObjectId(jwtPayload._id)).select('-password').lean();
     console.log('Found user:', user);
     
     if (user) {
-      return done(null, user);
+      // Convert ObjectId to string
+      const userWithStringId = {
+        ...user,
+        _id: user._id.toString()
+      };
+      return done(null, userWithStringId as Express.User);
     }
     
     return done(null, false);
@@ -52,7 +68,7 @@ passport.use(jwtStrategy);
 export const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
   console.log('Auth Header:', req.headers.authorization);
   
-  passport.authenticate('jwt', { session: false }, async (err: unknown, user: unknown) => {
+  passport.authenticate('jwt', { session: false }, async (err: unknown, user: Express.User | false | null) => {
     console.log('Passport authenticate callback');
     console.log('Error:', err);
     console.log('User:', user);
@@ -75,12 +91,25 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
           
           const decodedRefreshToken = jwt.verify(refreshToken, refreshSecret) as JwtPayload;
           if (decodedRefreshToken) {
-            const user = await User.findById(decodedRefreshToken._id);
-            if (user) {
-              const newToken = jwt.sign({ _id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '10s' });
+            const refreshedUser = await User.findById(new Types.ObjectId(decodedRefreshToken._id))
+              .select('-password')
+              .lean();
+            
+            if (refreshedUser) {
+              // Convert ObjectId to string
+              const userWithStringId = {
+                ...refreshedUser,
+                _id: refreshedUser._id.toString()
+              };
+              
+              const newToken = jwt.sign(
+                { _id: userWithStringId._id, email: userWithStringId.email },
+                JWT_SECRET,
+                { expiresIn: '1h' }
+              );
               console.log('New token:', newToken);
               res.cookie('access_token', newToken, { httpOnly: true, secure: true, sameSite: 'strict' });
-              req.user = user;
+              req.user = userWithStringId as Express.User;
               return next();
             }
           }
@@ -92,10 +121,6 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
       console.log('No user found - Unauthorized');
       return res.status(401).json({ message: "Unauthorized - Invalid token" });
     }
-
-    // if (!user) {
-    //   return res.status(401).json({ message: "Unauthorized - Invalid token" });
-    // }
 
     console.log('Authentication successful');
     req.user = user;

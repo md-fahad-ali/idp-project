@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 
 import { useSearchParams } from "next/navigation";
 import Tiptap from "@/components/Tiptap";
@@ -24,17 +24,20 @@ const GamifiedCourse: React.FC = () => {
     };
   }
 
-  const [, setUserData] = useState<UserData | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const userDataMemo = useMemo(() => {
+  useEffect(() => {
     if (!token) {
       console.log("No token available");
-      return null;
+      setLoading(false);
+      return;
     }
 
-    const fetchApi = async () => {
+    const fetchCourseData = async () => {
       try {
+        setLoading(true);
+        console.log("Fetching course data with token:", token);
         const response = await fetch(
           `/api/course/get?title=${initialTitle}&category=${initialCategory}`,
           {
@@ -43,14 +46,22 @@ const GamifiedCourse: React.FC = () => {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
+            cache: 'no-store' // Prevent caching
           }
         );
         if (!response.ok) {
           console.log("Error fetching request");
+          setLoading(false);
+          return null;
         }
         const data = await response.json();
         console.log("Profile data:", data);
-        if (data?.courses.length !== 0) {
+        
+        // Set user data
+        setUserData(data?.user);
+        
+        // Set course data if it exists
+        if (data?.courses && data.courses.length !== 0) {
           const course = data.courses[0];
           setTitle(course.title || "");
           setCategory(course.category || "");
@@ -62,34 +73,23 @@ const GamifiedCourse: React.FC = () => {
               points: lesson.points || 10,
             })) || []
           );
-        }
-        return data;
-      } catch (error) {
-        console.error("Error fetching profile:", error);
-        return null;
-      }
-    };
-
-    return fetchApi();
-  }, [initialCategory, initialTitle, token]);
-
-  useEffect(() => {
-    if (userDataMemo) {
-      userDataMemo.then((data) => {
-        setUserData(data?.user);
-        
-        // Redirect to 404 if no courses found
-        if (!data?.courses || data.courses.length === 0) {
+        } else {
+          // Redirect to 404 if no courses found
           router.push('/404');
           return;
         }
         
         setLoading(false);
-      });
-    } else {
-      setLoading(false);
-    }
-  }, [userDataMemo, router]);
+        return data;
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+        setLoading(false);
+        return null;
+      }
+    };
+
+    fetchCourseData();
+  }, [initialCategory, initialTitle, token, router]);
 
   //print the course
 

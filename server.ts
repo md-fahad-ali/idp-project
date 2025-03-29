@@ -8,6 +8,9 @@ import protectedRoute from './routes/protectedRoute';
 import refreshRoute from './routes/refreshRoute';
 import meRoute from './routes/meRoute';
 import courseRoute from './routes/courseRoute';
+import leaderboardRoute from './routes/leaderboardRoute';
+import testRoute from './routes/testRoute';
+import userRoute from './routes/userRoute';
 import * as bodyParser from 'body-parser';
 import connectDB from './routes/db'; // Import the db module
 import * as cookieParser from 'cookie-parser';
@@ -24,14 +27,14 @@ nextApp
     const server = express.default();
 
     // Debug middleware to log all requests (moved to top)
-    // server.use((req, res, next) => {
-    //   console.log('\n=== New Request ===');
-    //   console.log(`${req.method} ${req.url}`);
-    //   console.log('Headers:', JSON.stringify(req.headers, null, 2));
-    //   console.log('Body:', JSON.stringify(req.body, null, 2));
-    //   console.log('==================\n');
-    //   next();
-    // });
+    server.use((req, res, next) => {
+      console.log('\n=== New Request ===');
+      console.log(`${req.method} ${req.url}`);
+      console.log('Headers:', JSON.stringify(req.headers, null, 2));
+      console.log('Body:', JSON.stringify(req.body, null, 2));
+      console.log('==================\n');
+      next();
+    });
 
     // Middleware
     server.use(bodyParser.json());
@@ -67,6 +70,9 @@ nextApp
     server.use("/api/protected", protectedRoute);
     server.use("/api/auth/me", meRoute);
     server.use("/api/course", courseRoute);
+    server.use("/api/leaderboard", leaderboardRoute);
+    server.use("/api/test", testRoute);
+    server.use("/api/user", userRoute);
 
     // Handle all other routes with Next.js
     server.all("*", (req: Request, res: Response) => {

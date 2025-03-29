@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 
 import { useSearchParams } from "next/navigation";
 import Tiptap from "@/components/Tiptap";
@@ -40,14 +40,17 @@ const GamifiedCourse: React.FC = () => {
   const [, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const userDataMemo = useMemo(() => {
+  useEffect(() => {
     if (!token) {
       console.log("No token available");
-      return null;
+      setLoading(false);
+      return;
     }
 
-    const fetchApi = async () => {
+    const fetchCourseData = async () => {
       try {
+        setLoading(true);
+        console.log("Fetching course data with token:", token);
         const response = await fetch(
           `/api/course/get?title=${initialTitle}&category=${initialCategory}`,
           {
@@ -56,36 +59,35 @@ const GamifiedCourse: React.FC = () => {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
+            cache: 'no-store' // Prevent caching
           }
         );
         if (!response.ok) {
           console.log("Error fetching request");
+          setLoading(false);
+          return;
         }
         const data = await response.json();
         console.log("Profile data:", data);
-        if (data?.courses.length != 0) {
+        
+        // Set user data directly
+        setUserData(data?.user);
+        
+        // Redirect if course already exists
+        if (data?.courses?.length > 0) {
           router.push("/dashboard");
+          return;
         }
-        return data;
+        
+        setLoading(false);
       } catch (error) {
         console.error("Error fetching profile:", error);
-        return null;
+        setLoading(false);
       }
     };
 
-    return fetchApi();
+    fetchCourseData();
   }, [initialCategory, initialTitle, router, token]);
-
-  useEffect(() => {
-    if (userDataMemo) {
-      userDataMemo.then((data) => {
-        setUserData(data?.user);
-        setLoading(false);
-      });
-    } else {
-      setLoading(false);
-    }
-  }, [userDataMemo]);
 
   //print the course
 
