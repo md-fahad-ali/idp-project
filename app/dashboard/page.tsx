@@ -52,6 +52,8 @@ export default function DashboardPage() {
     setCourses(courses.filter(course => course._id !== deletedCourseId));
   };
 
+
+  console.log(user);
   // Fetch courses and user data from the API
   useEffect(() => {
     const fetchCourses = async () => {
@@ -70,6 +72,8 @@ export default function DashboardPage() {
 
         const data = await response.json();
         setCourses(data.courses);
+
+        console.log(data);
         setUser(data.user);
         setLoading(false);
       } catch (error) {
@@ -78,9 +82,8 @@ export default function DashboardPage() {
       }
     };
 
-    if (token) {
-      fetchCourses();
-    } else {
+    fetchCourses();
+    if (!token) {
       setLoading(false);
     }
   }, [token]);
@@ -104,13 +107,15 @@ export default function DashboardPage() {
         )}
 
         {/* Courses List Component */}
-        <CoursesList 
-          courses={courses} 
-          token={token || ''} 
-          onCourseDeleted={handleCourseDeleted}
-          isAdmin={isAdmin}
-          currentUserId={user?._id}
+        
+          <CoursesList 
+            courses={courses} 
+            token={token || ''} 
+            onCourseDeleted={handleCourseDeleted}
+            isAdmin={isAdmin}
+            currentUserId={user?._id}
         />
+
       </div>
     </div>
   );

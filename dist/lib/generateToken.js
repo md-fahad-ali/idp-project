@@ -16,7 +16,8 @@ if (!JWT_REFRESH_SECRET) {
     throw new Error("JWT_REFRESH_SECRET is not defined in environment variables");
 }
 const generateToken = (_id, email, isRefreshToken = false) => {
+    const userId = typeof _id === 'string' ? _id : _id.toString();
     const expiresIn = isRefreshToken ? "30d" : "10s";
-    return jsonwebtoken_1.default.sign({ _id, email }, isRefreshToken ? JWT_REFRESH_SECRET : JWT_SECRET, { expiresIn });
+    return jsonwebtoken_1.default.sign({ _id: userId, email }, isRefreshToken ? JWT_REFRESH_SECRET : JWT_SECRET, { expiresIn });
 };
 exports.generateToken = generateToken;

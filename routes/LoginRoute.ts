@@ -1,7 +1,8 @@
 import express, { Request, Response } from "express";
 import { configDotenv } from "dotenv";
-import User from "../models/User";
+import User, { IUser } from "../models/User";
 import { generateToken } from "../lib/generateToken";
+
 
 configDotenv();
 
@@ -26,37 +27,64 @@ router.post("/", async (req: LoginRequest, res: Response): Promise<void> => {
 
     if (!user) {
       res.status(401).json({ message: "Invalid email or password" });
-    } else {
-      // Simple password comparison without hashing
-      if (user.password !== password) {
-        res.status(401).json({ message: "Invalid email or password" });
-      }
-
-      // Generate token using the generateToken function
-      const token = generateToken((user._id as string).toString(), user.email);
-
-      // Generate refresh token
-      const refreshToken = generateToken((user._id as string).toString(), user.email, true);
-
-      // Set tokens in cookie
-      res.cookie("access_token", token, { httpOnly: true, secure: true, sameSite: "strict" });
-      res.cookie("refresh_token", refreshToken, { httpOnly: true, secure: true, sameSite: "strict" });
-
-      res.status(200).json({ 
-        token, 
-        message: "Login successful",
-        user: {
-          id: (user._id as string).toString(),
-          email: user.email
-        }
-      });
+      return;
     }
+
+    // Simple password comparison without hashing
+    if (user.password !== password) {
+      res.status(401).json({ message: "Invalid email or password" });
+      return;
+    }
+
+    // Generate tokens using ObjectId directly
+    const token = generateToken(user._id, user.email);
+    const refreshToken = generateToken(user._id, user.email, true);
+
+    // Set tokens in cookie
+    res.cookie("access_token", token, { httpOnly: true, secure: true, sameSite: "strict" });
+    res.cookie("refresh_token", refreshToken, { httpOnly: true, secure: true, sameSite: "strict" });
+
+    // Convert user document to a plain object and handle ObjectId
+    const userResponse = {
+      id: user._id.toString(),
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      points: user.points || 0,
+      testsCompleted: user.testsCompleted || 0,
+      averageScore: user.averageScore || 0
+    };
+
+    res.status(200).json({ 
+      token, 
+      message: "Login successful",
+      user: userResponse
+    });
   } catch (error) {
     console.error("Login Error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
 
+// Add logout route
+router.post("/logout", async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Clear the auth cookies
+    res.clearCookie("access_token");
+    res.clearCookie("refresh_token");
 
+    res.status(200).json({
+      success: true,
+      message: "Logout successful",
+    });
+  } catch (error) {
+    console.error("Logout Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "An error occurred during logout",
+    });
+  }
+});
 
 export default router;

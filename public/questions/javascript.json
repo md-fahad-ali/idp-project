@@ -1,0 +1,64 @@
+{
+  "questions": [
+    {
+      "id": 1,
+      "question": "What is the output of console.log(typeof null)?",
+      "options": [
+        "null",
+        "undefined",
+        "object",
+        "number"
+      ],
+      "correctAnswer": 2,
+      "explanation": "In JavaScript, typeof null returns 'object'. This is a known quirk in JavaScript."
+    },
+    {
+      "id": 2,
+      "question": "Which method is used to add elements at the end of an array?",
+      "options": [
+        "push()",
+        "append()",
+        "add()",
+        "insert()"
+      ],
+      "correctAnswer": 0,
+      "explanation": "The push() method adds one or more elements to the end of an array."
+    },
+    {
+      "id": 3,
+      "question": "What is the result of 3 + '3' in JavaScript?",
+      "options": [
+        "6",
+        "33",
+        "Error",
+        "undefined"
+      ],
+      "correctAnswer": 1,
+      "explanation": "When you add a number and a string, JavaScript converts the number to a string and performs concatenation."
+    },
+    {
+      "id": 4,
+      "question": "Which of these is a way to declare a variable in JavaScript?",
+      "options": [
+        "dim",
+        "var",
+        "variable",
+        "declare"
+      ],
+      "correctAnswer": 1,
+      "explanation": "var is one of the ways to declare variables in JavaScript, along with let and const."
+    },
+    {
+      "id": 5,
+      "question": "What is the correct way to check if a variable is an array?",
+      "options": [
+        "typeof arr === 'array'",
+        "arr instanceof Array",
+        "arr.type === 'array'",
+        "arr.isArray()"
+      ],
+      "correctAnswer": 1,
+      "explanation": "instanceof Array or Array.isArray() are the correct ways to check if a variable is an array."
+    }
+  ]
+} 

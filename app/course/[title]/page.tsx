@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useDashboard } from "../../provider";
 import Loading from "../../../components/ui/Loading";
 import confetti from 'canvas-confetti';
@@ -73,6 +73,7 @@ export default function CourseDetailPage() {
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [completionMessage, setCompletionMessage] = useState<string>('');
   const contentRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -355,19 +356,19 @@ export default function CourseDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#6016a7] text-[#E6F1FF]">
-        <Loading />
+      <div className="min-h-screen pt-[100px] bg-[#6016a7] flex items-center justify-center text-[#E6F1FF]">
+       <Loading />
       </div>
+       
     );
   }
 
   if (!course) {
     return (
       <div className="min-h-screen pt-[100px] bg-[#6016a7] text-[#E6F1FF]">
-        <div className="container mx-auto px-4 py-16">
+        <div className="container mx-auto px-4">
           <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]">
-            <h1 className="text-3xl font-bold text-[#E6F1FF] mb-4 font-mono">Course Not Found</h1>
-            <p>The course you are looking for could not be found.</p>
+            <p className="text-center">Course not found</p>
           </div>
         </div>
       </div>
@@ -376,73 +377,28 @@ export default function CourseDetailPage() {
 
   return (
     <div className="min-h-screen pt-[100px] bg-[#6016a7] text-[#E6F1FF]">
-      <div className="container mx-auto px-4 py-8">
-        {/* Course Header */}
-        <div className="bg-[#294268] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]">
-          <h1 className="text-3xl font-bold text-[#9D4EDD] mb-2 font-mono">{course.title}</h1>
-          <div className="flex items-center mb-4">
-            <span className="text-sm bg-[#2f235a] text-[#E6F1FF] px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] mr-3">
-              {course.category}
-            </span>
-            <span className="text-xs text-[#8892B0]">
-              {course.user ? `By: ${course.user.firstName || ''} ${course.user.lastName || ''}` : ''}
-            </span>
-          </div>
-          <p className="text-[#E6F1FF] mb-4">{course.description}</p>
-          <div className="flex justify-between items-center">
-            <div className="text-xs text-[#8892B0]">
-              Created: {new Date(course.createdAt).toLocaleDateString()}
-            </div>
-            <div className="text-sm bg-[#FFD700] text-black px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
-              Lessons: {course.lessons.length}
-            </div>
-          </div>
-        </div>
-
-        {/* Course Completion Section */}
-        <div className="bg-[#294268] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-xl font-bold text-[#E6F1FF] font-mono">Course Progress</h2>
-              {isCompleted ? (
-                <p className="text-[#5CDB95] mt-2">You have completed this course!</p>
-              ) : (
-                <p className="text-[#E6F1FF] mt-2">Complete this course to earn points</p>
-              )}
-              {completionMessage && (
-                <p className={`mt-2 ${isCompleted ? 'text-[#FFD700]' : 'text-[#FF6B6B]'}`}>
-                  {completionMessage}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={handleCompleteCourse}
-              disabled={isCompleted || isCompleting}
-              className={`px-4 py-2 border-2 border-black rounded-md shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 font-bold ${
-                isCompleted
-                  ? 'bg-[#5CDB95] text-black cursor-not-allowed'
-                  : isCompleting
-                  ? 'bg-[#8892B0] text-[#E6F1FF] cursor-wait'
-                  : 'bg-[#FFD700] text-black hover:bg-[#FFC000] hover:shadow-[6px_6px_0px_0px_#000000]'
-              }`}
-            >
-              {isCompleted ? 'Completed' : isCompleting ? 'Processing...' : 'Complete Course'}
-            </button>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-sm font-bold text-[#9D4EDD]">Total Points Available:</h3>
-            <p className="text-[#FFD700] font-bold">
-              {course.lessons.reduce((sum, lesson) => sum + lesson.points, 0)} Points
-            </p>
-          </div>
-        </div>
-
-        {/* Course Content */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {/* Lessons Sidebar */}
-          <div className="md:col-span-1">
-            <div className="bg-[#294268] border-4 border-black rounded-lg p-4 shadow-[8px_8px_0px_0px_#000000]">
-              <h2 className="text-xl font-bold text-[#E6F1FF] mb-4 font-mono">Lessons</h2>
+      <div className="container mx-auto px-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left column: Lessons list */}
+          <div className="lg:col-span-1">
+            <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000] mb-8">
+              <div className="flex flex-col justify-between items-center mb-4">
+                <h1 className="text-xl font-bold">{course.title}</h1>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => router.push(`/test/${titleSlug}`)}
+                    className="px-3 py-2 bg-[#FFD700] text-black font-bold rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 text-sm"
+                  >
+                    Take Test
+                  </button>
+                  <button
+                    onClick={() => router.push(`/course/${titleSlug}/leaderboard`)}
+                    className="px-3 py-2 bg-[#4CAF50] text-white font-bold rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 text-sm"
+                  >
+                    Leaderboard
+                  </button>
+                </div>
+              </div>
               <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
                 {course.lessons.map((lesson, index) => (
                   <button
@@ -466,8 +422,69 @@ export default function CourseDetailPage() {
             </div>
           </div>
 
-          {/* Lesson Content */}
-          <div className="md:col-span-3">
+          {/* Middle column: Course details */}
+          <div className="lg:col-span-2">
+            {/* Course Header */}
+            <div className="bg-[#294268] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]">
+              <h1 className="text-3xl font-bold text-[#9D4EDD] mb-2 font-mono">{course.title}</h1>
+              <div className="flex items-center mb-4">
+                <span className="text-sm bg-[#2f235a] text-[#E6F1FF] px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] mr-3">
+                  {course.category}
+                </span>
+                <span className="text-xs text-[#8892B0]">
+                  {course.user ? `By: ${course.user.firstName || ''} ${course.user.lastName || ''}` : ''}
+                </span>
+              </div>
+              <p className="text-[#E6F1FF] mb-4">{course.description}</p>
+              <div className="flex justify-between items-center">
+                <div className="text-xs text-[#8892B0]">
+                  Created: {new Date(course.createdAt).toLocaleDateString()}
+                </div>
+                <div className="text-sm bg-[#FFD700] text-black px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
+                  Lessons: {course.lessons.length}
+                </div>
+              </div>
+            </div>
+
+            {/* Course Completion Section */}
+            <div className="bg-[#294268] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-[#E6F1FF] font-mono">Course Progress</h2>
+                  {isCompleted ? (
+                    <p className="text-[#5CDB95] mt-2">You have completed this course!</p>
+                  ) : (
+                    <p className="text-[#E6F1FF] mt-2">Complete this course to earn points</p>
+                  )}
+                  {completionMessage && (
+                    <p className={`mt-2 ${isCompleted ? 'text-[#FFD700]' : 'text-[#FF6B6B]'}`}>
+                      {completionMessage}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={handleCompleteCourse}
+                  disabled={isCompleted || isCompleting}
+                  className={`px-4 py-2 border-2 border-black rounded-md shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 font-bold ${
+                    isCompleted
+                      ? 'bg-[#5CDB95] text-black cursor-not-allowed'
+                      : isCompleting
+                      ? 'bg-[#8892B0] text-[#E6F1FF] cursor-wait'
+                      : 'bg-[#FFD700] text-black hover:bg-[#FFC000] hover:shadow-[6px_6px_0px_0px_#000000]'
+                  }`}
+                >
+                  {isCompleted ? 'Completed' : isCompleting ? 'Processing...' : 'Complete Course'}
+                </button>
+              </div>
+              <div className="mt-4">
+                <h3 className="text-sm font-bold text-[#9D4EDD]">Total Points Available:</h3>
+                <p className="text-[#FFD700] font-bold">
+                  {course.lessons.reduce((sum, lesson) => sum + lesson.points, 0)} Points
+                </p>
+              </div>
+            </div>
+
+            {/* Course Content */}
             <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]">
               <h2 className="text-2xl font-bold text-[#E6F1FF] mb-4 font-mono">
                 {course.lessons[activeLesson]?.title || "Lesson Content"}

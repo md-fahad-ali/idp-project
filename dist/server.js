@@ -45,6 +45,9 @@ const protectedRoute_1 = __importDefault(require("./routes/protectedRoute"));
 const refreshRoute_1 = __importDefault(require("./routes/refreshRoute"));
 const meRoute_1 = __importDefault(require("./routes/meRoute"));
 const courseRoute_1 = __importDefault(require("./routes/courseRoute"));
+const leaderboardRoute_1 = __importDefault(require("./routes/leaderboardRoute"));
+const testRoute_1 = __importDefault(require("./routes/testRoute"));
+const userRoute_1 = __importDefault(require("./routes/userRoute"));
 const bodyParser = __importStar(require("body-parser"));
 const db_1 = __importDefault(require("./routes/db")); // Import the db module
 const cookieParser = __importStar(require("cookie-parser"));
@@ -58,14 +61,14 @@ nextApp
     .then(async () => {
     const server = express.default();
     // Debug middleware to log all requests (moved to top)
-    // server.use((req, res, next) => {
-    //   console.log('\n=== New Request ===');
-    //   console.log(`${req.method} ${req.url}`);
-    //   console.log('Headers:', JSON.stringify(req.headers, null, 2));
-    //   console.log('Body:', JSON.stringify(req.body, null, 2));
-    //   console.log('==================\n');
-    //   next();
-    // });
+    server.use((req, res, next) => {
+        console.log('\n=== New Request ===');
+        console.log(`${req.method} ${req.url}`);
+        console.log('Headers:', JSON.stringify(req.headers, null, 2));
+        console.log('Body:', JSON.stringify(req.body, null, 2));
+        console.log('==================\n');
+        next();
+    });
     // Middleware
     server.use(bodyParser.json());
     server.use(express.json());
@@ -95,6 +98,9 @@ nextApp
     server.use("/api/protected", protectedRoute_1.default);
     server.use("/api/auth/me", meRoute_1.default);
     server.use("/api/course", courseRoute_1.default);
+    server.use("/api/leaderboard", leaderboardRoute_1.default);
+    server.use("/api/test", testRoute_1.default);
+    server.use("/api/user", userRoute_1.default);
     // Handle all other routes with Next.js
     server.all("*", (req, res) => {
         // console.log('Fallback route hit:', req.url);

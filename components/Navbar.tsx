@@ -1,9 +1,9 @@
 // components/Navbar.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-// import { useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Avatar from "boring-avatars";
 
 const Navbar = ({
@@ -11,13 +11,16 @@ const Navbar = ({
 }: Readonly<{
   access_token: string | undefined;
 }>) => {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false); // Simulating user login status
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [user, setUser] = useState({
     fullName: "",
     email: "",
   });
+  // Store last auth timestamp to detect changes
+  const [lastAuthTimestamp, setLastAuthTimestamp] = useState<string | null>(null);
 
   const navItems = [
     { name: "Home", href: "/" },
@@ -25,41 +28,91 @@ const Navbar = ({
     { name: "Services", href: "/services" },
   ];
 
-  // const user = {
-  //   fullName: "John Doe",
-  //   email: "john.doe@example.com",
-  // };
+  const fetchUserData = useCallback(async () => {
+    if (!access_token) {
+      setIsUserLoggedIn(false);
+      return;
+    }
+    
+    try {
+      const timestamp = Date.now(); // Add a timestamp to prevent caching
+      const response = await fetch(`/api/auth/me?_t=${timestamp}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+          "Expires": "0",
+          Authorization: `Bearer ${access_token}`,
+        },
+      });
+      if (!response.ok) {
+        console.log(`HTTP error! status: ${response.status}`);
+        setIsUserLoggedIn(false);
+        return;
+      }
+      const data = await response.json();
+      if (data?.user) {
+        console.log("User data refreshed in navbar:", data.user);
+        setIsUserLoggedIn(true);
+        setUser({
+          fullName: `${data.user.firstName} ${data.user.lastName}`,
+          email: data.user.email,
+        });
+      }
+      console.log("Profile data from navbar:", data);
+    } catch (error) {
+      console.error("Error fetching profile data:", error);
+    }
+  }, [access_token]);
+
+  const handleLogout = async () => {
+    try {
+      // Call the logout API endpoint
+      const timestamp = Date.now();
+      await fetch(`/api/auth/logout?_t=${timestamp}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+          "Expires": "0",
+        },
+      });
+      
+      // Clear local state
+      setIsUserLoggedIn(false);
+      setUser({ fullName: "", email: "" });
+      setIsDropdownOpen(false);
+      
+      // Clear localStorage
+      localStorage.removeItem('auth_timestamp');
+      
+      // Force clear cookies in the browser
+      const clearCookie = (name: string) => {
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      };
+      clearCookie('access_token');
+      clearCookie('refresh_token');
+      
+      // Redirect to the login page with replace to prevent back navigation
+      router.replace("/auth/login");
+    } catch (error) {
+      console.error("Error during logout:", error);
+    }
+  };
 
   useEffect(() => {
-    async function fetchApi() {
-      try {
-        const response = await fetch("/api/auth/me", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${access_token}`,
-          },
-        });
-        if (!response.ok) {
-          console.log(`HTTP error! status: ${response.status}`);
-          setIsUserLoggedIn(false);
-          return;
-        }
-        const data = await response.json();
-        if (data?.user) {
-          setIsUserLoggedIn(true);
-          setUser({
-            fullName: `${data.user.firstName} ${data.user.lastName}`,
-            email: data.user.email,
-          });
-        }
-        console.log("Profile data from navbar:", data);
-      } catch (error) {
-        console.error("Error fetching profile data:", error);
-      }
+    // Check for auth timestamp changes to detect session updates
+    const currentAuthTimestamp = typeof window !== 'undefined' ? localStorage.getItem('auth_timestamp') : null;
+    
+    if (currentAuthTimestamp !== lastAuthTimestamp) {
+      setLastAuthTimestamp(currentAuthTimestamp);
+      fetchUserData();
+    } else if (access_token) {
+      fetchUserData();
     }
-    fetchApi();
-  }, [access_token]);
+  }, [access_token, fetchUserData, lastAuthTimestamp]);
 
   return (
     <nav className="fixed w-full z-50 bg-transparent bg-blur-lg backdrop-blur-lg">
@@ -101,7 +154,9 @@ const Navbar = ({
                       {user.fullName}
                     </h3>
                     <p className="text-black">{user.email}</p>
-                    <button className="mt-4 px-4 py-2 bg-black text-yellow-200 border-2 border-black font-bold shadow-[4px_4px_0px_0px_black] hover:shadow-[8px_8px_0px_0px_black] transform hover:-translate-y-1 transition-all">
+                    <button 
+                      onClick={handleLogout}
+                      className="mt-4 px-4 py-2 bg-black text-yellow-200 border-2 border-black font-bold shadow-[4px_4px_0px_0px_black] hover:shadow-[8px_8px_0px_0px_black] transform hover:-translate-y-1 transition-all">
                       Logout
                     </button>
                   </div>
@@ -214,7 +269,9 @@ const Navbar = ({
                           {user.fullName}
                         </h3>
                         <p className="text-black">{user.email}</p>
-                        <button className="mt-4 px-4 py-2 bg-black text-yellow-200 border-2 border-black font-bold shadow-[4px_4px_0px_0px_black] hover:shadow-[8px_8px_0px_0px_black] transform hover:-translate-y-1 transition-all">
+                        <button 
+                          onClick={handleLogout}
+                          className="mt-4 px-4 py-2 bg-black text-yellow-200 border-2 border-black font-bold shadow-[4px_4px_0px_0px_black] hover:shadow-[8px_8px_0px_0px_black] transform hover:-translate-y-1 transition-all">
                           Logout
                         </button>
                       </div>
