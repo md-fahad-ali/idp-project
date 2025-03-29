@@ -4,22 +4,41 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useDashboard } from "../../provider";
 import Loading from "../../../components/ui/Loading";
-import Prism from 'prismjs';
-import 'prismjs/themes/prism-tomorrow.css';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-python';
-import 'prismjs/components/prism-java';
-import 'prismjs/components/prism-css';
-import 'prismjs/components/prism-jsx';
-import 'prismjs/components/prism-typescript';
-import 'prismjs/components/prism-tsx';
-import 'prismjs/components/prism-json';
-import 'prismjs/components/prism-markdown';
-import 'prismjs/components/prism-bash';
-import 'prismjs/plugins/line-numbers/prism-line-numbers.js';
-import 'prismjs/plugins/line-numbers/prism-line-numbers.css';
 import confetti from 'canvas-confetti';
 import '../code-styles.css';
+
+// Lowlight imports for syntax highlighting
+import { common, createLowlight } from 'lowlight';
+const lowlight = createLowlight(common);
+
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import python from 'highlight.js/lib/languages/python';
+import java from 'highlight.js/lib/languages/java';
+import css from 'highlight.js/lib/languages/css';
+import json from 'highlight.js/lib/languages/json';
+import bash from 'highlight.js/lib/languages/bash';
+import xml from 'highlight.js/lib/languages/xml';
+import markdown from 'highlight.js/lib/languages/markdown';
+import c from 'highlight.js/lib/languages/c';
+import cpp from 'highlight.js/lib/languages/cpp';
+import 'highlight.js/styles/atom-one-dark.css';
+
+// Register languages with lowlight
+lowlight.register('javascript', javascript);
+lowlight.register('typescript', typescript);
+lowlight.register('python', python);
+lowlight.register('java', java);
+lowlight.register('css', css);
+lowlight.register('json', json);
+lowlight.register('bash', bash);
+lowlight.register('xml', xml);
+lowlight.register('jsx', xml);
+lowlight.register('tsx', typescript);
+lowlight.register('markdown', markdown);
+lowlight.register('md', markdown);
+lowlight.register('c', c);
+lowlight.register('cpp', cpp);
 
 interface ILesson {
   title: string;
@@ -116,9 +135,15 @@ export default function CourseDetailPage() {
           if (data.progress && data.progress.completedCourses) {
             const isAlreadyCompleted = data.progress.completedCourses.some(
               (completedCourse: any) => {
-                // Compare course ID strings
-                const completedCourseId = completedCourse.course._id || completedCourse.course;
-                return completedCourseId === course._id || completedCourseId.toString() === course._id;
+                // Handle null/undefined cases
+                if (!completedCourse || !completedCourse.course) return false;
+                
+                // Compare course ID strings, handling both object and string cases
+                const completedCourseId = typeof completedCourse.course === 'object' 
+                  ? completedCourse.course._id 
+                  : completedCourse.course;
+
+                return completedCourseId === course._id || completedCourseId?.toString() === course._id;
               }
             );
             setIsCompleted(isAlreadyCompleted);
@@ -197,47 +222,136 @@ export default function CourseDetailPage() {
     }, 400);
   };
 
-  // Process and enhance code blocks 
+  // Replace Prism code highlighting with lowlight
   useEffect(() => {
-    if (course && !loading && contentRef.current) {
-      // First, ensure code blocks are properly formatted
-      const preElements = contentRef.current.querySelectorAll('pre');
-      preElements.forEach((pre) => {
-        pre.classList.add('line-numbers');
+    // Don't run on server
+    if (typeof window === 'undefined') return;
+    
+    const highlightCodeBlocks = () => {
+      if (!contentRef.current) return;
+
+      try {
+        // Find all pre elements
+        const preElements = contentRef.current?.querySelectorAll('pre');
         
-        // Find the code element inside pre
-        const codeElement = pre.querySelector('code');
-        if (codeElement) {
-          // Clean up any inline styles that might interfere
-          codeElement.removeAttribute('style');
+        if (!preElements?.length) return;
+        
+        preElements.forEach((pre) => {
+          // Prevent duplicate processing
+          if (pre.dataset.processed === 'true') return;
+          pre.dataset.processed = 'true';
           
-          // Try to detect language from class
-          const classes = codeElement.className.split(' ');
-          const langClass = classes.find(cls => cls.startsWith('language-'));
+          // Add special class for styling
+          pre.classList.add('hljs-line-numbers');
           
-          // If no language class, add default
-          if (!langClass) {
+          // Find the code element inside pre
+          const codeElement = pre.querySelector('code');
+          if (codeElement) {
+            // Remove any inline styles that might interfere
+            codeElement.removeAttribute('style');
+            
+            // Get the content and detect language
             const content = codeElement.textContent || '';
-            // Simple language detection heuristic
-            if (content.includes('function') || content.includes('var ') || content.includes('const ') || content.includes('console.log')) {
-              codeElement.classList.add('language-javascript');
-            } else if (content.includes('def ') || content.includes('import ') || content.includes('print(')) {
-              codeElement.classList.add('language-python');
+            let language = '';
+            
+            // Try to detect language from class
+            const classes = codeElement.className.split(' ');
+            const langClass = classes.find(cls => cls.startsWith('language-'));
+            
+            if (langClass) {
+              language = langClass.replace('language-', '');
             } else {
-              codeElement.classList.add('language-plaintext');
+              // Improved language detection
+              if (content.includes('#include') || content.includes('int main')) {
+                language = 'c';
+              } else if (content.includes('function') || content.includes('var ') || content.includes('const ')) {
+                language = 'javascript';
+              } else if (content.includes('def ') || content.includes('import ') || content.includes('print(')) {
+                language = 'python';
+              } else {
+                language = 'plaintext';
+              }
+            }
+            
+            try {
+              // Highlight the code using lowlight
+              let result;
+              // Check if the language is registered using the correct API
+              if (lowlight.registered(language)) {
+                result = lowlight.highlight(language, content);
+              } else {
+                // Fallback to plaintext
+                result = lowlight.highlight('plaintext', content);
+              }
+              
+              // Apply the highlighted HTML - convert hast to HTML string
+              const htmlOutput = hastToHtml(result);
+              codeElement.innerHTML = htmlOutput;
+              codeElement.classList.add('hljs');
+              
+              // Add the language class
+              if (!codeElement.classList.contains(`language-${language}`)) {
+                codeElement.classList.add(`language-${language}`);
+              }
+              
+              // Add specific inline CSS to help with consistency
+              pre.style.backgroundColor = '#282c34';
+              pre.style.borderRadius = '8px';
+              pre.style.boxShadow = '8px 8px 0px 0px #000000';
+              pre.style.border = '4px solid #000000';
+              // Ensure no animations
+              pre.style.transition = 'none';
+              codeElement.style.transition = 'none';
+            } catch (err) {
+              console.error("Error highlighting code:", err);
             }
           }
+        });
+      } catch (error) {
+        console.error("Error applying syntax highlighting:", error);
+      }
+    };
+
+    // Create a MutationObserver to watch for changes to the DOM
+    const observer = new MutationObserver((mutations) => {
+      // Check if any of the mutations are relevant to our content
+      const shouldHighlight = mutations.some(mutation => {
+        // If nodes were added
+        if (mutation.addedNodes.length > 0) {
+          // Check if any added node is or contains a pre element
+          return Array.from(mutation.addedNodes).some(node => {
+            if (node.nodeType !== Node.ELEMENT_NODE) return false;
+            const element = node as Element;
+            return element.tagName === 'PRE' || element.querySelector('pre');
+          });
         }
+        return false;
       });
 
-      // Highlight code with PrismJS (with a small delay to ensure DOM is ready)
-      setTimeout(() => {
-        if (contentRef.current) {
-          Prism.highlightAllUnder(contentRef.current);
-        }
-      }, 100);
-    }
-  }, [course, activeLesson, loading]);
+      if (shouldHighlight) {
+        highlightCodeBlocks();
+      }
+    });
+
+    // Whenever the visible lesson changes, we need to re-highlight after a short delay
+    const timeoutId = setTimeout(() => {
+      highlightCodeBlocks();
+      
+      // Start observing the content ref for changes to the DOM
+      if (contentRef.current) {
+        observer.observe(contentRef.current, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+      observer.disconnect();
+    };
+  }, [course, activeLesson]);
 
   if (loading) {
     return (
@@ -329,16 +443,18 @@ export default function CourseDetailPage() {
           <div className="md:col-span-1">
             <div className="bg-[#294268] border-4 border-black rounded-lg p-4 shadow-[8px_8px_0px_0px_#000000]">
               <h2 className="text-xl font-bold text-[#E6F1FF] mb-4 font-mono">Lessons</h2>
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
                 {course.lessons.map((lesson, index) => (
                   <button
                     key={index}
                     onClick={() => setActiveLesson(index)}
-                    className={`w-full p-2 text-left border-2 border-black rounded-md shadow-[2px_2px_0px_0px_#000000] transition-all duration-200 text-sm font-bold ${
+                    className={`w-full p-3 text-left border-2 border-black rounded-md transition-all duration-200 text-sm font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9D4EDD] ${
                       activeLesson === index
-                        ? "bg-[#9D4EDD] text-white"
-                        : "bg-[#2f235a] text-[#E6F1FF] hover:bg-[#3a2b6e]"
+                        ? "bg-[#9D4EDD] text-white shadow-[4px_4px_0px_0px_#000000]"
+                        : "bg-[#2f235a] text-[#E6F1FF] hover:bg-[#3a2b6e] shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000]"
                     }`}
+                    aria-label={`Select lesson: ${lesson.title}`}
+                    tabIndex={0}
                   >
                     <span className="block truncate">{lesson.title}</span>
                     <span className="text-xs mt-1 block">
@@ -359,22 +475,26 @@ export default function CourseDetailPage() {
               <div 
                 ref={contentRef}
                 className="prose prose-invert max-w-none 
-                  prose-pre:bg-[#1a1a2e] 
-                  prose-pre:border-2 
-                  prose-pre:border-black 
-                  prose-pre:shadow-[2px_2px_0px_0px_#000000] 
-                  prose-pre:rounded-md 
+                  prose-pre:bg-[#282c34] 
+                  prose-pre:border-4
+                  prose-pre:border-black
+                  prose-pre:rounded-lg 
                   prose-pre:my-4
                   prose-pre:overflow-x-auto
+                  prose-pre:p-5
+                  prose-pre:shadow-[8px_8px_0px_0px_#000000]
                   prose-code:font-mono
-                  prose-code:text-[0.9em]
+                  prose-code:text-[0.95em]
                   prose-code:leading-relaxed
                   prose-code:p-0
                   prose-p:my-4 
                   prose-headings:mt-6 
                   prose-headings:mb-4
                   prose-ul:my-4
-                  prose-li:my-2"
+                  prose-li:my-2
+                  overflow-y-auto
+                  max-h-[70vh]
+                  p-[10px]"
                 dangerouslySetInnerHTML={{ __html: course.lessons[activeLesson]?.content || "" }}
               />
             </div>
@@ -383,4 +503,51 @@ export default function CourseDetailPage() {
       </div>
     </div>
   );
+}
+
+// Helper function to convert HAST to HTML
+function hastToHtml(node: any): string {
+  const { type, tagName, properties, children, value } = node;
+  
+  if (type === 'text') {
+    return escapeHtml(value || '');
+  }
+  
+  if (type === 'element') {
+    const attrs = properties ? Object.entries(properties)
+      .map(([key, val]) => {
+        if (key === 'className' && Array.isArray(val)) {
+          return `class="${val.join(' ')}"`;
+        }
+        if (val === true) return key;
+        if (val === false) return '';
+        return `${key}="${escapeHtml(String(val))}"`;
+      })
+      .filter(Boolean)
+      .join(' ') : '';
+    
+    const openTag = attrs ? `<${tagName} ${attrs}>` : `<${tagName}>`;
+    
+    if (!children || children.length === 0) {
+      return openTag + `</${tagName}>`;
+    }
+    
+    return openTag + children.map(hastToHtml).join('') + `</${tagName}>`;
+  }
+  
+  if (type === 'root' && children) {
+    return children.map(hastToHtml).join('');
+  }
+  
+  return '';
+}
+
+// Helper function to escape HTML special characters
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }

@@ -92,4 +92,177 @@
 
 .prose li {
   margin-bottom: 0.5rem !important;
+}
+
+/* Custom code block styling - Base styles */
+pre.hljs-line-numbers {
+  position: relative;
+  padding: 1.5rem !important;
+  margin: 1.5rem 0 !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace !important;
+  line-height: 1.6 !important;
+  /* border: none !important; */
+  /* box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important; */
+  width: 100% !important;
+  display: block !important;
+}
+
+code.hljs {
+  background: transparent !important;
+  padding: 0 !important;
+  font-size: 1em !important;
+  line-height: 1.6 !important;
+  color: #e6e6e6 !important;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* C language specific styling - Purple background */
+/* .language-c.hljs, 
+pre:has(.language-c) {
+  background-color: #1e1e3f !important; /* Darker blue-purple for C code */
+/* } */
+
+/* JavaScript specific styling - Dark blue background */
+/* .language-javascript.hljs,
+pre:has(.language-javascript) {
+  background-color: #0c1021 !important; /* Very dark blue for JavaScript */
+  /* padding: 1rem !important;
+  margin: 0 !important; */
+/* }  */ 
+
+/* General syntax highlighting colors */
+.hljs-keyword {
+  color: #569CD6 !important;
+  font-weight: normal !important;
+}
+
+.hljs-built_in {
+  color: #4EC9B0 !important;
+}
+
+.hljs-string {
+  color: #9ECE6A !important;
+}
+
+.hljs-function {
+  color: #DCDCAA !important;
+}
+
+.hljs-title.function_ {
+  color: #4FB1BC !important;
+}
+
+.hljs-params {
+  color: #E6F1FF !important;
+}
+
+.hljs-comment {
+  color: #6A9955 !important;
+}
+
+.hljs-preprocessor, 
+.hljs-meta {
+  color: #9D4EDD !important;
+}
+
+.hljs-title.class_ {
+  color: #4EC9B0 !important;
+}
+
+/* C language specific colors */
+.language-c .hljs-title.function_ {
+  color: #4FB1BC !important; /* Blue for main function */
+}
+
+.language-c .hljs-meta {
+  color: #8A8A8A !important; /* Gray for #include */
+}
+
+.language-c .hljs-string {
+  color: #CE9178 !important; /* Orange-ish for string in C */
+}
+
+.language-c .hljs-keyword {
+  color: #C586C0 !important; /* Purple for int and return in C */
+}
+
+.language-c .hljs-built_in {
+  color: #DCDCAA !important; /* Yellow for printf */
+}
+
+/* JavaScript specific colors */
+.language-javascript .hljs-built_in {
+  color: #DCDCAA !important; /* Yellow for console */
+}
+
+.language-javascript .hljs-property {
+  color: #9cdcfe !important; /* Light blue for object properties like console.log */
+}
+
+.language-javascript .hljs-string {
+  color: #CE9178 !important; /* Orange for strings in JS */
+}
+
+/* Add cursor effect to JavaScript code blocks */
+/* pre:has(.language-javascript)::after {
+  content: '';
+  position: absolute;
+  right: 15px;
+  bottom: 15px;
+  width: 12px;
+  height: 20px;
+  background-color: #fff;
+  opacity: 0.7;
+  border-radius: 2px;
+  animation: blink 1s step-end infinite;
+} */
+
+/* @keyframes blink {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 0; }
+} */
+
+/* Remove unnecessary gradient top border */
+pre.hljs-line-numbers::before {
+  display: none;
+}
+
+/* Add drop shadow effect for code blocks */
+/* .prose pre {
+  filter: drop-shadow(0px 5px 10px rgba(0, 0, 0, 0.5)) !important;
+} */
+
+/* Card-like effect */
+pre.hljs-line-numbers {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+}
+
+/* Special styling for the C code example */
+pre:has(.language-c) {
+  display: block;
+  width: 100%;
+  margin: 2rem 0 !important;
+  padding: 1.25rem !important;
+}
+
+/* Create the exact appearance from the images
+pre:has(.language-c), pre:has(.language-javascript) {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4),
+              0 0 0 1px rgba(0, 0, 0, 0.1),
+              0 10px 15px -5px rgba(0, 0, 0, 0.5) !important;
+  transform: perspective(800px) rotateX(1deg) !important;
+  transform-origin: bottom center !important;
+} */
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  pre.hljs-line-numbers {
+    font-size: 14px !important;
+    padding: 1rem !important;
+  }
 } 
