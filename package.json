@@ -44,6 +44,7 @@
     "@tiptap/react": "^2.11.5",
     "@tiptap/starter-kit": "^2.11.5",
     "@types/prismjs": "^1.26.5",
+    "@types/uuid": "^10.0.0",
     "axios": "^1.8.4",
     "body-parser": "^1.20.3",
     "boring-avatars": "^1.11.2",
@@ -71,8 +72,10 @@
     "react-hot-toast": "^2.5.2",
     "sass": "^1.86.0",
     "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "tailwind-merge": "^3.0.2",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@babel/plugin-transform-modules-commonjs": "^7.26.3",
@@ -96,6 +99,7 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19",
+    "@types/socket.io-client": "^1.4.36",
     "eslint": "^9",
     "eslint-config-next": "15.2.0",
     "nookies": "^2.5.2",

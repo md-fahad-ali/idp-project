@@ -24,22 +24,6 @@ import c from 'highlight.js/lib/languages/c';
 import cpp from 'highlight.js/lib/languages/cpp';
 import 'highlight.js/styles/atom-one-dark.css';
 
-// Register languages with lowlight
-lowlight.register('javascript', javascript);
-lowlight.register('typescript', typescript);
-lowlight.register('python', python);
-lowlight.register('java', java);
-lowlight.register('css', css);
-lowlight.register('json', json);
-lowlight.register('bash', bash);
-lowlight.register('xml', xml);
-lowlight.register('jsx', xml);
-lowlight.register('tsx', typescript);
-lowlight.register('markdown', markdown);
-lowlight.register('md', markdown);
-lowlight.register('c', c);
-lowlight.register('cpp', cpp);
-
 interface ILesson {
   title: string;
   content: string;
@@ -74,6 +58,13 @@ export default function CourseDetailPage() {
   const [completionMessage, setCompletionMessage] = useState<string>('');
   const contentRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // Add state for client-side rendering
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -160,7 +151,7 @@ export default function CourseDetailPage() {
 
   // Function to handle course completion
   const handleCompleteCourse = async () => {
-    if (!course || !token) return;
+    if (!course || !token || !isClient) return;
     
     setIsCompleting(true);
     try {
@@ -178,8 +169,10 @@ export default function CourseDetailPage() {
         setIsCompleted(true);
         setCompletionMessage(`Congratulations! You earned ${data.pointsEarned} points. Your total points: ${data.totalPoints}`);
         
-        // Trigger confetti animation
-        triggerConfetti();
+        // Only trigger confetti on client side
+        if (isClient) {
+          triggerConfetti();
+        }
       } else {
         setCompletionMessage(data.error || "Failed to complete the course. Please try again.");
       }
@@ -354,6 +347,25 @@ export default function CourseDetailPage() {
     };
   }, [course, activeLesson]);
 
+  // Move lowlight registration to useEffect
+  useEffect(() => {
+    // Register languages with lowlight only on client side
+    lowlight.register('javascript', javascript);
+    lowlight.register('typescript', typescript);
+    lowlight.register('python', python);
+    lowlight.register('java', java);
+    lowlight.register('css', css);
+    lowlight.register('json', json);
+    lowlight.register('bash', bash);
+    lowlight.register('xml', xml);
+    lowlight.register('jsx', xml);
+    lowlight.register('tsx', typescript);
+    lowlight.register('markdown', markdown);
+    lowlight.register('md', markdown);
+    lowlight.register('c', c);
+    lowlight.register('cpp', cpp);
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen pt-[100px] bg-[#6016a7] flex items-center justify-center text-[#E6F1FF]">
@@ -376,12 +388,18 @@ export default function CourseDetailPage() {
   }
 
   return (
-    <div className="min-h-screen pt-[100px] bg-[#6016a7] text-[#E6F1FF]">
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div 
+      className="min-h-screen pt-[100px] bg-[#6016a7] text-[#E6F1FF]"
+      suppressHydrationWarning={true}
+    >
+      <div 
+        className="container mx-auto px-4"
+        suppressHydrationWarning={true}
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8" suppressHydrationWarning={true}>
           {/* Left column: Lessons list */}
-          <div className="lg:col-span-1">
-            <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000] mb-8">
+          <div className="lg:col-span-1" suppressHydrationWarning={true}>
+            <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000] mb-8" suppressHydrationWarning={true}>
               <div className="flex flex-col justify-between items-center mb-4">
                 <h1 className="text-xl font-bold">{course.title}</h1>
                 <div className="flex space-x-2">
@@ -423,9 +441,9 @@ export default function CourseDetailPage() {
           </div>
 
           {/* Middle column: Course details */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2" suppressHydrationWarning={true}>
             {/* Course Header */}
-            <div className="bg-[#294268] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]">
+            <div className="bg-[#294268] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]" suppressHydrationWarning={true}>
               <h1 className="text-3xl font-bold text-[#9D4EDD] mb-2 font-mono">{course.title}</h1>
               <div className="flex items-center mb-4">
                 <span className="text-sm bg-[#2f235a] text-[#E6F1FF] px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] mr-3">
@@ -438,7 +456,7 @@ export default function CourseDetailPage() {
               <p className="text-[#E6F1FF] mb-4">{course.description}</p>
               <div className="flex justify-between items-center">
                 <div className="text-xs text-[#8892B0]">
-                  Created: {new Date(course.createdAt).toLocaleDateString()}
+                  Created: {new Date(course.createdAt).toISOString().split('T')[0]}
                 </div>
                 <div className="text-sm bg-[#FFD700] text-black px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
                   Lessons: {course.lessons.length}
@@ -512,6 +530,7 @@ export default function CourseDetailPage() {
                   overflow-y-auto
                   max-h-[70vh]
                   p-[10px]"
+                suppressHydrationWarning={true}
                 dangerouslySetInnerHTML={{ __html: course.lessons[activeLesson]?.content || "" }}
               />
             </div>

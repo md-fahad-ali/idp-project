@@ -53,23 +53,4 @@ router.post("/", async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 });
-// Add logout route
-router.post("/logout", async (req, res) => {
-    try {
-        // Clear the auth cookies
-        res.clearCookie("access_token");
-        res.clearCookie("refresh_token");
-        res.status(200).json({
-            success: true,
-            message: "Logout successful",
-        });
-    }
-    catch (error) {
-        console.error("Logout Error:", error);
-        res.status(500).json({
-            success: false,
-            message: "An error occurred during logout",
-        });
-    }
-});
 exports.default = router;

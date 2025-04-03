@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticateJWT } from '../lib/authMiddleware';
 import User from '../models/User';
+import UserActivity from '../models/UserActivity';
 
 const router = Router();
 
@@ -62,19 +63,29 @@ router.get('/', authenticateJWT, async (req, res) => {
 
     // Filter users who have points > 0
     const usersWithPoints = users.filter(user => user.points > 0);
-    const hasPassedUsers = usersWithPoints.length > 0;
     
-    // If only one user has passed, return only that user
-    const response = {
-      users: hasPassedUsers ? usersWithPoints : [],
-      hasPassedUsers,
-      hasMultipleUsers: usersWithPoints.length > 1
-    };
+    // Get active users
+    const activeUsers = await UserActivity.find(
+      { isActive: true },
+      { userId: 1 }
+    );
+    
+    const activeUserIds = activeUsers.map(user => user.userId.toString());
+    
+    // Add activity status to users
+    const usersWithActivity = usersWithPoints.map(user => ({
+      ...user,
+      isActive: activeUserIds.includes(user._id.toString())
+    }));
 
-    res.json(response);
+    res.json({
+      users: usersWithActivity,
+      hasPassedUsers: usersWithActivity.length > 0,
+      hasMultipleUsers: usersWithActivity.length > 1,
+    });
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
-    res.status(500).json({ message: 'Error fetching leaderboard data' });
+    res.status(500).json({ message: 'Error fetching leaderboard' });
   }
 });
 
@@ -153,19 +164,29 @@ router.get('/course/:courseId', authenticateJWT, async (req, res) => {
 
     // Filter users who have points > 0
     const usersWithPoints = users.filter(user => user.points > 0);
-    const hasPassedUsers = usersWithPoints.length > 0;
     
-    // If only one user has passed, return only that user
-    const response = {
-      users: hasPassedUsers ? usersWithPoints : [],
-      hasPassedUsers,
-      hasMultipleUsers: usersWithPoints.length > 1
-    };
+    // Get active users
+    const activeUsers = await UserActivity.find(
+      { isActive: true },
+      { userId: 1 }
+    );
+    
+    const activeUserIds = activeUsers.map(user => user.userId.toString());
+    
+    // Add activity status to users
+    const usersWithActivity = usersWithPoints.map(user => ({
+      ...user,
+      isActive: activeUserIds.includes(user._id.toString())
+    }));
 
-    res.json(response);
+    res.json({
+      users: usersWithActivity,
+      hasPassedUsers: usersWithActivity.length > 0,
+      hasMultipleUsers: usersWithActivity.length > 1,
+    });
   } catch (error) {
     console.error('Error fetching course leaderboard:', error);
-    res.status(500).json({ message: 'Error fetching course leaderboard data' });
+    res.status(500).json({ message: 'Error fetching course leaderboard' });
   }
 });
 

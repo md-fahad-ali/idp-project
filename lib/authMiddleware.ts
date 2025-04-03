@@ -66,12 +66,12 @@ passport.use(jwtStrategy);
 
 // Custom authentication middleware
 export const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
-  console.log('Auth Header:', req.headers.authorization);
+  // console.log('Auth Header:', req.headers.authorization);
   
   passport.authenticate('jwt', { session: false }, async (err: unknown, user: Express.User | false | null) => {
-    console.log('Passport authenticate callback');
-    console.log('Error:', err);
-    console.log('User:', user);
+    // console.log('Passport authenticate callback');
+    // console.log('Error:', err);
+    // console.log('User:', user);
 
     if (err) {
       console.error('Authentication error:', err);
@@ -80,12 +80,12 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
     
     if (!user) {
       const refreshToken = req.cookies.refresh_token;
-      console.log('Refresh token:', refreshToken);
+      // console.log('Refresh token:', refreshToken);
       if (refreshToken) {
         try {
           const refreshSecret = process.env.JWT_REFRESH_SECRET;
           if (!refreshSecret) {
-            console.error('JWT_REFRESH_SECRET is not defined');
+            // console.error('JWT_REFRESH_SECRET is not defined');
             return res.status(500).json({ message: "Server configuration error" });
           }
           
@@ -107,7 +107,7 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
                 JWT_SECRET,
                 { expiresIn: '1h' }
               );
-              console.log('New token:', newToken);
+              // console.log('New token:', newToken);
               res.cookie('access_token', newToken, { httpOnly: true, secure: true, sameSite: 'strict' });
               req.user = userWithStringId as Express.User;
               return next();
@@ -118,11 +118,11 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
         }
       }
       
-      console.log('No user found - Unauthorized');
+      // console.log('No user found - Unauthorized');
       return res.status(401).json({ message: "Unauthorized - Invalid token" });
     }
 
-    console.log('Authentication successful');
+    // console.log('Authentication successful');
     req.user = user;
     next();
   })(req, res, next);

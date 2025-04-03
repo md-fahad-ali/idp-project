@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useDashboard } from '../provider';
-import { LeaderboardEntry, User } from '../types';
+import { useActivity } from '../activity-provider';
+import { LeaderboardEntry } from '../types';
 import Avatar from "boring-avatars";
+import { useRouter } from 'next/navigation';
+import Loading from "@/components/ui/Loading";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -14,7 +17,9 @@ interface Achievement {
 }
 
 export default function RankingsPage() {
-  const { user, refreshUserData } = useDashboard();
+  const { user, refreshUserData, token } = useDashboard();
+  const { isUserActive } = useActivity();
+  const router = useRouter();
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +31,7 @@ export default function RankingsPage() {
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
   // Fetch leaderboard data
@@ -34,9 +39,26 @@ export default function RankingsPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/leaderboard');
+
+      // Check for token
+      if (!token) {
+        router.push('/auth/login');
+        return;
+      }
+
+      const response = await fetch('/api/leaderboard', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
       
       if (!response.ok) {
+        // Redirect to login for unauthorized access
+        if (response.status === 401 || response.status === 403) {
+          router.push('/auth/login');
+          return;
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
@@ -59,6 +81,11 @@ export default function RankingsPage() {
       }
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
+      // Redirect to login if there's an authentication error
+      if (error instanceof Error && error.message.includes('unauthorized')) {
+        router.push('/auth/login');
+        return;
+      }
       setError(error instanceof Error ? error.message : 'Failed to load leaderboard data');
     } finally {
       setLoading(false);
@@ -66,8 +93,19 @@ export default function RankingsPage() {
   };
 
   useEffect(() => {
+    // Early return and redirect if no token
+    if (!token) {
+      setLoading(false);
+      router.push('/auth/login');
+      return;
+    }
     fetchLeaderboard();
-  }, []);
+  }, [token, router]);
+
+  // Prevent flash of content when redirecting
+  if (!token) {
+    return null;
+  }
 
   // Calculate pagination
   const totalPages = Math.ceil(leaderboardData.length / ITEMS_PER_PAGE);
@@ -81,12 +119,13 @@ export default function RankingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-[100px] bg-[#6016a7] text-[#E6F1FF]">
+      <div 
+        className="flex items-center justify-center min-h-screen bg-[#6016a7] text-[#E6F1FF]"
+        suppressHydrationWarning={true}
+      >
         <div className="container mx-auto px-4">
-          <div className="animate-pulse space-y-4">
-            {[...Array(10)].map((_, i) => (
-              <div key={i} className="bg-[#2f235a] h-16 rounded-lg"></div>
-            ))}
+          <div className="flex items-center justify-center">
+            <Loading />
           </div>
         </div>
       </div>
@@ -95,7 +134,10 @@ export default function RankingsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen pt-[100px] bg-[#6016a7] text-[#E6F1FF]">
+      <div 
+        className="flex items-center justify-center min-h-screen bg-[#6016a7] text-[#E6F1FF]"
+        suppressHydrationWarning={true}
+      >
         <div className="container mx-auto px-4">
           <div className="bg-[#2f235a] p-4 rounded-lg border-2 border-black text-[#FF6B6B]">
             <p>⚠️ {error}</p>
@@ -154,8 +196,7 @@ export default function RankingsPage() {
                   </div>
                   <div className="text-right">
                     <span className="text-[#FFD700] font-bold text-xl">
-                      
-                      {user.points || 0}
+                      {user.points || 0} {isUserActive(user._id) ? '🟢' : '🔴'}
                     </span>
                     <p className="text-xs text-[#8892B0]">points</p>
                   </div>
@@ -213,9 +254,14 @@ export default function RankingsPage() {
 
                     {/* User Info */}
                     <div className="ml-4 flex-grow">
-                      <h3 className="font-bold text-[#E6F1FF]">
-                        {entry.firstName} {entry.lastName}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-[#E6F1FF]">
+                          {entry.firstName} {entry.lastName}
+                        </h3>
+                        {/* {entry.isActive && (
+                          <span className="inline-flex h-2 w-2 rounded-full bg-green-500" title="Online"></span>
+                        )} */}
+                      </div>
                       <p className="text-sm text-[#8892B0]">
                         Tests: {entry.testsCompleted} | Avg Score: {Math.round(entry.averageScore)}%
                         {entry.averageTimeSpent && entry.averageTimeSpent < Number.MAX_SAFE_INTEGER && (
@@ -227,7 +273,7 @@ export default function RankingsPage() {
                     {/* Score */}
                     <div className="flex-shrink-0 text-right">
                       <span className="text-[#FFD700] font-bold text-xl">
-                        {entry.points || 0}
+                        {entry.points || 0} {isUserActive(entry._id) ? '🟢' : '🔴'}
                       </span>
                       <p className="text-xs text-[#8892B0]">points</p>
                     </div>
@@ -246,7 +292,7 @@ export default function RankingsPage() {
                 >
                   Previous
                 </button>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2" suppressHydrationWarning={true}>
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     let pageNum;
                     if (totalPages <= 5) {

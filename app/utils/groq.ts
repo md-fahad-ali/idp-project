@@ -1,6 +1,6 @@
 import Groq from "groq-sdk";
 import { ILesson, Question } from '../../types';
-import { QuestionDifficulty } from "../types";
+import { QuestionDifficulty } from "../types/index";
 
 if (!process.env.NEXT_PUBLIC_GROQ_API_KEY) {
   throw new Error('NEXT_PUBLIC_GROQ_API_KEY is not defined in environment variables');

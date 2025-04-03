@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useDashboard } from '../provider';
 import Loading from "../../components/ui/Loading";
+import { useRouter } from "next/navigation";
 
 // Import components
 import WelcomeCard from './components/WelcomeCard';
@@ -32,6 +33,8 @@ export default function DashboardPage() {
     };
   }
 
+  const router = useRouter();
+
   // State management
   const [courses, setCourses] = useState<ICourse[]>([]);
   interface IUser {
@@ -52,10 +55,16 @@ export default function DashboardPage() {
     setCourses(courses.filter(course => course._id !== deletedCourseId));
   };
 
-
   console.log(user);
   // Fetch courses and user data from the API
   useEffect(() => {
+    // Early return and redirect if no token
+    if (!token) {
+      setLoading(false);
+      router.push('/auth/login');
+      return;
+    }
+
     const fetchCourses = async () => {
       try {
         const response = await fetch('/api/course/get', {
@@ -67,26 +76,40 @@ export default function DashboardPage() {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          console.log(`HTTP error! status: ${response.status}`);
+          // Redirect to login for unauthorized access
+          if (response.status === 401 || response.status === 403) {
+            router.push('/auth/login');
+            return;
+          }
+          setCourses([]);
+          setLoading(false);
+          return;
         }
 
         const data = await response.json();
-        setCourses(data.courses);
-
-        console.log(data);
+        setCourses(data.courses || []);
         setUser(data.user);
-        setLoading(false);
       } catch (error) {
         console.error('Error fetching courses:', error);
+        setCourses([]);
+        // Redirect to login if there's an authentication error
+        if (error instanceof Error && error.message.includes('unauthorized')) {
+          router.push('/auth/login');
+          return;
+        }
+      } finally {
         setLoading(false);
       }
     };
 
     fetchCourses();
-    if (!token) {
-      setLoading(false);
-    }
-  }, [token]);
+  }, [token, router]);
+
+  // Prevent flash of content when redirecting
+  if (!token) {
+    return null;
+  }
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen bg-[#6016a7] text-[#E6F1FF]"><Loading /></div>;
