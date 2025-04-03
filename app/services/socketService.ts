@@ -26,6 +26,9 @@ interface QuestionData {
 }
 
 interface ActiveChallengeData {
+  challengerName: string;
+  challengedName: string;
+  courseName: string;
   roomId: string;
   challengerId: string;
   challengedId: string;
@@ -61,10 +64,43 @@ export const initSocket = (): ReturnType<typeof io> => {
   if (!socket) {
     socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000', {
       autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 10000,
       transports: ['websocket'],
       withCredentials: true
     } as any);
+    
+    // Setup listeners for connection events
+    socket.on('connect', () => {
+      console.log('Socket connected:', socket?.id);
+    });
+    
+    socket.on('disconnect', (reason: any) => {
+      console.log('Socket disconnected:', reason);
+    });
+    
+    socket.on('reconnect', (attemptNumber: any) => {
+      console.log('Socket reconnected after', attemptNumber, 'attempts');
+    });
+    
+    socket.on('reconnect_error', (error:any) => {
+      console.error('Socket reconnection error:', error);
+    });
+    
+    socket.on('error', (error:any) => {
+      console.error('Socket error:', error);
+    });
   }
+  
+  // Force a reconnect if the socket exists but is not connected
+  if (socket && !socket.connected) {
+    console.log('Socket exists but not connected. Reconnecting...');
+    socket.connect();
+  }
+  
   return socket;
 };
 
@@ -80,11 +116,10 @@ export const navigateToChallengeRoom = (
   challengedName: string,
   roomId?: string
 ): string => {
-  // Always use the course/user based URL format for consistency
-  // If we have a roomId but no other details, use placeholder values
+  // Use meaningful defaults that describe the relationship
   const effectiveCourseName = courseName || 'challenge';
-  const effectiveChallengerName = challengerName || 'user1';
-  const effectiveChallengedName = challengedName || 'user2';
+  const effectiveChallengerName = challengerName || 'challenger';
+  const effectiveChallengedName = challengedName || 'opponent';
   
   const courseSlug = getCourseSlug(effectiveCourseName);
   const user1 = effectiveChallengerName.split(' ')[0].toLowerCase();
@@ -99,15 +134,24 @@ export const checkInRoom = (userId: string): Promise<boolean> => {
   return new Promise((resolve, reject) => {
     const socket = initSocket();
     
+    // Create a handler function that we can reference for removal
+    const handleRoomStatusResponse = (data: { isInRoom: boolean }) => {
+      clearTimeout(timeoutId); // Clear the timeout when we get a response
+      socket.off('room_status_response', handleRoomStatusResponse); // Remove the listener
+      resolve(data.isInRoom);
+    };
+    
+    // Add the event listener
+    socket.on('room_status_response', handleRoomStatusResponse);
+    
+    // Emit the event to check room status
     socket.emit('check_room_status', userId);
     
-    socket.on('room_status_response', (data: { isInRoom: boolean }) => {
-      resolve(data.isInRoom);
-    });
-
-    // Add timeout to prevent hanging
-    setTimeout(() => {
-      reject(new Error('Room status check timed out'));
+    // Set timeout and store its ID so we can clear it if needed
+    const timeoutId = setTimeout(() => {
+      socket.off('room_status_response', handleRoomStatusResponse); // Clean up listener on timeout
+      resolve(false); // Resolve with false instead of rejecting to avoid unhandled exceptions
+      console.warn(`Room status check timed out for user ${userId}`);
     }, 5000);
   });
 };

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useDashboard } from '../provider';
 import { initSocket, submitAnswer } from '../services/socketService';
 import ChallengeRoom from './ChallengeRoom';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
 interface RoomData {
   challenger: {
@@ -37,14 +37,25 @@ export default function ChallengeQuiz() {
   const router = useRouter();
   const { user } = useDashboard();
   const { title, user1, user2 } = useParams();
+  const searchParams = useSearchParams();
+  const roomId = searchParams.get('roomId');
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(30);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [bothAnswered, setBothAnswered] = useState(false);
   const [roomData, setRoomData] = useState<RoomData | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<{id: string, text: string, options: string[]} | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const questionStartTime = useRef(Date.now());
   const socketRef = useRef(initSocket());
+  
+  // Log roomId for debugging
+  useEffect(() => {
+    console.log('Room ID from URL:', roomId);
+    if (!roomId) {
+      setErrorMessage('Room not found: Missing room ID in URL');
+    }
+  }, [roomId]);
   
   // Handle socket identification and reconnection
   useEffect(() => {
@@ -134,9 +145,20 @@ export default function ChallengeQuiz() {
       }
     });
     
+    // Listen for new questions
+    socket.on('new_question', (data: any) => {
+      console.log('Received question:', data);
+      setCurrentQuestion(data.question);
+      setTimeLeft(data.timeLimit || 30);
+      setBothAnswered(false);
+      setSelectedOption(null);
+      questionStartTime.current = Date.now();
+    });
+    
     return () => {
       socket.off('answer_error');
       socket.off('both_answered');
+      socket.off('new_question');
     };
   }, []);
 
@@ -169,20 +191,24 @@ export default function ChallengeQuiz() {
   };
   
   const handleSubmit = (answer: string) => {
-    if (!user?._id) return;
+    if (!user?._id || !roomId) {
+      setErrorMessage('Cannot submit answer: Missing user ID or room ID');
+      return;
+    }
     
     setSelectedOption(answer);
     
     const timeSpent = (Date.now() - questionStartTime.current) / 1000; // in seconds
     
-    // For now, we're just simulating the room ID and question ID
-    const mockRoomId = "mock-room-id";
-    const mockQuestionId = "mock-question-id";
+    // Use the actual roomId from URL params and current question ID
+    const questionId = currentQuestion?.id || 'question-1';
+    
+    console.log(`Submitting answer to room ${roomId}`);
     
     submitAnswer(
-      mockRoomId,
+      roomId,
       user._id,
-      mockQuestionId,
+      questionId,
       answer,
       timeSpent
     );
@@ -193,9 +219,12 @@ export default function ChallengeQuiz() {
     
     if (roomData && user?._id) {
       try {
+        // Use the room ID from URL if available, otherwise fallback to constructed ID
+        const actualRoomId = roomId || `${title}_${user1}_${user2}`;
+        
         // Emit leave_room event
         socket.emit('leave_room', {
-          roomId: `${title}_${user1}_${user2}`,
+          roomId: actualRoomId,
           userId: user._id,
           isChallenger: roomData.challenger.id === user._id
         });
@@ -269,6 +298,15 @@ export default function ChallengeQuiz() {
     };
   }, []);
 
+  // Join the challenge room when the component mounts
+  useEffect(() => {
+    if (roomId && user?._id) {
+      console.log(`Joining challenge room ${roomId}`);
+      const socket = socketRef.current;
+      socket.emit('join_challenge', { roomId, userId: user._id });
+    }
+  }, [roomId, user?._id]);
+
   if (!user || !roomData) return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFD700]"></div>
@@ -286,7 +324,7 @@ export default function ChallengeQuiz() {
       <div className="bg-[#2f235a] border-4 border-black rounded-lg w-full p-6 shadow-[8px_8px_0px_0px_#000000]">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-[#E6F1FF]">
-            Question 1 of 5
+            Question {currentQuestion ? `${1} of ${5}` : '...'}
           </h2>
           <div className={`text-2xl font-bold ${
             bothAnswered ? 'text-green-500' : 
@@ -302,31 +340,43 @@ export default function ChallengeQuiz() {
           </div>
         )}
         
-        {/* Mock Question */}
+        {/* Question */}
         <div className="bg-[#294268] p-4 rounded-lg border-2 border-black mb-4">
           <p className="text-[#E6F1FF] text-xl">
-            What is the capital of France?
+            {currentQuestion ? currentQuestion.text : 'Waiting for question...'}
           </p>
         </div>
         
-        {/* Mock Options */}
+        {/* Options */}
         <div className="space-y-3">
-          {['Paris', 'London', 'Berlin', 'Madrid'].map((option, index) => (
-            <button
-              key={index}
-              onClick={() => !selectedOption && handleSubmit(option)}
-              disabled={selectedOption !== null}
-              className={`w-full p-4 rounded-lg border-2 border-black transition-colors text-left ${
-                selectedOption === option
-                  ? 'bg-[#5CDB95] text-black'
-                  : selectedOption !== null
-                  ? 'bg-[#3f336a] text-[#8892B0]'
-                  : 'bg-[#3f336a] text-[#E6F1FF] hover:bg-[#4a3e7d]'
-              }`}
-            >
-              {option}
-            </button>
-          ))}
+          {currentQuestion && currentQuestion.options ? (
+            currentQuestion.options.map((option, index) => (
+              <button
+                key={index}
+                onClick={() => !selectedOption && handleSubmit(option)}
+                disabled={selectedOption !== null}
+                className={`w-full p-4 rounded-lg border-2 border-black transition-colors text-left ${
+                  selectedOption === option
+                    ? 'bg-[#5CDB95] text-black'
+                    : selectedOption !== null
+                    ? 'bg-[#3f336a] text-[#8892B0]'
+                    : 'bg-[#3f336a] text-[#E6F1FF] hover:bg-[#4a3e7d]'
+                }`}
+              >
+                {option}
+              </button>
+            ))
+          ) : (
+            // Placeholder options when no question is loaded
+            ['Loading options...'].map((text, index) => (
+              <div
+                key={index}
+                className="w-full p-4 rounded-lg border-2 border-black bg-[#3f336a] text-[#8892B0] opacity-50"
+              >
+                {text}
+              </div>
+            ))
+          )}
         </div>
         
         {selectedOption && (
