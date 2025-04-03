@@ -4,9 +4,29 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useDashboard } from '../../../provider';
-import { LeaderboardEntry, ICourse } from '../../../types';
+import { useActivity } from '../../../activity-provider';
+import { LeaderboardEntry } from '../../../types';
 import Avatar from "boring-avatars";
 import Loading from '../../../../components/ui/Loading';
+import { createChallengeRoom, navigateToChallengeRoom, checkInRoom } from '../../../services/socketService';
+import ChallengeNotification from '../../../components/ChallengeNotification';
+import ChallengeQuiz from '../../../components/ChallengeQuiz';
+import { toast } from 'react-hot-toast';
+
+interface ICourse {
+  _id: string;
+  title: string;
+  category: string;
+  description: string;
+  lessons: any[];
+  createdAt: string;
+  user?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    _id: string;
+  };
+}
 
 const ITEMS_PER_PAGE = 20;
 
@@ -14,6 +34,7 @@ export default function CourseLeaderboardPage() {
   const { title } = useParams();
   const router = useRouter();
   const { token, user, refreshUserData } = useDashboard();
+  const { isUserActive } = useActivity();
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
   const [courseData, setCourseData] = useState<ICourse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +42,8 @@ export default function CourseLeaderboardPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasPassedUsers, setHasPassedUsers] = useState(false);
   const [hasMultipleUsers, setHasMultipleUsers] = useState(false);
+  const [isSendingChallenge, setIsSendingChallenge] = useState<string | null>(null);
+  const [usersInRoom, setUsersInRoom] = useState<{ [key: string]: boolean }>({});
 
   // Format time from seconds to MM:SS
   const formatTime = (seconds: number): string => {
@@ -29,6 +52,8 @@ export default function CourseLeaderboardPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+
+  
   // Get course ID from title slug
   const getCourseId = async (titleSlug: string) => {
     try {
@@ -128,12 +153,84 @@ export default function CourseLeaderboardPage() {
   // Find user's rank in this course
   const userRank = user ? leaderboardData.findIndex(entry => entry._id === user._id) + 1 : 0;
 
+  // Add function to check room status
+  const checkUserRoomStatus = async (userId: string) => {
+    try {
+      const isInRoom = await checkInRoom(userId);
+      setUsersInRoom(prev => ({ ...prev, [userId]: isInRoom }));
+      return isInRoom;
+    } catch (error) {
+      console.error('Error checking room status:', error);
+      return false;
+    }
+  };
+
+  // Add useEffect to check room status periodically for active users
+  useEffect(() => {
+    const checkActiveUsersRoomStatus = async () => {
+      for (const entry of currentData) {
+        if (isUserActive(entry._id) && entry._id !== user?._id) {
+          await checkUserRoomStatus(entry._id);
+        }
+      }
+    };
+
+    checkActiveUsersRoomStatus();
+    const interval = setInterval(checkActiveUsersRoomStatus, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [currentData, user?._id]);
+
+  // Handle sending challenge request
+  const handleSendChallenge = async (challengedId: string, challengedName: string) => {
+    if (!user || !courseData) return;
+    
+    setIsSendingChallenge(challengedId);
+    
+    try {
+      // Check if either user is in a room
+      const [challengerInRoom, challengedInRoom] = await Promise.all([
+        checkInRoom(user._id),
+        checkInRoom(challengedId)
+      ]);
+
+      if (challengerInRoom) {
+        toast.error('You are already in an active challenge!');
+        return;
+      }
+
+      if (challengedInRoom) {
+        toast.error(`${challengedName} is already in an active challenge!`);
+        setUsersInRoom(prev => ({ ...prev, [challengedId]: true }));
+        return;
+      }
+
+      // If neither user is in a room, create the challenge
+      const roomId = await createChallengeRoom(
+        user._id, 
+        challengedId,
+        courseData._id
+      );
+      
+      // Show success message
+      toast.success(`Challenge sent to ${challengedName}! Waiting for them to accept...`);
+      
+      // Don't navigate to the room yet - wait for the opponent to accept
+      // The challenger will be redirected when they receive the 'challenge_started' event
+      // via the ChallengeNotification component
+    } catch (error) {
+      console.error('Error sending challenge:', error);
+      toast.error('Failed to send challenge. Please try again.');
+    } finally {
+      setIsSendingChallenge(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen pt-[100px] bg-[#6016a7] flex items-center justify-center text-[#E6F1FF]">
         <Loading />
       </div>
- 
     );
   }
 
@@ -160,9 +257,9 @@ export default function CourseLeaderboardPage() {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 gap-8">
           {/* Course Title */}
-          <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]">
-            <div className="flex justify-between items-center">
-              <h1 className="text-3xl font-bold text-[#E6F1FF] font-mono">
+          <div className="bg-[#294268] border-4 border-black rounded-lg p-4 sm:p-6 shadow-[8px_8px_0px_0px_#000000]">
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-0 items-center sm:justify-between">
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#E6F1FF] font-mono text-center sm:text-left">
                 {courseData?.title} Leaderboard
               </h1>
               <Link 
@@ -181,10 +278,10 @@ export default function CourseLeaderboardPage() {
                 Your Ranking in This Course
               </h2>
               <div className="bg-[#2f235a] p-4 rounded-lg border-2 border-black">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-12 h-12 flex items-center justify-center">
-                      <span className="text-2xl font-bold">#{userRank}</span>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+                  <div className="flex items-center mb-3 sm:mb-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center">
+                      <span className="text-xl sm:text-2xl font-bold">#{userRank}</span>
                     </div>
                     <div className="flex-shrink-0 w-10 h-10 bg-[#9D4EDD] rounded-full overflow-hidden border-2 border-black ml-2">
                       {user.avatarUrl ? (
@@ -211,11 +308,11 @@ export default function CourseLeaderboardPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="flex items-center sm:flex-col sm:items-end">
                     <span className="text-[#FFD700] font-bold text-xl">
-                      {leaderboardData.find(entry => entry._id === user._id)?.points || 0}
+                      {leaderboardData.find(entry => entry._id === user._id)?.points || 0} {isUserActive(user._id) ? '🟢' : '🔴'}
                     </span>
-                    <p className="text-xs text-[#8892B0]">points</p>
+                    <p className="text-xs text-[#8892B0] ml-2 sm:ml-0">points</p>
                   </div>
                 </div>
               </div>
@@ -238,56 +335,89 @@ export default function CourseLeaderboardPage() {
                 {currentData.map((entry, index) => (
                   <div
                     key={entry._id}
-                    className="flex items-center bg-[#2f235a] p-4 rounded-lg border-2 border-black transition-transform hover:transform hover:translate-x-1 hover:-translate-y-1"
+                    className="flex flex-col justify-between md:flex-row items-start md:items-center bg-[#2f235a] p-4 rounded-lg border-2 border-black transition-transform hover:transform hover:translate-x-1 hover:-translate-y-1"
                   >
-                    {/* Rank Number */}
-                    <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center">
-                      {startIndex + index + 1 <= 3 ? (
-                        <span className="text-2xl">
-                          {startIndex + index + 1 === 1 ? '🥇' : startIndex + index + 1 === 2 ? '🥈' : '🥉'}
-                        </span>
-                      ) : (
-                        <span className="text-xl font-bold text-[#8892B0]">#{startIndex + index + 1}</span>
-                      )}
-                    </div>
-
-                    {/* Avatar */}
-                    <div className="flex-shrink-0 w-10 h-10 bg-[#9D4EDD] rounded-full overflow-hidden border-2 border-black">
-                      {entry.avatarUrl ? (
-                        <img
-                          src={entry.avatarUrl}
-                          alt={`${entry.firstName}'s avatar`}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <Avatar
-                          size={40}
-                          name={entry._id}
-                          variant="beam"
-                          colors={["#6016a7", "#9D4EDD", "#FFD700", "#5CDB95", "#E6F1FF"]}
-                        />
-                      )}
-                    </div>
-
-                    {/* User Info */}
-                    <div className="ml-4 flex-grow">
-                      <h3 className="font-bold text-[#E6F1FF]">
-                        {entry.firstName} {entry.lastName}
-                      </h3>
-                      <p className="text-sm text-[#8892B0]">
-                        Tests: {entry.testsCompleted} | Avg Score: {Math.round(entry.averageScore)}%
-                        {entry.averageTimeSpent && entry.averageTimeSpent < Number.MAX_SAFE_INTEGER && (
-                          <> | Avg Time: {formatTime(entry.averageTimeSpent)}</>
+                    <div className="flex items-center w-full md:w-auto mb-3 md:mb-0">
+                      {/* Rank Number */}
+                      <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center">
+                        {startIndex + index + 1 <= 3 ? (
+                          <span className="text-xl md:text-2xl">
+                            {startIndex + index + 1 === 1 ? '🥇' : startIndex + index + 1 === 2 ? '🥈' : '🥉'}
+                          </span>
+                        ) : (
+                          <span className="text-lg md:text-xl font-bold text-[#8892B0]">#{startIndex + index + 1}</span>
                         )}
-                      </p>
+                      </div>
+
+                      {/* Avatar */}
+                      <div className="flex-shrink-0 w-10 h-10 bg-[#9D4EDD] rounded-full overflow-hidden border-2 border-black ml-2">
+                        {entry.avatarUrl ? (
+                          <img
+                            src={entry.avatarUrl}
+                            alt={`${entry.firstName}'s avatar`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Avatar
+                            size={40}
+                            name={entry._id}
+                            variant="beam"
+                            colors={["#6016a7", "#9D4EDD", "#FFD700", "#5CDB95", "#E6F1FF"]}
+                          />
+                        )}
+                      </div>
+
+                      {/* User Info */}
+                      <div className="ml-4 flex-grow">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-[#E6F1FF]">
+                            {entry.firstName} {entry.lastName}
+                          </h3>
+                        </div>
+                        <p className="text-sm text-[#8892B0]">
+                          Tests: {entry.testsCompleted} | Avg Score: {Math.round(entry.averageScore)}%
+                          {entry.averageTimeSpent && entry.averageTimeSpent < Number.MAX_SAFE_INTEGER && (
+                            <> | Avg Time: {formatTime(entry.averageTimeSpent)}</>
+                          )}
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Score */}
-                    <div className="flex-shrink-0 text-right">
-                      <span className="text-[#FFD700] font-bold text-xl">
-                        {entry.points || 0}
-                      </span>
-                      <p className="text-xs text-[#8892B0]">points</p>
+                    {/* Score and Challenge Button */}
+                    <div className="flex-shrink-0 flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto mt-2 md:mt-0">
+                      <div className="flex items-center">
+                        <span className="text-[#FFD700] font-bold text-xl">
+                          {isUserActive(entry._id) ? '🟢' : '🔴'} {entry.points || 0} 
+                        </span>
+                        <p className="text-xs text-[#8892B0] ml-1 md:ml-0 md:text-right">points</p>
+                      </div>
+                      
+                      {isUserActive(entry._id) && entry._id !== user?._id && (
+                        <button 
+                          className={`px-3 py-1 border-black text-xs font-bold rounded border border-black transition-colors md:mt-2 shadow-[4px_5px_0px_0px_black] active:shadow-[0px_0px_0px_0px_black] ${
+                            usersInRoom[entry._id] 
+                              ? 'bg-gray-400 cursor-not-allowed text-gray-700' 
+                              : 'bg-[#ffb500] text-black hover:bg-[#ff4f4f]'
+                          }`}
+                          onClick={() => handleSendChallenge(entry._id, `${entry.firstName} ${entry.lastName}`)}
+                          disabled={isSendingChallenge === entry._id || usersInRoom[entry._id]}
+                          title={usersInRoom[entry._id] ? 'User is currently in a challenge' : 'Send challenge'}
+                        >
+                          {isSendingChallenge === entry._id ? (
+                            <span className="inline-flex items-center">
+                              <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Sending...
+                            </span>
+                          ) : usersInRoom[entry._id] ? (
+                            "In Challenge"
+                          ) : (
+                            "Challenge"
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -296,11 +426,11 @@ export default function CourseLeaderboardPage() {
 
             {/* Pagination - only show if we have multiple users */}
             {hasMultipleUsers && totalPages > 1 && (
-              <div className="mt-8 flex items-center justify-center space-x-4">
+              <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-0 sm:space-x-4">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
-                  className="px-4 py-2 bg-[#2f235a] text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3f336a] transition-colors"
+                  className="w-full sm:w-auto px-4 py-2 bg-[#2f235a] text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3f336a] transition-colors"
                 >
                   Previous
                 </button>
@@ -321,7 +451,7 @@ export default function CourseLeaderboardPage() {
                       <button
                         key={i}
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`w-10 h-10 rounded-md flex items-center justify-center ${
+                        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-md flex items-center justify-center ${
                           currentPage === pageNum
                             ? 'bg-[#9D4EDD] text-white'
                             : 'bg-[#2f235a] text-[#8892B0] hover:bg-[#3f336a]'
@@ -336,7 +466,7 @@ export default function CourseLeaderboardPage() {
                       <span className="text-[#8892B0]">...</span>
                       <button
                         onClick={() => setCurrentPage(totalPages)}
-                        className="w-10 h-10 rounded-md flex items-center justify-center bg-[#2f235a] text-[#8892B0] hover:bg-[#3f336a]"
+                        className="w-8 h-8 sm:w-10 sm:h-10 rounded-md flex items-center justify-center bg-[#2f235a] text-[#8892B0] hover:bg-[#3f336a]"
                       >
                         {totalPages}
                       </button>
@@ -346,13 +476,16 @@ export default function CourseLeaderboardPage() {
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-4 py-2 bg-[#2f235a] text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3f336a] transition-colors"
+                  className="w-full sm:w-auto px-4 py-2 bg-[#2f235a] text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3f336a] transition-colors"
                 >
                   Next
                 </button>
               </div>
             )}
           </div>
+
+          <ChallengeNotification />
+          
         </div>
       </div>
     </div>

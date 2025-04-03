@@ -17,7 +17,7 @@ passport.use(
     try {
       // Mock user verification (Replace with database logic)
       const user = { id: jwt_payload.id, username: jwt_payload.username };
-      console.log('JWT Payload:', jwt_payload);
+      // console.log('JWT Payload:', jwt_payload);
       if (user) return done(null, user);
       return done(null, false);
     } catch (error) {

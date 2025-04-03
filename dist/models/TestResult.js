@@ -37,6 +37,20 @@ const testResultSchema = new mongoose_1.default.Schema({
     completedAt: {
         type: Date,
         default: Date.now
+    },
+    // New fields for challenges
+    isChallenge: {
+        type: Boolean,
+        default: false
+    },
+    challengeId: {
+        type: String,
+        default: null
+    },
+    opponentId: {
+        type: mongoose_1.default.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
     }
 });
 const TestResult = mongoose_1.default.model('TestResult', testResultSchema);

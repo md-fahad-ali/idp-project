@@ -1,8 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { User, Achievement } from './types';
+import { User } from './types';
 import { useRouter } from 'next/navigation';
+import { initSocket } from './services/socketService';
 
 interface DashboardContextType {
   token?: string;
@@ -140,6 +141,14 @@ export function DashboardProvider({
       console.error('Logout error:', error);
     }
   }, [router]);
+
+  useEffect(() => {
+    if (user?._id) {
+      // Initialize socket connection and identify user
+      const socket = initSocket();
+      socket.emit('identify', { userId: user._id });
+    }
+  }, [user?._id]);
 
   return (
     <DashboardContext.Provider value={{ 

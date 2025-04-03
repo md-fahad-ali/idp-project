@@ -1,25 +1,28 @@
-
 import React from "react";
 
-const Loading = () => {
+export default function Loading() {
   return (
-    <div className="flex space-x-2">
+    <div 
+      className="flex space-x-2"
+      suppressHydrationWarning={true}
+    >
       <div
-        className="w-8 h-8 bg-[#fcd34d] border-4 border-black animate-bounce  shadow-[4px_4px_0px_0px_black]"
+        className="w-8 h-8 bg-[#fcd34d] border-4 border-black animate-bounce shadow-[4px_4px_0px_0px_#000000]"
         style={{ animationDelay: "0.2s" }}
-      ></div>
+        suppressHydrationWarning={true}
+      />
       <div
-        className="w-8 h-8 bg-[#f472b6] border-4 border-black animate-bounce  shadow-[4px_4px_0px_0px_black]"
+        className="w-8 h-8 bg-[#f472b6] border-4 border-black animate-bounce shadow-[4px_4px_0px_0px_#000000]"
         style={{ animationDelay: "0.4s" }}
-      ></div>
+        suppressHydrationWarning={true}
+      />
       <div
-        className="w-8 h-8 bg-[#60a5fa] border-4 border-black animate-bounce  shadow-[4px_4px_0px_0px_black]"
+        className="w-8 h-8 bg-[#60a5fa] border-4 border-black animate-bounce shadow-[4px_4px_0px_0px_#000000]"
         style={{ animationDelay: "0.6s" }}
-      ></div>
+        suppressHydrationWarning={true}
+      />
     </div>
   );
-};
-
-export default Loading;
+}
   
   
