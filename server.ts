@@ -161,8 +161,22 @@ nextApp
       
       // Add new socket event for checking room status
       socket.on('check_room_status', (userId: string) => {
-        const isInRoom = isUserInActiveRoom(userId);
-        socket.emit('room_status_response', { isInRoom });
+        if (!userId) {
+          console.log('Received check_room_status with no userId');
+          socket.emit('room_status_response', { isInRoom: false });
+          return;
+        }
+        
+        try {
+          console.log(`Checking room status for user ${userId}`);
+          const isInRoom = isUserInActiveRoom(userId);
+          console.log(`User ${userId} is${isInRoom ? '' : ' not'} in an active room`);
+          socket.emit('room_status_response', { isInRoom });
+        } catch (error) {
+          console.error('Error checking room status:', error);
+          // Always respond even on error
+          socket.emit('room_status_response', { isInRoom: false });
+        }
       });
       
       // User identifies themselves (usually after login)
@@ -682,8 +696,11 @@ nextApp
       io.to(roomId).emit('challenge_started', {
         roomId,
         challengerId: room.challengerId,
+        challengerName: room.challengerName,
         challengedId: room.challengedId,
+        challengedName: room.challengedName,
         courseId: room.courseId,
+        courseName: room.courseName,
         questionNumber: 1,
         totalQuestions: room.questions.length
       });

@@ -5,7 +5,8 @@ import {
   useChallengeNotifications, 
   acceptChallenge, 
   declineChallenge,
-  navigateToChallengeRoom
+  navigateToChallengeRoom,
+  checkInRoom
 } from '../services/socketService';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -15,6 +16,8 @@ export default function ChallengeNotification() {
   const { user } = useDashboard();
   const { pendingChallenges, activeChallenge, declinedChallenges } = useChallengeNotifications(user?._id || '');
   const [showNotifications, setShowNotifications] = useState(false);
+  const [userInRoom, setUserInRoom] = useState(false);
+  const [roomInfo, setRoomInfo] = useState(null);
   const router = useRouter();
 
   // Auto-open notifications when new challenges arrive
@@ -24,62 +27,58 @@ export default function ChallengeNotification() {
     }
   }, [pendingChallenges.length, declinedChallenges.length]);
 
+  // Check if user is in a room according to the server
+  useEffect(() => {
+    if (!user) return;
+    
+    const checkUserRoomStatus = async () => {
+      try {
+        const result = await checkInRoom(user._id);
+        if (result && typeof result === 'object' && result.inRoom) {
+          setUserInRoom(true);
+          setRoomInfo(result.roomInfo || null);
+        } else {
+          setUserInRoom(false);
+          setRoomInfo(null);
+        }
+      } catch (error) {
+        console.error('Error checking room status:', error);
+      }
+    };
+    
+    checkUserRoomStatus();
+    const interval = setInterval(checkUserRoomStatus, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [user]);
+
   // Navigate to challenge room when active challenge starts
   useEffect(() => {
     if (!activeChallenge || !user) return;
     
     try {
-      // Handle when a user's sent challenge has been accepted
+      console.log('Active challenge data:', activeChallenge);
+      
+      // Show a toast notification if this user is the challenger
       if (activeChallenge.challengerId === user._id) {
         toast.success('Your challenge has been accepted!');
-        
-        // Use the roomId along with placeholder values to create a valid URL
-        const roomUrl = navigateToChallengeRoom(
-          activeChallenge.courseName || '',
-          activeChallenge.challengerName || '',
-          activeChallenge.challengedName || '',
-          activeChallenge.roomId
-        );
-        
-        console.log('Navigating challenger to room:', roomUrl);
-        router.push(roomUrl);
-        return;
       }
       
-      // Handle when a user accepts a challenge sent to them
-      if (activeChallenge.challengedId === user._id) {
-        // Find the accepted challenge from pending challenges
-        const acceptedChallenge = pendingChallenges.find(c => c.challengeId === activeChallenge.roomId);
-        
-        if (acceptedChallenge) {
-          // Navigate to challenge room with full course and user information
-          const roomUrl = navigateToChallengeRoom(
-            acceptedChallenge.courseName,
-            acceptedChallenge.challengerName,
-            acceptedChallenge.challengedName,
-            activeChallenge.roomId // Add roomId for consistency
-          );
-          
-          console.log('Navigating challenged user to room:', roomUrl);
-          router.push(roomUrl);
-        } else {
-          // Fallback in case we don't have the detailed info
-          const roomUrl = navigateToChallengeRoom(
-            activeChallenge.courseName || '',
-            activeChallenge.challengerName || '',
-            activeChallenge.challengedName || '',
-            activeChallenge.roomId
-          );
-          
-          console.log('Navigating challenged user to room (fallback):', roomUrl);
-          router.push(roomUrl);
-        }
-      }
+      // For both challenger and challenged users, use the complete data from activeChallenge
+      const roomUrl = navigateToChallengeRoom(
+        activeChallenge.courseName,
+        activeChallenge.challengerName,
+        activeChallenge.challengedName,
+        activeChallenge.roomId
+      );
+      
+      console.log('Navigating to challenge room:', roomUrl);
+      router.push(roomUrl);
     } catch (error) {
       console.error('Error navigating to challenge room:', error);
       toast.error('Could not join the challenge room. Please try again.');
     }
-  }, [activeChallenge, pendingChallenges, router, user]);
+  }, [activeChallenge, router, user]);
 
   if (!user) return null;
   
@@ -94,7 +93,28 @@ export default function ChallengeNotification() {
     // The actual list update will come from the socket
   };
   
-  // If there's an active challenge, render nothing here as we'll show the quiz interface elsewhere
+  const handleRejoinRoom = () => {
+    if (!roomInfo) return;
+    
+    try {
+      // Use room info to navigate back to the challenge room
+      const roomUrl = navigateToChallengeRoom(
+        roomInfo.courseName,
+        roomInfo.challengerName,
+        roomInfo.challengedName,
+        roomInfo.roomId
+      );
+      
+      console.log('Rejoining challenge room:', roomUrl);
+      router.push(roomUrl);
+      toast.success('Rejoining your active challenge...');
+    } catch (error) {
+      console.error('Error rejoining challenge room:', error);
+      toast.error('Could not rejoin the challenge room. Please try again.');
+    }
+  };
+  
+  // If user is in active challenge with UI rendered, don't show this component
   if (activeChallenge) return null;
 
   // Calculate total notifications
@@ -106,7 +126,8 @@ export default function ChallengeNotification() {
       <div className="fixed top-20 right-6 z-50">
         <button 
           onClick={() => setShowNotifications(!showNotifications)}
-          className="relative p-2 bg-[#9D4EDD] rounded-full shadow-lg border-2 border-black"
+          className="relative p-2 bg-[#9D4EDD] rounded-full shadow-lg border-2 border-black hover:bg-[#8a2be2] transition-colors"
+          aria-label={`${totalNotifications} challenge notifications`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
@@ -114,11 +135,23 @@ export default function ChallengeNotification() {
           </svg>
           
           {totalNotifications > 0 && (
-            <span className="absolute -top-1 -right-1 bg-[#FF6B6B] text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center border border-black">
+            <span className="absolute -top-1 -right-1 bg-[#FF6B6B] text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center border border-black animate-pulse">
               {totalNotifications}
             </span>
           )}
         </button>
+        
+        {/* Rejoin Challenge Button - Show only when user is in room but not seeing challenge UI */}
+        {userInRoom && !activeChallenge && roomInfo && (
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="absolute top-14 right-0 px-3 py-2 bg-[#FFD700] text-black text-sm font-bold rounded-lg border-2 border-black shadow-[4px_4px_0px_0px_#000000] hover:bg-[#FFC107] hover:shadow-[2px_2px_0px_0px_#000000] transition-all whitespace-nowrap animate-bounce"
+            onClick={handleRejoinRoom}
+          >
+            Rejoin Challenge
+          </motion.button>
+        )}
       </div>
       
       {/* Challenge notifications panel */}
@@ -139,6 +172,22 @@ export default function ChallengeNotification() {
                 ✕
               </button>
             </div>
+            
+            {/* Rejoin Active Challenge Card */}
+            {userInRoom && !activeChallenge && roomInfo && (
+              <div className="bg-[#FFD700] p-3 rounded-lg border-2 border-black mb-4">
+                <p className="text-black font-bold">You have an active challenge!</p>
+                <p className="text-black text-sm mb-2">
+                  You appear to be in a challenge room but aren't connected to it.
+                </p>
+                <button
+                  onClick={handleRejoinRoom}
+                  className="w-full px-3 py-1 bg-black text-white text-sm font-bold rounded hover:bg-[#333] transition-colors"
+                >
+                  Rejoin Challenge Room
+                </button>
+              </div>
+            )}
             
             {/* Declined challenges notifications */}
             {declinedChallenges.length > 0 && (
@@ -164,7 +213,7 @@ export default function ChallengeNotification() {
               </div>
             )}
             
-            {pendingChallenges.length === 0 && declinedChallenges.length === 0 ? (
+            {pendingChallenges.length === 0 && declinedChallenges.length === 0 && !userInRoom ? (
               <p className="text-[#8892B0] text-sm">No pending challenges</p>
             ) : (
               <div className="space-y-3 max-h-80 overflow-y-auto">

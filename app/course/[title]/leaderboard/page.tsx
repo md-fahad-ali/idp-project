@@ -8,8 +8,7 @@ import { useActivity } from '../../../activity-provider';
 import { LeaderboardEntry } from '../../../types';
 import Avatar from "boring-avatars";
 import Loading from '../../../../components/ui/Loading';
-import { createChallengeRoom, navigateToChallengeRoom, checkInRoom } from '../../../services/socketService';
-import ChallengeNotification from '../../../components/ChallengeNotification';
+import { createChallengeRoom, navigateToChallengeRoom, checkInRoom, initSocket } from '../../../services/socketService';
 import ChallengeQuiz from '../../../components/ChallengeQuiz';
 import { toast } from 'react-hot-toast';
 
@@ -44,6 +43,11 @@ export default function CourseLeaderboardPage() {
   const [hasMultipleUsers, setHasMultipleUsers] = useState(false);
   const [isSendingChallenge, setIsSendingChallenge] = useState<string | null>(null);
   const [usersInRoom, setUsersInRoom] = useState<{ [key: string]: boolean }>({});
+  const [challengeRoomInfo, setChallengeRoomInfo] = useState<{
+    roomId: string;
+    opponent: string;
+    opponentAccepted: boolean;
+  } | null>(null);
 
   // Format time from seconds to MM:SS
   const formatTime = (seconds: number): string => {
@@ -52,8 +56,23 @@ export default function CourseLeaderboardPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Save challenge room info to localStorage
+  const saveChallengeRoomToStorage = (data: { roomId: string; opponent: string; opponentAccepted: boolean }) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('challengeRoomInfo', JSON.stringify({
+        ...data,
+        timestamp: Date.now() // Add timestamp to track age
+      }));
+    }
+  };
 
-  
+  // Clear challenge room info from localStorage
+  const clearChallengeRoomFromStorage = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('challengeRoomInfo');
+    }
+  };
+
   // Get course ID from title slug
   const getCourseId = async (titleSlug: string) => {
     try {
@@ -144,6 +163,66 @@ export default function CourseLeaderboardPage() {
     initData();
   }, [title, token]);
 
+  // Load challenge room info from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && user) {
+      const storedRoom = localStorage.getItem('challengeRoomInfo');
+      
+      if (storedRoom) {
+        try {
+          const roomData = JSON.parse(storedRoom);
+          
+          // Check if stored data is too old (more than 2 hours)
+          const twoHoursMs = 2 * 60 * 60 * 1000;
+          const isTooOld = Date.now() - roomData.timestamp > twoHoursMs;
+          
+          if (isTooOld) {
+            // Clear outdated data
+            clearChallengeRoomFromStorage();
+          } else {
+            // Verify if the room still exists on the server
+            const socket = initSocket();
+            socket.emit('check_room_exists', { roomId: roomData.roomId });
+            
+            // Handle response
+            const handleRoomExistsResponse = (data: { exists: boolean }) => {
+              socket.off('room_exists_response', handleRoomExistsResponse);
+              
+              if (data.exists) {
+                // Set the room info from storage
+                setChallengeRoomInfo({
+                  roomId: roomData.roomId,
+                  opponent: roomData.opponent,
+                  opponentAccepted: roomData.opponentAccepted
+                });
+              } else {
+                // Room no longer exists, clear storage
+                clearChallengeRoomFromStorage();
+              }
+            };
+            
+            socket.on('room_exists_response', handleRoomExistsResponse);
+            
+            // Set a timeout to avoid hanging if server doesn't respond
+            setTimeout(() => {
+              socket.off('room_exists_response', handleRoomExistsResponse);
+              
+              // Set the room info anyway as a fallback if we don't get a response
+              setChallengeRoomInfo({
+                roomId: roomData.roomId,
+                opponent: roomData.opponent,
+                opponentAccepted: roomData.opponentAccepted
+              });
+            }, 3000);
+          }
+        } catch (error) {
+          console.error('Error parsing stored challenge room data:', error);
+          clearChallengeRoomFromStorage();
+        }
+      }
+    }
+  }, [user]);
+
   // Calculate pagination
   const totalPages = Math.ceil(leaderboardData.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -153,6 +232,99 @@ export default function CourseLeaderboardPage() {
   // Find user's rank in this course
   const userRank = user ? leaderboardData.findIndex(entry => entry._id === user._id) + 1 : 0;
 
+  // Listen for challenge acceptance
+  useEffect(() => {
+    if (!user) return;
+    
+    const socket = initSocket();
+    
+    // Listen for challenge accepted event
+    socket.on('challenge_accepted', (data: { roomId: string }) => {
+      // If this roomId matches our current challenge room, update status
+      if (challengeRoomInfo && challengeRoomInfo.roomId === data.roomId) {
+        const updatedInfo = {
+          ...challengeRoomInfo,
+          opponentAccepted: true
+        };
+        
+        setChallengeRoomInfo(updatedInfo);
+        
+        // Update localStorage with accepted status
+        saveChallengeRoomToStorage(updatedInfo);
+      }
+    });
+    
+    // Listen for challenge completed/ended event
+    socket.on('challenge_results', () => {
+      // Clear the challenge info when the challenge is completed
+      setChallengeRoomInfo(null);
+      clearChallengeRoomFromStorage();
+    });
+    
+    // Listen for opponent leaving the room
+    socket.on('opponent_left', (data: { roomId: string, userName: string }) => {
+      // Check if this is for our current room
+      if (challengeRoomInfo && challengeRoomInfo.roomId === data.roomId) {
+        // Clear challenge info
+        setChallengeRoomInfo(null);
+        clearChallengeRoomFromStorage();
+        
+        // Notify the user
+        toast.error(`${data.userName} has left the challenge room.`);
+      }
+    });
+    
+    // Listen for challenge being canceled
+    socket.on('challenge_canceled', (data: { roomId: string }) => {
+      if (challengeRoomInfo && challengeRoomInfo.roomId === data.roomId) {
+        setChallengeRoomInfo(null);
+        clearChallengeRoomFromStorage();
+        toast.error('The challenge has been canceled.');
+      }
+    });
+    
+    // Listen for user being disconnected
+    socket.on('user_disconnected', (data: { userId: string }) => {
+      if (user._id === data.userId) {
+        setChallengeRoomInfo(null);
+        clearChallengeRoomFromStorage();
+      }
+    });
+
+    return () => {
+      socket.off('challenge_accepted');
+      socket.off('challenge_results');
+      socket.off('opponent_left');
+      socket.off('challenge_canceled');
+      socket.off('user_disconnected');
+    };
+  }, [user, challengeRoomInfo]);
+
+  // Function to handle exiting the challenge room
+  const exitChallengeRoom = () => {
+    if (challengeRoomInfo?.roomId) {
+      const socket = initSocket();
+      
+      // Notify the server that we're leaving
+      socket.emit('leave_room', {
+        roomId: challengeRoomInfo.roomId,
+        userId: user?._id,
+        isExplicit: true // Flag to indicate this is an explicit leave action
+      });
+      
+      // Clear all local storage related to challenges
+      setChallengeRoomInfo(null);
+      clearChallengeRoomFromStorage();
+      
+      if (typeof window !== 'undefined') {
+        // Clear any session storage flags
+        sessionStorage.removeItem('enteringChallengeRoom');
+      }
+      
+      toast.success('Left the challenge room');
+    }
+  };
+
   // Add function to check room status
   const checkUserRoomStatus = async (userId: string) => {
     try {
@@ -161,25 +333,43 @@ export default function CourseLeaderboardPage() {
       return isInRoom;
     } catch (error) {
       console.error('Error checking room status:', error);
+      // Don't update the state on error to keep previous values
       return false;
     }
   };
 
   // Add useEffect to check room status periodically for active users
   useEffect(() => {
+    // Only check users who are active
+    const activeUsers = currentData.filter(entry => 
+      isUserActive(entry._id) && entry._id !== user?._id
+    );
+    
+    // Skip if no active users to check
+    if (activeUsers.length === 0) return;
+    
+    // Create an async function to check all users with a small delay between each
     const checkActiveUsersRoomStatus = async () => {
-      for (const entry of currentData) {
-        if (isUserActive(entry._id) && entry._id !== user?._id) {
+      for (const entry of activeUsers) {
+        try {
           await checkUserRoomStatus(entry._id);
+          // Add a small delay between API calls to prevent overwhelming the server
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (err) {
+          // Silently continue with the next user if one check fails
+          continue;
         }
       }
     };
 
+    // Initial check
     checkActiveUsersRoomStatus();
-    const interval = setInterval(checkActiveUsersRoomStatus, 10000); // Check every 10 seconds
+    
+    // Check periodically
+    const interval = setInterval(checkActiveUsersRoomStatus, 15000); // Check every 15 seconds instead of 10
 
     return () => clearInterval(interval);
-  }, [currentData, user?._id]);
+  }, [currentData, user?._id, isUserActive]);
 
   // Handle sending challenge request
   const handleSendChallenge = async (challengedId: string, challengedName: string) => {
@@ -211,6 +401,18 @@ export default function CourseLeaderboardPage() {
         challengedId,
         courseData._id
       );
+      
+      // Store the challenge room info
+      const roomInfo = {
+        roomId,
+        opponent: challengedName,
+        opponentAccepted: false
+      };
+      
+      setChallengeRoomInfo(roomInfo);
+      
+      // Save to localStorage for persistence
+      saveChallengeRoomToStorage(roomInfo);
       
       // Show success message
       toast.success(`Challenge sent to ${challengedName}! Waiting for them to accept...`);
@@ -274,9 +476,12 @@ export default function CourseLeaderboardPage() {
           {/* User's Current Rank */}
           {user && userRank > 0 && (
             <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]">
+              <div>
               <h2 className="text-2xl font-bold text-[#E6F1FF] mb-4 font-mono">
                 Your Ranking in This Course
               </h2>
+                
+              </div>
               <div className="bg-[#2f235a] p-4 rounded-lg border-2 border-black">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
                   <div className="flex items-center mb-3 sm:mb-0">
@@ -308,11 +513,44 @@ export default function CourseLeaderboardPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center sm:flex-col sm:items-end">
-                    <span className="text-[#FFD700] font-bold text-xl">
-                      {leaderboardData.find(entry => entry._id === user._id)?.points || 0} {isUserActive(user._id) ? '🟢' : '🔴'}
-                    </span>
-                    <p className="text-xs text-[#8892B0] ml-2 sm:ml-0">points</p>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center sm:flex-col sm:items-end">
+                      <span className="text-[#FFD700] font-bold text-xl">
+                        {leaderboardData.find(entry => entry._id === user._id)?.points || 0} {isUserActive(user._id) ? '🟢' : '🔴'}
+                      </span>
+                      <p className="text-xs text-[#8892B0] ml-2 sm:ml-0">points</p>
+                    </div>
+                    {challengeRoomInfo?.roomId && challengeRoomInfo.opponentAccepted && (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Link 
+                          href={`/room/course/${typeof title === 'string' ? title.toLowerCase().replace(/\s+/g, '-') : 'challenge'}/${user?.firstName?.toLowerCase() || 'user1'}/${challengeRoomInfo.opponent.split(' ')[0]?.toLowerCase() || 'user2'}?roomId=${challengeRoomInfo.roomId}`}
+                          className="mt-2 px-3 py-1 bg-[#ffb500] text-black font-bold rounded border-2 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[2px_2px_0px_0px_#000000] transition-all duration-200 text-sm"
+                          onClick={() => {
+                            // Mark that we're entering the room (for session tracking)
+                            if (typeof window !== 'undefined') {
+                              sessionStorage.setItem('enteringChallengeRoom', 'true');
+                            }
+                          }}
+                        >
+                          Enter Room
+                        </Link>
+                        <button
+                          onClick={exitChallengeRoom}
+                          className="mt-2 px-3 py-1 bg-[#ff4f4f] text-white font-bold rounded border-2 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[2px_2px_0px_0px_#000000] transition-all duration-200 text-sm"
+                        >
+                          Leave Challenge
+                        </button>
+                      </div>
+                    )}
+                    {challengeRoomInfo?.roomId && !challengeRoomInfo.opponentAccepted && (
+                      <div className="mt-2 px-3 py-1 bg-gray-400 text-white font-bold rounded border-2 border-black text-sm flex items-center">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Waiting for opponent...
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -483,9 +721,6 @@ export default function CourseLeaderboardPage() {
               </div>
             )}
           </div>
-
-          <ChallengeNotification />
-          
         </div>
       </div>
     </div>
