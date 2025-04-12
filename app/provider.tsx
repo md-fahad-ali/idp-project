@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { User } from './types';
 import { useRouter } from 'next/navigation';
-import { initSocket } from './services/socketService';
+import { initSocket, forceIdentify } from './services/socketService';
 
 interface DashboardContextType {
   token?: string;
@@ -87,6 +87,11 @@ export function DashboardProvider({
         const userData = await response.json();
         console.log('Refreshed user data:', userData);
         setUser(userData);
+        
+        // Identify the user to the socket server when we have their data
+        if (userData && userData._id) {
+          forceIdentify(userData._id);
+        }
       } else if (response.status === 401) {
         // Token expired or invalid
         console.error('Unauthorized access, attempting to logout');

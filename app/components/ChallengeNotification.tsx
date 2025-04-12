@@ -73,6 +73,7 @@ export default function ChallengeNotification() {
       );
       
       console.log('Navigating to challenge room:', roomUrl);
+      localStorage.setItem('roomUrl', roomUrl);
       router.push(roomUrl);
     } catch (error) {
       console.error('Error navigating to challenge room:', error);

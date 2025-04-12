@@ -30,10 +30,10 @@ router.get('/active', authenticateJWT, async (req: Request, res: Response): Prom
 // Update user activity
 router.post('/update', authenticateJWT, async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('Received activity update request:', {
-      body: req.body,
-      headers: req.headers['content-type']
-    });
+    // console.log('Received activity update request:', {
+    //   body: req.body,
+    //   headers: req.headers['content-type']
+    // });
 
     const { userId } = req.body;
     
@@ -46,7 +46,7 @@ router.post('/update', authenticateJWT, async (req: Request, res: Response): Pro
     // Convert string ID to ObjectId if needed
     const userObjectId = typeof userId === 'string' ? new mongoose.Types.ObjectId(userId) : userId;
 
-    console.log('Updating activity for user:', userObjectId);
+    // console.log('Updating activity for user:', userObjectId);
 
     await UserActivity.findOneAndUpdate(
       { userId: userObjectId },

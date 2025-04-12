@@ -41,9 +41,9 @@ const jwtOptions = {
 // Configure Passport JWT Strategy
 const jwtStrategy = new JwtStrategy(jwtOptions, async (jwtPayload: JwtPayload, done) => {
   try {
-    console.log('JWT Payload:', jwtPayload);
+    // console.log('JWT Payload:', jwtPayload);
     const user = await User.findById(new Types.ObjectId(jwtPayload._id)).select('-password').lean();
-    console.log('Found user:', user);
+    // console.log('Found user:', user);
     
     if (user) {
       // Convert ObjectId to string

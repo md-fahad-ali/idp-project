@@ -264,6 +264,7 @@ export default function CourseLeaderboardPage() {
     // Listen for opponent leaving the room
     socket.on('opponent_left', (data: { roomId: string, userName: string }) => {
       // Check if this is for our current room
+      console.log("opponent_left", data);
       if (challengeRoomInfo && challengeRoomInfo.roomId === data.roomId) {
         // Clear challenge info
         setChallengeRoomInfo(null);
@@ -272,6 +273,10 @@ export default function CourseLeaderboardPage() {
         // Notify the user
         toast.error(`${data.userName} has left the challenge room.`);
       }
+    });
+
+    socket.on("leave_room", (data: { roomId: string, userId: string, userName: string }) => {
+      console.log("leave_room", data);
     });
     
     // Listen for challenge being canceled
@@ -542,15 +547,7 @@ export default function CourseLeaderboardPage() {
                         </button>
                       </div>
                     )}
-                    {challengeRoomInfo?.roomId && !challengeRoomInfo.opponentAccepted && (
-                      <div className="mt-2 px-3 py-1 bg-gray-400 text-white font-bold rounded border-2 border-black text-sm flex items-center">
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Waiting for opponent...
-                      </div>
-                    )}
+                    
                   </div>
                 </div>
               </div>
