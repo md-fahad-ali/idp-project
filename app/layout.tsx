@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import { DashboardProvider } from "./provider";
 import { ActivityProvider } from './activity-provider';
 import GlobalNotifications from './components/GlobalNotifications';
+import RoomControls from './components/RoomControls';
 import { Toaster } from "react-hot-toast";
 
 const geistSans = Geist({
@@ -45,6 +46,7 @@ export default async function RootLayout({
             <Navbar access_token={token} />
             {children}
             <GlobalNotifications />
+            <RoomControls />
           </ActivityProvider>
         </DashboardProvider>
         <Toaster position="top-center" reverseOrder={false} />

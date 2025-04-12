@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDashboard } from '../provider';
-import { initSocket, submitAnswer } from '../services/socketService';
+import { initSocket, submitAnswer, leaveRoom, onOpponentLeft, onLeaveRoom, forceIdentify } from '../services/socketService';
 import ChallengeRoom from './ChallengeRoom';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 
 interface RoomData {
   challenger: {
@@ -44,7 +45,15 @@ export default function ChallengeQuiz() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [bothAnswered, setBothAnswered] = useState(false);
   const [roomData, setRoomData] = useState<RoomData | null>(null);
-  const [currentQuestion, setCurrentQuestion] = useState<{id: string, text: string, options: string[]} | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<{
+    id: string, 
+    text: string, 
+    options: string[], 
+    topic?: string,
+    questionNumber?: number,
+    totalQuestions?: number
+  } | null>(null);
+  const [courseName, setCourseName] = useState<string>('');
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const questionStartTime = useRef(Date.now());
   const socketRef = useRef(initSocket());
@@ -64,7 +73,8 @@ export default function ChallengeQuiz() {
     // Function to identify user to socket
     const identifyUser = () => {
       if (user?._id) {
-        socket.emit('identify', { userId: user._id });
+        console.log('[DEBUG] Identifying user to socket:', user._id);
+        forceIdentify(user._id);
       }
     };
 
@@ -73,29 +83,40 @@ export default function ChallengeQuiz() {
 
     // Handle socket disconnection and reconnection
     socket.on('connect', () => {
-      console.log('Socket connected, identifying user...');
+      console.log('[DEBUG] Socket connected, identifying user...');
       identifyUser();
     });
+    
+    // Re-identify on a regular interval to ensure connection is maintained
+    const identifyInterval = setInterval(() => {
+      if (user?._id) {
+        console.log('[DEBUG] Periodic re-identification for user:', user._id);
+        forceIdentify(user._id);
+      }
+    }, 30000); // Every 30 seconds
 
     socket.on('disconnect', () => {
-      console.log('Socket disconnected');
+      console.log('[DEBUG] Socket disconnected');
     });
 
     socket.on('error', (error: Error) => {
-      console.error('Socket error:', error);
+      console.error('[DEBUG] Socket error:', error);
       setErrorMessage('Connection error. Please refresh the page.');
     });
 
     // Listen for room data
     socket.on('room_data', (data: RoomData) => {
+      console.log('[DEBUG] Room data received:', data);
       setRoomData(data);
     });
 
     return () => {
+      console.log('[DEBUG] Cleaning up main socket listeners');
       socket.off('connect');
       socket.off('disconnect');
       socket.off('error');
       socket.off('room_data');
+      clearInterval(identifyInterval);
     };
   }, [user]);
 
@@ -148,11 +169,25 @@ export default function ChallengeQuiz() {
     // Listen for new questions
     socket.on('new_question', (data: any) => {
       console.log('Received question:', data);
-      setCurrentQuestion(data.question);
+      
+      // Enhance question object with question number info from server
+      const enhancedQuestion = {
+        ...data.question,
+        questionNumber: data.questionNumber || 1,
+        totalQuestions: data.totalQuestions || 5
+      };
+      
+      console.log('Enhanced question with numbers:', enhancedQuestion);
+      setCurrentQuestion(enhancedQuestion);
       setTimeLeft(data.timeLimit || 30);
       setBothAnswered(false);
       setSelectedOption(null);
       questionStartTime.current = Date.now();
+      
+      // Store course name if available
+      if (data.courseName) {
+        setCourseName(data.courseName);
+      }
     });
     
     return () => {
@@ -174,7 +209,9 @@ export default function ChallengeQuiz() {
         if (timerRef.current) {
           clearInterval(timerRef.current);
         }
-        router.push(`/course/${title}`);
+        localStorage.removeItem('challengeRoomInfo');
+        localStorage.removeItem('roomUrl');
+        router.push(`/course/${title}/leaderboard`);
       }
     });
 
@@ -215,20 +252,30 @@ export default function ChallengeQuiz() {
   };
   
   const handleExitGame = () => {
-    const socket = socketRef.current;
-    
     if (roomData && user?._id) {
       try {
+        // Debug logs
+        console.log("[DEBUG] Starting exit game process");
+        
         // Use the room ID from URL if available, otherwise fallback to constructed ID
         const actualRoomId = roomId || `${title}_${user1}_${user2}`;
+        console.log("[DEBUG] Using room ID:", actualRoomId);
         
-        // Emit leave_room event
-        socket.emit('leave_room', {
+        // Use the leaveRoom function from socketService
+        console.log("[DEBUG] Calling leaveRoom with:", {
           roomId: actualRoomId,
           userId: user._id,
-          isChallenger: roomData.challenger.id === user._id
+          isChallenger: roomData.challenger.id === user._id,
+          message: 'Sorry, I had to leave the challenge. Maybe we can play again later!'
         });
-
+        
+        leaveRoom(
+          actualRoomId,
+          user._id,
+          roomData.challenger.id === user._id,
+          'Sorry, I had to leave the challenge. Maybe we can play again later!'
+        );
+        
         // Clear any existing timers
         if (timerRef.current) {
           clearInterval(timerRef.current);
@@ -240,11 +287,16 @@ export default function ChallengeQuiz() {
         setErrorMessage(null);
         setBothAnswered(false);
         setRoomData(null);
+        
+        // Clear localStorage data
+        localStorage.removeItem('roomUrl');
+        localStorage.removeItem('challengeRoomInfo');
 
         // Navigate back to course page
-        router.push(`/course/${title}`);
+        router.push(`/course/${title}/leaderboard`);
 
         // Don't disconnect socket, just re-identify
+        const socket = socketRef.current;
         socket.emit('identify', { userId: user._id });
       } catch (error) {
         console.error('Error during game exit:', error);
@@ -253,35 +305,106 @@ export default function ChallengeQuiz() {
     }
   };
 
-  // Add opponent left handler with better cleanup
+  // Replace the opponent left handler with the new approach
   useEffect(() => {
-    const socket = socketRef.current;
+    console.log("[DEBUG] Setting up opponent_left and leave_room handlers");
     
-    socket.on('opponent_left', (data: OpponentLeftData) => {
-      // Show a message that opponent left
-      setErrorMessage(`${data.userName} has left the game`);
+    // Use the onOpponentLeft function from socketService
+    const cleanupOpponentLeft = onOpponentLeft((data: OpponentLeftData & { customMessage?: string }) => {
+      console.log("[DEBUG] OPPONENT LEFT EVENT RECEIVED via helper:", data);
+      
+      // Create a clear message about who left
+      const opponentName = data.userName;
+      const message = data.customMessage 
+        ? `${opponentName}: "${data.customMessage}"` 
+        : `${opponentName} has left the challenge.`;
+      
+      // Show a more visible error message in the UI
+      setErrorMessage(`OPPONENT LEFT: ${message}`);
       
       // Clear any existing timers
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
       
-      // Reset local state
+      // Reset game state
       setSelectedOption(null);
       setTimeLeft(30);
       setBothAnswered(false);
-      setRoomData(null);
       
-      // Wait a moment before redirecting
+      // Keep room data to show who left
+      // setRoomData(null);
+      
+      // Show a prominent toast notification (duration: 5 seconds)
+      toast.error(`Opponent Left: ${message}`, {
+        duration: 5000,
+        position: 'top-center',
+        style: {
+          background: '#ff4f4f',
+          color: '#fff',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          padding: '16px',
+          border: '2px solid black',
+          borderRadius: '8px',
+        },
+        icon: '🚫',
+      });
+      
+      // Clear localStorage data
+      localStorage.removeItem('roomUrl');
+      localStorage.removeItem('challengeRoomInfo');
+      
+      // Wait longer before redirecting to ensure message is seen
       setTimeout(() => {
-        router.push(`/course/${title}`);
+        router.push(`/course/${title}/leaderboard`);
         // Re-identify to ensure proper socket state
+        const socket = socketRef.current;
         socket.emit('identify', { userId: user?._id });
-      }, 2000);
+      }, 5000); // Increased from 2000 to 5000 ms
+    });
+    
+    // Use the onLeaveRoom function from socketService
+    const cleanupLeaveRoom = onLeaveRoom((data: OpponentLeftData) => {
+      console.log('[DEBUG] Leave room event received via helper:', data);
+      
+      // Also show a toast notification for this event
+      toast.error(`${data.userName} has left the game`, {
+        duration: 5000,
+        position: 'top-center',
+      });
+      
+      // Handle 'leave_room' similar to 'opponent_left' if needed
+      // This can help in case one event is working but not the other
+      if (data.userId !== user?._id) {
+        // This is another player leaving, handle it like opponent_left
+        const opponentName = data.userName;
+        const message = `${opponentName} has left the challenge.`;
+        
+        // Show a more visible error message in the UI
+        setErrorMessage(`PLAYER LEFT: ${message}`);
+        
+        // Clear any existing timers
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+        
+        // Reset game state
+        setSelectedOption(null);
+        setTimeLeft(30);
+        setBothAnswered(false);
+        
+        // Wait before redirecting
+        setTimeout(() => {
+          router.push(`/course/${title}/leaderboard`);
+        }, 5000);
+      }
     });
 
     return () => {
-      socket.off('opponent_left');
+      console.log("[DEBUG] Removing opponent_left and leave_room listeners in ChallengeQuiz");
+      cleanupOpponentLeft();
+      cleanupLeaveRoom();
     };
   }, [title, router, user]);
 
@@ -289,6 +412,7 @@ export default function ChallengeQuiz() {
   useEffect(() => {
     return () => {
       const socket = socketRef.current;
+      console.log('[DEBUG] Component unmounting - removing all game-specific listeners');
       // Only remove game-specific listeners
       socket.off('new_question');
       socket.off('both_answered');
@@ -301,9 +425,18 @@ export default function ChallengeQuiz() {
   // Join the challenge room when the component mounts
   useEffect(() => {
     if (roomId && user?._id) {
-      console.log(`Joining challenge room ${roomId}`);
+      console.log(`[DEBUG] Joining challenge room ${roomId} with user ${user._id}`);
       const socket = socketRef.current;
       socket.emit('join_challenge', { roomId, userId: user._id });
+      
+      // Add a listener for socket connection status
+      socket.on('connect_status', (status: { connected: boolean, userId?: string }) => {
+        console.log('[DEBUG] Socket connection status:', status);
+      });
+      
+      return () => {
+        socket.off('connect_status');
+      };
     }
   }, [roomId, user?._id]);
 
@@ -324,8 +457,9 @@ export default function ChallengeQuiz() {
       <div className="bg-[#2f235a] border-4 border-black rounded-lg w-full p-6 shadow-[8px_8px_0px_0px_#000000]">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-[#E6F1FF]">
-            Question {currentQuestion ? `${1} of ${5}` : '...'}
+            Question {currentQuestion?.questionNumber || '...'} of {currentQuestion?.totalQuestions || '...'}
           </h2>
+          
           <div className={`text-2xl font-bold ${
             bothAnswered ? 'text-green-500' : 
             timeLeft < 10 ? 'text-[#FF6B6B]' : 'text-[#FFD700]'
@@ -335,8 +469,34 @@ export default function ChallengeQuiz() {
         </div>
         
         {errorMessage && (
-          <div className="bg-red-500 bg-opacity-20 border border-red-500 text-white p-2 rounded mb-4">
+          <div className={`${errorMessage.includes('OPPONENT LEFT') 
+            ? 'bg-red-600 bg-opacity-90 border-2 border-white animate-pulse' 
+            : 'bg-red-500 bg-opacity-20 border border-red-500'} 
+            text-white p-4 rounded mb-4 font-bold text-center`}>
             {errorMessage}
+            {errorMessage.includes('OPPONENT LEFT') && (
+              <div className="mt-2 text-sm">
+                Redirecting to leaderboard in a few seconds...
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Course and Topic Context */}
+        {(courseName || currentQuestion?.topic) && (
+          <div className="bg-[#1d2b4c] p-2 rounded-md mb-3 text-sm">
+            <div className="flex flex-wrap gap-2">
+              {courseName && (
+                <span className="bg-[#6016a7] px-2 py-1 rounded text-white">
+                  Course: {courseName}
+                </span>
+              )}
+              {currentQuestion?.topic && (
+                <span className="bg-[#4d2a84] px-2 py-1 rounded text-white">
+                  Topic: {currentQuestion.topic}
+                </span>
+              )}
+            </div>
           </div>
         )}
         

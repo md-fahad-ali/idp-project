@@ -62,6 +62,16 @@ interface ChallengeRoom {
   createdAt: number;
 }
 
+// Define interface for CourseContent
+interface CourseContent {
+  title: string;
+  lessons: {
+    title: string;
+    content?: string;
+    keyPoints?: string[];
+  }[];
+}
+
 const challengeRooms: { [roomId: string]: ChallengeRoom } = {};
 
 // Socket user mapping
@@ -74,14 +84,14 @@ nextApp
     const server = express.default();
 
     // Debug middleware to log all requests (moved to top)
-    server.use((req, res, next) => {
-      console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-      if (req.method === 'POST') {
-        console.log('Request headers:', req.headers);
-        console.log('Request body:', req.body);
-      }
-      next();
-    });
+    // server.use((req, res, next) => {
+    //   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    //   if (req.method === 'POST') {
+    //     console.log('Request headers:', req.headers);
+    //     console.log('Request body:', req.body);
+    //   }
+    //   next();
+    // });
 
     // Middleware
     server.use(express.json());  // Use express.json() instead of bodyParser
@@ -159,6 +169,27 @@ nextApp
     io.on('connection', async (socket) => {
       console.log('New socket connection:', socket.id);
       
+      // Add debug logging for all events
+      const originalOn = socket.on;
+      socket.on = function(event: string, callback: Function) {
+        console.log(`[DEBUG] Registering handler for event: ${event}`);
+        return originalOn.call(this, event, (...args: any[]) => {
+          console.log(`[DEBUG] Event received: ${event}`, args);
+          return callback.apply(this, args);
+        });
+      };
+      
+      // Add a ping test handler to debug socket issues
+      socket.on('ping_test', (data) => {
+        console.log('🔍 PING TEST RECEIVED:', data);
+        // Send a pong response back to confirm bidirectional communication
+        socket.emit('pong_response', { 
+          received: true, 
+          timestamp: Date.now(),
+          originalMessage: data
+        });
+      });
+      
       // Add new socket event for checking room status
       socket.on('check_room_status', (userId: string) => {
         if (!userId) {
@@ -168,9 +199,9 @@ nextApp
         }
         
         try {
-          console.log(`Checking room status for user ${userId}`);
+          // console.log(`Checking room status for user ${userId}`);
           const isInRoom = isUserInActiveRoom(userId);
-          console.log(`User ${userId} is${isInRoom ? '' : ' not'} in an active room`);
+          // console.log(`User ${userId} is${isInRoom ? '' : ' not'} in an active room`);
           socket.emit('room_status_response', { isInRoom });
         } catch (error) {
           console.error('Error checking room status:', error);
@@ -232,27 +263,11 @@ nextApp
         try {
           const { challengerId, challengedId, courseId } = data;
           
-          if (!challengerId || !challengedId || !courseId) {
-            socket.emit('challenge_room_error', 'Missing required data');
-            return;
-          }
-          
-          // Check if either user is already in a room
-          if (isUserInActiveRoom(challengerId)) {
-            socket.emit('challenge_room_error', 'You are already in an active challenge');
-            return;
-          }
-
-          if (isUserInActiveRoom(challengedId)) {
-            socket.emit('challenge_room_error', 'This player is already in an active challenge');
-            return;
-          }
-          
-          // Verify both users exist
+          // Find relevant data
           const [challenger, challenged, course] = await Promise.all([
-            User.findById(challengerId).catch(() => null),
-            User.findById(challengedId).catch(() => null),
-            Course.findById(courseId).catch(() => null)
+            User.findById(challengerId),
+            User.findById(challengedId),
+            Course.findById(courseId).populate('lessons')
           ]);
           
           if (!challenger || !challenged || !course) {
@@ -275,19 +290,19 @@ nextApp
               _id: courseId,
               title: 'Mock Course',
               lessons: [
-                { title: 'Introduction' },
-                { title: 'Basic Concepts' },
-                { title: 'Advanced Topics' }
+                { title: 'Introduction', content: 'This is an introduction to the course.', keyPoints: ['Learn basics'] },
+                { title: 'Basic Concepts', content: 'These are the basic concepts of the course.', keyPoints: ['Understand fundamentals'] },
+                { title: 'Advanced Topics', content: 'These are advanced topics for the course.', keyPoints: ['Master advanced techniques'] }
               ]
             };
             
-            // Generate questions using lesson titles from mock course
+            // Generate questions using lesson content from mock course
             const mockCourseContent = {
               title: mockCourse.title,
               lessons: mockCourse.lessons.map((lesson: any) => ({
                 title: lesson.title,
-                content: '',  // No content in mock data
-                keyPoints: []  // No key points in mock data
+                content: lesson.content || '',
+                keyPoints: lesson.keyPoints || []
               }))
             };
             const generatedQuestions = await generateQuestionsForCourse(mockCourseContent);
@@ -340,42 +355,13 @@ nextApp
             return;
           }
           
-          // Get 5 random questions for this course
-          let courseQuestions = course.lessons
-            .flatMap((lesson: any) => lesson.tests || [])
-            .flatMap((test: any) => test.questions || []);
-            
-          // If no questions are available, generate them using AI
-          if (courseQuestions.length === 0) {
-            const courseContent = {
-              title: course.title,
-              lessons: course.lessons.map((lesson: any) => ({
-                title: lesson.title,
-                content: lesson.content,
-                keyPoints: lesson.keyPoints
-              }))
-            };
-            courseQuestions = await generateQuestionsForCourse(courseContent);
-          }
-            
-          // Randomly select 5 questions (or fewer if not enough)
-          const selectedQuestions = courseQuestions
-            .sort(() => 0.5 - Math.random())
-            .slice(0, Math.min(5, courseQuestions.length))
-            .map((q: any) => ({
-              ...q,
-              id: uuidv4() // Assign unique ID to each question
-            }));
-          
-          if (selectedQuestions.length === 0) {
-            socket.emit('challenge_room_error', 'No questions available for this course');
-            return;
-          }
+          // For real courses, we'll defer question generation until accept_challenge
+          // This ensures we have both users ready before spending time on generation
           
           // Create room with unique ID
           const roomId = uuidv4();
           
-          // Create challenge room
+          // Create challenge room (without questions for now)
           challengeRooms[roomId] = {
             roomId,
             challengerId: challenger._id.toString(),
@@ -384,7 +370,7 @@ nextApp
             challengedName: `${challenged.firstName} ${challenged.lastName}`,
             courseId: String(course._id),
             courseName: course.title,
-            questions: selectedQuestions,
+            questions: [],  // We'll generate these when the challenge is accepted
             currentQuestionIndex: 0,
             userScores: {
               [challengerId]: { score: 0, timeSpent: 0, answers: [] },
@@ -394,7 +380,7 @@ nextApp
             createdAt: Date.now()
           };
           
-          console.log(`Challenge room ${roomId} created`);
+          console.log(`Challenge room ${roomId} created (questions will be generated on accept)`);
           
           // Notify the challenged user
           const challengedSocketId = userSocketMap[challengedId];
@@ -412,7 +398,6 @@ nextApp
           }
           
           socket.emit('challenge_room_created', roomId);
-          
         } catch (error) {
           console.error('Error creating challenge room:', error);
           socket.emit('challenge_room_error', 'Server error');
@@ -442,8 +427,56 @@ nextApp
           io.sockets.sockets.get(challengerSocketId)?.join(challengeId);
         }
         
-        // Start the challenge
-        startChallenge(challengeId);
+        // If we don't have questions yet, generate them now that both users are ready
+        if (!room.questions || room.questions.length === 0) {
+          console.log('No questions found, generating from course content...');
+          
+          // Fetch the latest course data to ensure we have current content
+          Course.findById(room.courseId)
+            .then(async (course) => {
+              if (!course) {
+                console.error('Course not found for question generation');
+                socket.emit('challenge_error', 'Failed to load course content for questions');
+                return;
+              }
+              
+              // Prepare comprehensive course content with all lesson data
+              const courseContent = {
+                title: course.title,
+                lessons: course.lessons.map((lesson) => ({
+                  title: lesson.title,
+                  content: lesson.content || '',
+                  keyPoints: Array.isArray(lesson.points) ? lesson.points.map(String) : []
+                }))
+              };
+              
+              // Generate questions from the actual course content
+              const generatedQuestions = await generateQuestionsForCourse(courseContent as CourseContent);
+              
+              if (generatedQuestions.length === 0) {
+                socket.emit('challenge_error', 'Failed to generate questions from course content');
+                return;
+              }
+              
+              // Update the room with the generated questions
+              room.questions = generatedQuestions.map(q => ({
+                ...q,
+                id: uuidv4() // Assign unique ID to each question
+              }));
+              
+              console.log(`Generated ${room.questions.length} questions from course content`);
+              
+              // Start the challenge with the new questions
+              startChallenge(challengeId);
+            })
+            .catch(error => {
+              console.error('Error generating questions from course:', error);
+              socket.emit('challenge_error', 'Failed to prepare questions');
+            });
+        } else {
+          // Start the challenge with existing questions
+          startChallenge(challengeId);
+        }
       });
       
       // Decline challenge
@@ -550,25 +583,63 @@ nextApp
       });
       
       // Handle user leaving the room
-      socket.on('leave_room', async ({ roomId, userId, isChallenger }) => {
+      socket.on('leave_room', async (data) => {
+        console.log("🔴 LEAVE_ROOM EVENT RECEIVED with data:", data);
+        
         try {
+          // Extract parameters, using defaults if missing
+          const roomId = data?.roomId;
+          const userId = data?.userId;
+          const isChallenger = data?.isChallenger;
+          const customMessage = data?.customMessage || "Player has left the game.";
+          
+          console.log("🔴 Processed leave_room parameters:", { roomId, userId, isChallenger, customMessage });
+          
+          // Continue only if we have userId
+          if (!userId) {
+            console.error("🔴 Missing userId in leave_room event");
+            return;
+          }
+          
           // Find the room where this user is participating
           const room = Object.values(challengeRooms).find(room => 
             (room.challengerId === userId || room.challengedId === userId) &&
             (room.status === 'pending' || room.status === 'active')
           );
 
+          console.log("🔴 Found room for user:", room ? room.roomId : "No room found");
+
           if (room) {
             // Get both user IDs
             const challengerId = room.challengerId;
             const challengedId = room.challengedId;
+            
+            // Determine which user is leaving and which is the opponent
+            const isUserChallenger = userId === challengerId;
+            const opponentId = isUserChallenger ? challengedId : challengerId;
+            const leavingUserName = isUserChallenger ? room.challengerName : room.challengedName;
+            const opponentSocketId = userSocketMap[opponentId];
+            
+            console.log(`🔴 User ${userId} (${leavingUserName}) is leaving, opponent is ${opponentId}`);
+            console.log(`🔴 Opponent socket ID: ${opponentSocketId}`);
 
             // Store room ID before deletion for cleanup
             const roomToDelete = room.roomId;
-
-            // Get socket IDs for both users
+            
+            // Get socket IDs for both users (needed for notifications)
             const challengerSocketId = userSocketMap[challengerId];
             const challengedSocketId = userSocketMap[challengedId];
+
+            // Send a single notification to the opponent
+            if (opponentSocketId) {
+              console.log(`🔴 Sending opponent_left notification to ${opponentId}`);
+              io.to(opponentSocketId).emit('opponent_left', {
+                roomId: room.roomId,
+                userId,
+                userName: leavingUserName,
+                customMessage
+              });
+            }
 
             // First, update database to ensure users are marked as not in challenge
             await UserActivity.updateMany(
@@ -587,11 +658,9 @@ nextApp
             if (challengerSocketId) {
               const challengerSocket = io.sockets.sockets.get(challengerSocketId);
               if (challengerSocket) {
-                // Leave the room
                 challengerSocket.leave(roomToDelete);
               }
               
-              // Notify challenger about game end
               io.to(challengerSocketId).emit('challenge_status_update', {
                 isInChallenge: false,
                 challengeId: null,
@@ -602,11 +671,9 @@ nextApp
             if (challengedSocketId) {
               const challengedSocket = io.sockets.sockets.get(challengedSocketId);
               if (challengedSocket) {
-                // Leave the room
                 challengedSocket.leave(roomToDelete);
               }
               
-              // Notify challenged about game end
               io.to(challengedSocketId).emit('challenge_status_update', {
                 isInChallenge: false,
                 challengeId: null,
@@ -614,34 +681,11 @@ nextApp
               });
             }
 
-            // Also send opponent_left event to the other user
-            const otherUserId = isChallenger ? challengedId : challengerId;
-            const otherUserSocketId = userSocketMap[otherUserId];
-            const leavingUserName = isChallenger ? room.challengerName : room.challengedName;
-            
-            if (otherUserSocketId) {
-              io.to(otherUserSocketId).emit('opponent_left', {
-                roomId: room.roomId,
-                userId,
-                userName: leavingUserName
-              });
-            }
-
             // Mark the room as completed and remove it
             room.status = 'completed';
             delete challengeRooms[roomToDelete];
 
-            // Update socket mappings to ensure they're fresh
-            [challengerId, challengedId].forEach(uid => {
-              const socketId = userSocketMap[uid];
-              if (socketId) {
-                // Keep the socket connection but update the mapping
-                socketUserMap[socketId] = uid;
-                userSocketMap[uid] = socketId;
-              }
-            });
-
-            console.log(`Successfully cleaned up room ${roomToDelete} for users ${challengerId} and ${challengedId}`);
+            console.log(`🔴 Successfully cleaned up room ${roomToDelete}`);
           }
         } catch (error) {
           console.error('Error in leave_room handler:', error);
@@ -683,6 +727,62 @@ nextApp
             }
         }
       });
+
+      // Join challenge room (used by challenger and challenged)
+      socket.on('join_challenge', ({ roomId, userId }) => {
+        try {
+          console.log(`User ${userId} joining challenge room ${roomId}`);
+          
+          const room = challengeRooms[roomId];
+          if (!room) {
+            socket.emit('challenge_error', 'Challenge room not found');
+            return;
+          }
+          
+          // Check if user is authorized to join this room
+          if (room.challengerId !== userId && room.challengedId !== userId) {
+            socket.emit('challenge_error', 'Not authorized to join this challenge');
+            return;
+          }
+          
+          // Join the socket room
+          socket.join(roomId);
+          
+          // Send room data to the user
+          socket.emit('room_data', {
+            challenger: {
+              id: room.challengerId,
+              name: room.challengerName
+            },
+            challenged: {
+              id: room.challengedId,
+              name: room.challengedName
+            }
+          });
+          
+          console.log(`User ${userId} joined challenge room ${roomId}`);
+          
+          // If the room is already active, send the current question
+          if (room.status === 'active' && room.currentQuestionIndex < room.questions.length) {
+            const currentQuestion = room.questions[room.currentQuestionIndex];
+            socket.emit('new_question', {
+              question: {
+                id: currentQuestion.id,
+                text: currentQuestion.text,
+                options: currentQuestion.options,
+                topic: currentQuestion.topic || room.courseName
+              },
+              timeLimit: 30,
+              questionNumber: room.currentQuestionIndex + 1,
+              totalQuestions: room.questions.length,
+              courseName: room.courseName
+            });
+          }
+        } catch (error) {
+          console.error('Error joining challenge room:', error);
+          socket.emit('challenge_error', 'Server error joining challenge room');
+        }
+      });
     });
     
     // Helper function to start a challenge
@@ -721,12 +821,18 @@ nextApp
         question: {
           id: currentQuestion.id,
           text: currentQuestion.text,
-          options: currentQuestion.options
+          options: currentQuestion.options,
+          topic: currentQuestion.topic || room.courseName, // Include topic if available
         },
         timeLimit: 30, // 30 seconds per question
         questionNumber: room.currentQuestionIndex + 1,
-        totalQuestions: room.questions.length
+        totalQuestions: room.questions.length,
+        // Include course context to remind users what content this is from
+        courseName: room.courseName
       });
+      
+      // Log question sending to verify it's working
+      console.log(`Sending question ${room.currentQuestionIndex + 1} of ${room.questions.length} to room ${roomId}`);
     };
     
     // Helper function to end a challenge
@@ -776,6 +882,13 @@ nextApp
         challengedTimeSpent: room.userScores[room.challengedId].timeSpent,
         winnerId,
         winnerName
+      });
+      
+      // Enhanced to force client-side cleanup
+      io.to(roomId).emit('challenge_status_update', {
+        isInChallenge: false, 
+        challengeId: null,
+        opponentId: null
       });
       
       // Store results in database for both users
