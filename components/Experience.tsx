@@ -1,9 +1,11 @@
 'use client';
 
-import Card from './ui/Card';
-import { Gamepad2, Trophy, Bot, Users, Zap, Brain } from 'lucide-react';
+import React from 'react';
+import Link from 'next/link';
 import { motion, useInView, useAnimation } from 'framer-motion';
 import { useEffect, useRef } from 'react';
+import Card from './ui/Card';
+import { Gamepad2, Trophy, Bot, Users, Zap, Brain } from 'lucide-react';
 
 export function Exprience() {
     const exp = [
@@ -47,8 +49,7 @@ export function Exprience() {
 
     // Ref and animation controls
     const ref = useRef(null);
-    const isInView = useInView(ref, { amount: 0.1 }); // Trigger when 30% is visible
-    const isOutView = !isInView; // Add this line
+    const isInView = useInView(ref, { amount: 0.1 }); // Trigger when 10% is visible
     const controls = useAnimation();
 
     // Animation variants
@@ -78,45 +79,43 @@ export function Exprience() {
     useEffect(() => {
         if (isInView) {
             controls.start('visible');
-        } else if (isOutView) { // Update this line
+        } else {
             controls.start('hidden');
         }
-    }, [isInView, isOutView, controls]); // Update this line
+    }, [isInView, controls]);
 
     return (
-        <div className="mt-[100px] flex flex-col items-center justify-center" ref={ref}>
+        <div className="w-full" ref={ref}>
             <motion.div
-                className="text-center max-w-3xl mx-auto mb-16 flex flex-col items-center"
-                initial={{ opacity: 0, y: 20 }}
-                animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-                transition={{ duration: 0.6, ease: 'easeOut' }}
+                className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 md:px-8"
+                variants={containerVariants}
+                initial="hidden"
+                animate={controls}
             >
-                <h2 className="text-3xl md:text-4xl font-bold mb-4 flex flex-col md:flex-row gap-[10px]">
-                    <span className="bg-gradient-to-r from-cyan-400 to-pink-500 bg-clip-text text-transparent">
-                        POWER-UP
-                    </span>
-                    <span className="text-white">Your Learning Experience</span>
-                </h2>
-                <p className="text-gray-300">
-                    Our platform transforms traditional learning into an exciting,
-                    game-like adventure
-                </p>
+                {exp.map((e, i) => (
+                    <motion.div
+                        key={i}
+                        variants={cardVariants}
+                        className="bg-purple-600 border-4 border-purple-700 rounded-lg p-6 shadow-lg relative overflow-hidden"
+                    >
+                        {/* Background design elements */}
+                        <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-purple-500 opacity-30"></div>
+                        
+                        <div className="relative z-10">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-bold text-white font-mono">{e.title}</h3>
+                            </div>
+                            <p className="text-gray-200 mb-5">{e.description}</p>
+                            <Link 
+                                href="/features"
+                                className="inline-block bg-black text-white py-2 px-4 rounded-md font-medium hover:bg-gray-900 transition-colors"
+                            >
+                                Learn More
+                            </Link>
+                        </div>
+                    </motion.div>
+                ))}
             </motion.div>
-            <div className="container mx-auto px-4 flex justify-center items-center">
-                <motion.div
-                    className="grid justify-center items-center grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full lg:w-[70%]"
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate={controls}
-                    style={{justifyItems:"center"}}
-                >
-                    {exp.map((e, i) => (
-                        <motion.div key={i} variants={cardVariants} className="flex-1">
-                            <Card title={e.title} description={e.description} />
-                        </motion.div>
-                    ))}
-                </motion.div>
-            </div>
         </div>
     );
 }

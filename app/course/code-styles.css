@@ -18,15 +18,45 @@
   padding-right: 10px !important;
 }
 
-/* Syntax highlighting colors */
+/* CORE CODE STYLES - CONSISTENT ACROSS THEMES */
+/* Base Code Block Styling */
+pre, pre.hljs-line-numbers, pre[class*="language-"], .code-block pre {
+  background-color: #1a1a2e !important;
+  color: #e2e8f0 !important;
+  border: 2px solid #333 !important;
+  border-radius: 8px !important;
+  padding: 1.5rem !important;
+  margin: 1.5rem 0 !important;
+  box-shadow: 6px 6px 0px 0px #363748 !important;
+  overflow-x: auto !important;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace !important;
+  line-height: 1.6 !important;
+  width: 100% !important;
+  display: block !important;
+}
+
+/* Base Code Styling */
+code, code.hljs, pre code, .code-block code {
+  background: transparent !important;
+  color: #e2e8f0 !important;
+  padding: 0 !important;
+  font-size: 1em !important;
+  line-height: 1.6 !important;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace !important;
+  text-shadow: none !important;
+}
+
+/* Syntax highlighting colors - Universal */
 .token.comment,
 .token.prolog,
 .token.doctype,
-.token.cdata {
+.token.cdata,
+.hljs-comment {
   color: #8892b0 !important;
 }
 
-.token.punctuation {
+.token.punctuation,
+.hljs-punctuation {
   color: #9CDCFE !important;
 }
 
@@ -35,7 +65,9 @@
 .token.boolean,
 .token.number,
 .token.constant,
-.token.symbol {
+.token.symbol,
+.hljs-number,
+.hljs-boolean {
   color: #FF9D00 !important;
 }
 
@@ -43,7 +75,8 @@
 .token.attr-name,
 .token.string,
 .token.char,
-.token.builtin {
+.token.builtin,
+.hljs-string {
   color: #CE9178 !important;
 }
 
@@ -51,218 +84,123 @@
 .token.entity,
 .token.url,
 .language-css .token.string,
-.style .token.string {
+.style .token.string,
+.hljs-operator {
   color: #D4D4D4 !important;
 }
 
 .token.atrule,
 .token.attr-value,
-.token.keyword {
-  color: #569CD6 !important;
-}
-
-.token.function {
-  color: #9CDCFE !important;
-}
-
-.token.regex,
-.token.important,
-.token.variable {
-  color: #9CDCFE !important;
-}
-
-/* Fix for line numbers */
-.line-numbers-rows > span:before {
-  color: #666 !important;
-}
-
-/* Fix spacing */
-.prose p {
-  margin-bottom: 1rem !important;
-}
-
-.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
-  margin-bottom: 1rem !important;
-  margin-top: 1.5rem !important;
-}
-
-.prose ul, .prose ol {
-  margin-bottom: 1rem !important;
-}
-
-.prose li {
-  margin-bottom: 0.5rem !important;
-}
-
-/* Custom code block styling - Base styles */
-pre.hljs-line-numbers {
-  position: relative;
-  padding: 1.5rem !important;
-  margin: 1.5rem 0 !important;
-  border-radius: 8px !important;
-  overflow: hidden !important;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace !important;
-  line-height: 1.6 !important;
-  /* border: none !important; */
-  /* box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important; */
-  width: 100% !important;
-  display: block !important;
-}
-
-code.hljs {
-  background: transparent !important;
-  padding: 0 !important;
-  font-size: 1em !important;
-  line-height: 1.6 !important;
-  color: #e6e6e6 !important;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
-}
-
-/* C language specific styling - Purple background */
-/* .language-c.hljs, 
-pre:has(.language-c) {
-  background-color: #1e1e3f !important; /* Darker blue-purple for C code */
-/* } */
-
-/* JavaScript specific styling - Dark blue background */
-/* .language-javascript.hljs,
-pre:has(.language-javascript) {
-  background-color: #0c1021 !important; /* Very dark blue for JavaScript */
-  /* padding: 1rem !important;
-  margin: 0 !important; */
-/* }  */ 
-
-/* General syntax highlighting colors */
+.token.keyword,
 .hljs-keyword {
   color: #569CD6 !important;
-  font-weight: normal !important;
 }
 
-.hljs-built_in {
-  color: #4EC9B0 !important;
-}
-
-.hljs-string {
-  color: #9ECE6A !important;
-}
-
+.token.function,
 .hljs-function {
   color: #DCDCAA !important;
 }
 
-.hljs-title.function_ {
-  color: #4FB1BC !important;
+.token.regex,
+.token.important,
+.token.variable,
+.hljs-variable {
+  color: #9CDCFE !important;
 }
 
-.hljs-params {
-  color: #E6F1FF !important;
-}
-
-.hljs-comment {
-  color: #6A9955 !important;
-}
-
-.hljs-preprocessor, 
-.hljs-meta {
-  color: #9D4EDD !important;
-}
-
-.hljs-title.class_ {
+/* SPECIFIC SYNTAX PATTERNS */
+/* Console.log specific */
+.console, 
+[class*="console"],
+span[class*="console"],
+.console-log .console,
+.console-log-example .console {
   color: #4EC9B0 !important;
 }
 
-/* C language specific colors */
-.language-c .hljs-title.function_ {
-  color: #4FB1BC !important; /* Blue for main function */
+.log, 
+[class*="log"],
+span[class*="log"],
+.console-log .log,
+.console-log-example .log {
+  color: #4EC9B0 !important;
 }
 
-.language-c .hljs-meta {
-  color: #8A8A8A !important; /* Gray for #include */
+/* Print function specific */
+.print, 
+[class*="print"],
+span[class*="print"],
+.print-example .print {
+  color: #4EC9B0 !important;
 }
 
-.language-c .hljs-string {
-  color: #CE9178 !important; /* Orange-ish for string in C */
+/* String values */
+.string, 
+[class*="string"],
+span[class*="string"],
+.hello-world,
+.code .hello-world {
+  color: #CE9178 !important;
 }
 
-.language-c .hljs-keyword {
-  color: #C586C0 !important; /* Purple for int and return in C */
+/* JavaScript code block */
+code .language-javascript,
+pre .language-javascript,
+code.language-javascript,
+pre.language-javascript {
+  background-color: #1a1a2e !important;
+  color: #e2e8f0 !important;
 }
 
-.language-c .hljs-built_in {
-  color: #DCDCAA !important; /* Yellow for printf */
+/* Python code block */
+code .language-python,
+pre .language-python,
+code.language-python, 
+pre.language-python {
+  background-color: #1a1a2e !important;
+  color: #e2e8f0 !important;
 }
 
-/* JavaScript specific colors */
-.language-javascript .hljs-built_in {
-  color: #DCDCAA !important; /* Yellow for console */
+/* Make sure dark theme doesn't override these styles */
+.dark-theme pre,
+.dark-theme code,
+html body.dark-theme pre,
+html body.dark-theme code {
+  background-color: #1a1a2e !important;
+  color: #e2e8f0 !important;
+  border-color: #333 !important;
 }
 
-.language-javascript .hljs-property {
-  color: #9cdcfe !important; /* Light blue for object properties like console.log */
+/* Force these styles to apply everywhere */
+.console-log-example pre code .console,
+.console-log-example pre code .log,
+pre code .console,
+pre code .log {
+  color: #4EC9B0 !important;
 }
 
-.language-javascript .hljs-string {
-  color: #CE9178 !important; /* Orange for strings in JS */
+.print-example pre code .print,
+pre code .print {
+  color: #4EC9B0 !important;
 }
 
-/* Add cursor effect to JavaScript code blocks */
-/* pre:has(.language-javascript)::after {
-  content: '';
-  position: absolute;
-  right: 15px;
-  bottom: 15px;
-  width: 12px;
-  height: 20px;
-  background-color: #fff;
-  opacity: 0.7;
-  border-radius: 2px;
-  animation: blink 1s step-end infinite;
-} */
-
-/* @keyframes blink {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 0; }
-} */
-
-/* Remove unnecessary gradient top border */
-pre.hljs-line-numbers::before {
-  display: none;
+.console-log-example pre code .string,
+.print-example pre code .string,
+pre code .string {
+  color: #CE9178 !important;
 }
 
-/* Add drop shadow effect for code blocks */
-/* .prose pre {
-  filter: drop-shadow(0px 5px 10px rgba(0, 0, 0, 0.5)) !important;
-} */
-
-/* Card-like effect */
-pre.hljs-line-numbers {
-  position: relative;
-  display: block;
-  box-sizing: border-box;
+/* Make sure strings are properly colored */
+pre code span[class*="string"],
+pre code span[class*="console"],
+pre code span[class*="log"],
+pre code span[class*="print"] {
+  color: #CE9178 !important;
 }
 
-/* Special styling for the C code example */
-pre:has(.language-c) {
-  display: block;
-  width: 100%;
-  margin: 2rem 0 !important;
-  padding: 1.25rem !important;
-}
-
-/* Create the exact appearance from the images
-pre:has(.language-c), pre:has(.language-javascript) {
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4),
-              0 0 0 1px rgba(0, 0, 0, 0.1),
-              0 10px 15px -5px rgba(0, 0, 0, 0.5) !important;
-  transform: perspective(800px) rotateX(1deg) !important;
-  transform-origin: bottom center !important;
-} */
-
-/* Responsive adjustments */
+/* Add more specific styles as needed */
 @media (max-width: 640px) {
   pre.hljs-line-numbers {
-    font-size: 14px !important;
     padding: 1rem !important;
   }
 } 

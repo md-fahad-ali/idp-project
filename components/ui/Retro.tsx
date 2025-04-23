@@ -126,7 +126,7 @@ export default function Retro() {
   }, [dimensions]);
 
   return (
-    <div className="inset-0 overflow-hidden bg-black">
+    <div className="relative w-full h-full overflow-hidden bg-black">
       <canvas ref={canvasRef} className="block w-full h-full" />
     </div>
   );

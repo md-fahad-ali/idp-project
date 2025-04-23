@@ -88,26 +88,26 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
         heading: {
           levels: [1, 2, 3, 4, 5, 6],
           HTMLAttributes: {
-            class: 'prose-headings:font-bold prose-h1:text-3xl prose-h1:mt-6 prose-h1:mb-4 prose-h2:text-2xl prose-h2:mt-5 prose-h2:mb-3 prose-h3:text-xl prose-h3:mt-4 prose-h3:mb-2 prose-h4:text-lg prose-h4:mt-3 prose-h4:mb-2 prose-h5:text-base prose-h5:mt-3 prose-h5:mb-1 prose-h6:text-sm prose-h6:mt-3 prose-h6:mb-1',
+            class: 'prose-headings:font-bold prose-h1:text-3xl prose-h1:mt-6 prose-h1:mb-4 prose-h2:text-2xl prose-h2:mt-5 prose-h2:mb-3 prose-h3:text-xl prose-h3:mt-4 prose-h3:mb-2 prose-h4:text-lg prose-h4:mt-3 prose-h4:mb-2 prose-h5:text-base prose-h5:mt-3 prose-h5:mb-1 prose-h6:text-sm prose-h6:mt-3 prose-h6:mb-1 text-black',
           },
         },
         bulletList: {
           keepMarks: true,
           keepAttributes: true,
           HTMLAttributes: {
-            class: 'list-disc ml-2',
+            class: 'list-disc ml-2 text-black',
           },
         },
         orderedList: {
           keepMarks: true,
           keepAttributes: true,
           HTMLAttributes: {
-            class: 'list-decimal ml-2',
+            class: 'list-decimal ml-2 text-black',
           },
         },
         blockquote: {
           HTMLAttributes: {
-            class: 'pl-4 border-l-4 border-gray-500 italic my-4 bg-gray-100 p-2 rounded-r',
+            class: 'pl-4 border-l-4 border-gray-500 italic my-4 bg-gray-200 text-black p-2 rounded-r',
           },
         },
         horizontalRule: false,
@@ -115,6 +115,11 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
         code: {
           HTMLAttributes: {
             class: 'bg-gray-800 text-white px-1 rounded font-mono',
+          },
+        },
+        paragraph: {
+          HTMLAttributes: {
+            class: 'text-black my-2',
           },
         },
       }),
@@ -126,7 +131,12 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
         },
       }),
       Underline,
-      Link.configure({ openOnClick: true }),
+      Link.configure({ 
+        openOnClick: true,
+        HTMLAttributes: {
+          class: 'text-blue-600 underline',
+        },
+      }),
       Image.configure({
         HTMLAttributes: {
           class: 'max-w-full h-auto',
@@ -136,7 +146,7 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
     ],
     editorProps: {
       attributes: {
-        class: 'focus:outline-none min-h-[200px]',
+        class: 'focus:outline-none min-h-[200px] text-black bg-[#e9e9e9] p-4 rounded',
       },
       handleDrop: () => false, // Disable drag and drop to prevent memory leaks
       handlePaste: (view: EditorView, event: ClipboardEvent) => {
@@ -149,7 +159,7 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
         return false;
       },
     },
-    content: content || `<div>${title} - ${category}</div>`,
+    content: content || `<div class="text-black">${title} - ${category}</div>`,
     immediatelyRender: false,
   }), [title, category, content]);
 
@@ -301,7 +311,7 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
 
   return (
     <EditorErrorBoundary>
-      <div className="relative">
+      <div className="relative border-2 border-black rounded-md overflow-hidden bg-[#e9e9e9] text-black">
         {editor && (
           <BubbleMenu
             editor={editor}
@@ -502,7 +512,7 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
                 <Plus className="w-5 h-5" />
               </button>
               {showInsertMenu && (
-                <div className="absolute left-0 top-full mt-2 bg-[#e0e0e0] border-2 border-black shadow-[4px_4px_0px_0px_black] rounded-none z-50 w-[200px]">
+                <div className="absolute left-0 top-full mt-2 bg-[#656363] border-2 border-black shadow-[4px_4px_0px_0px_black] rounded-none z-50 w-[200px]">
                   <div className="grid grid-cols-1 gap-1">
                     <button
                       className="flex items-center gap-2 px-4 py-2 text-sm text-black hover:bg-[#c0c0c0]"
@@ -558,10 +568,15 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
             </div>
           </FloatingMenu>
         )}
-        <EditorContent
-          editor={editor}
-          className="bg-[#f5f5dc] text-black p-4 border-4 border-black shadow-[8px_8px_0px_0px_black] font-mono overflow-visible"
-        />
+        <div className="sticky top-0 z-10 flex justify-between items-center p-2 border-b border-[#b0b0b0] bg-[#d1d1d1]">
+          <div className="flex space-x-1">
+            {/* ...existing toolbar buttons... */}
+          </div>
+        </div>
+        
+        <div className="prose prose-sm max-w-none text-black p-4 pb-20">
+          <EditorContent editor={editor} className="text-black" />
+        </div>
       </div>
     </EditorErrorBoundary>
   );

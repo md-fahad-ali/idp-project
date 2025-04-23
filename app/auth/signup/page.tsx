@@ -50,14 +50,14 @@ const SignUp = () => {
   };
 
   return (
-    <div className="relative overflow-hidden flex items-center justify-center h-[100dvh]">
+    <div className="fixed inset-0 flex items-center justify-center">
       {/* Retro Background */}
-      <div className="absolute">
+      <div className="absolute inset-0">
         <Retro />
       </div>
 
       {/* Sign Up Container */}
-      <div className="relative z-10 w-full max-w-sm sm:max-w-md md:max-w-lg p-6 sm:p-8 bg-[#cbb9dd] border-4 border-black rounded-lg shadow-[8px_8px_0px_0px_black]">
+      <div className="relative z-10 w-full max-w-sm sm:max-w-md md:max-w-lg p-6 sm:p-8 bg-[#cbb9dd] border-4 border-black dark:border-black rounded-lg shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-h-[90vh] overflow-y-auto">
         {/* Title with Retro Gradient */}
         <h1 className="text-3xl sm:text-4xl font-bold text-center mb-6 sm:mb-8 tracking-wider bg-gradient-to-r from-[#0298a3] to-[#a302a3] bg-clip-text text-transparent">
           Sign Up
@@ -68,14 +68,14 @@ const SignUp = () => {
       
 
         {/* Sign-up Form */}
-        <form className="space-y-5 sm:space-y-6 font-mono" onSubmit={handleSubmit}>
+        <form className="space-y-4 sm:space-y-5 font-mono" onSubmit={handleSubmit}>
           {/* First Name and Last Name Container */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* First Name Field */}
             <div>
               <label
                 htmlFor="firstName"
-                className="block text-lg sm:text-xl font-semibold mb-2 text-gray-800"
+                className="block text-lg font-semibold mb-1 text-gray-800"
               >
                 First Name
               </label>
@@ -84,7 +84,7 @@ const SignUp = () => {
                 id="firstName"
                 name="firstName"
                 placeholder="Enter your first name"
-                className="w-full p-2 sm:p-3 bg-white border-2 border-black rounded-md shadow-[4px_4px_0px_0px_black] text-lg sm:text-xl focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
+                className="w-full p-2 bg-white border-2 border-black dark:border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-lg focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
               />
             </div>
 
@@ -92,7 +92,7 @@ const SignUp = () => {
             <div>
               <label
                 htmlFor="lastName"
-                className="block text-lg sm:text-xl font-semibold mb-2 text-gray-800"
+                className="block text-lg font-semibold mb-1 text-gray-800"
               >
                 Last Name
               </label>
@@ -101,7 +101,7 @@ const SignUp = () => {
                 id="lastName"
                 name="lastName"
                 placeholder="Enter your last name"
-                className="w-full p-2 sm:p-3 bg-white border-2 border-black rounded-md shadow-[4px_4px_0px_0px_black] text-lg sm:text-xl focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
+                className="w-full p-2 bg-white border-2 border-black dark:border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-lg focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
               />
             </div>
           </div>
@@ -110,7 +110,7 @@ const SignUp = () => {
           <div>
             <label
               htmlFor="username"
-              className="block text-lg sm:text-xl font-semibold mb-2 text-gray-800"
+              className="block text-lg font-semibold mb-1 text-gray-800"
             >
               Username
             </label>
@@ -119,7 +119,7 @@ const SignUp = () => {
               id="username"
               name="username"
               placeholder="Enter your username"
-              className="w-full p-2 sm:p-3 bg-white border-2 border-black rounded-md shadow-[4px_4px_0px_0px_black] text-lg sm:text-xl focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
+              className="w-full p-2 bg-white border-2 border-black dark:border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-lg focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
             />
           </div>
 
@@ -127,7 +127,7 @@ const SignUp = () => {
           <div>
             <label
               htmlFor="email"
-              className="block text-lg sm:text-xl font-semibold mb-2 text-gray-800"
+              className="block text-lg font-semibold mb-1 text-gray-800"
             >
               Email
             </label>
@@ -136,7 +136,7 @@ const SignUp = () => {
               id="email"
               name="email"
               placeholder="Enter your email"
-              className="w-full p-2 sm:p-3 bg-white border-2 border-black rounded-md shadow-[4px_4px_0px_0px_black] text-lg sm:text-xl focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
+              className="w-full p-2 bg-white border-2 border-black dark:border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-lg focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
             />
           </div>
 
@@ -144,7 +144,7 @@ const SignUp = () => {
           <div>
             <label
               htmlFor="password"
-              className="block text-lg sm:text-xl font-semibold mb-2 text-gray-800"
+              className="block text-lg font-semibold mb-1 text-gray-800"
             >
               Password
             </label>
@@ -153,7 +153,7 @@ const SignUp = () => {
               id="password"
               name="password"
               placeholder="Enter your password"
-              className="w-full p-2 sm:p-3 bg-white border-2 border-black rounded-md shadow-[4px_4px_0px_0px_black] text-lg sm:text-xl focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
+              className="w-full p-2 bg-white border-2 border-black dark:border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-lg focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
             />
           </div>
 
@@ -161,14 +161,14 @@ const SignUp = () => {
           <div>
             <label
               htmlFor="role"
-              className="block text-lg sm:text-xl font-semibold mb-2 text-gray-800"
+              className="block text-lg font-semibold mb-1 text-gray-800"
             >
               Role
             </label>
             <select
               id="role"
               name="role"
-              className="w-full p-2 sm:p-3 bg-white border-2 border-black rounded-md shadow-[4px_4px_0px_0px_black] text-lg sm:text-xl focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
+              className="w-full p-2 bg-white border-2 border-black dark:border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-lg focus:outline-none focus:ring-2 focus:ring-[#00DDEB]"
             >
               <option value="">Select your role</option>
               <option value="user">User</option>
@@ -180,7 +180,7 @@ const SignUp = () => {
           <div>
             <button
               type="submit"
-              className="w-full p-2 sm:p-3 text-white bg-[#FF00FF] border-4 border-black rounded-md shadow-[4px_4px_0px_0px_black] hover:bg-[#D100D1] transition-all duration-200 text-lg sm:text-xl font-bold"
+              className="w-full p-2 text-white bg-[#FF00FF] border-4 border-black dark:border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-[#D100D1] transition-all duration-200 text-lg font-bold"
             >
               Sign Up
             </button>
@@ -188,7 +188,7 @@ const SignUp = () => {
         </form>
 
         {/* Additional Links */}
-        <div className="mt-6 sm:mt-8 text-center">
+        <div className="mt-5 text-center">
           <p className="text-sm sm:text-base text-gray-700">
             Already have an account?{' '}
             <Link

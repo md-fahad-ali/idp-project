@@ -62,7 +62,7 @@ const Login = () => {
   }
 
   return (
-    <div className="relative overflow-hidden flex items-center justify-center h-[100dvh]">
+    <div className="relative overflow-hidden flex items-center justify-center h-[93.4dvh]">
       {/* Retro Background */}
       
 

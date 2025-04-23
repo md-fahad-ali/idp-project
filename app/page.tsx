@@ -6,29 +6,42 @@ import Credits from '@/components/Credits'
 
 function Home() {
   return (
-    <div>
+    <div className="w-full">
+      {/* Hero section - now scrollable */}
       <Hero />
+      
+      {/* Rest of content - full width */}
+      <div className="w-full bg-[#190B2E]">
+        <div className="w-full">
+          <h2 className="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-[#00DDEB] to-[#FF00FF] mb-16">
+            POWER-<span className="text-[#FF00FF]">UP</span> Your Learning Experience
+          </h2>
+          <p className="text-center text-white mb-16 max-w-3xl mx-auto">
+            Our platform transforms traditional learning into an exciting, game-like adventure
+          </p>
+          
       <Exprience />
       <Credits />
-      <footer className="top-[22px] relative pt-8 pb-6 border-t border-purple-800/30 bg-gradient-to-b from-[#1A0B2E] to-[#2E1A47] shadow-lg">
+        </div>
+      <footer className="relative pt-8 pb-6 border-t border-purple-800/30 bg-gradient-to-b from-[#1A0B2E] to-[#2E1A47] shadow-lg">
         {/* Gradient Background */}
         <div className="absolute inset-0 opacity-20 bg-gradient-to-t from-[#00DDEB]/10 to-transparent"></div>
 
-        {/* Container */}
-        <div className="container mx-auto px-4 relative z-10">
+          {/* Container - keep footer content centered but wider */}
+          <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Grid Layout */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center md:text-left">
             {/* Brand Section */}
             <div>
               <h3 className="text-xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-[#00DDEB] to-[#FF00FF] tracking-wider">
-                ARCADE<span className="text-white drop-shadow-md">EDU</span>
+                ARCADE<span className="text-white ">EDU</span>
               </h3>
               <p className="text-gray-300 text-sm">Level up your learning with retro vibes!</p>
             </div>
 
             {/* Quick Links */}
             <div>
-              <h3 className="text-lg font-bold mb-2 text-[#00DDEB] drop-shadow-md">Links</h3>
+              <h3 className="text-lg font-bold mb-2 text-[#00DDEB] ">Links</h3>
               <ul className="space-y-1 text-sm">
                 <li>
                   <a href="#" className="text-white hover:text-[#00DDEB] transition-colors">
@@ -50,9 +63,9 @@ function Home() {
 
             {/* Social Icons */}
             <div>
-              <h3 className="text-lg font-bold mb-2 text-[#FF00FF] drop-shadow-md">Connect</h3>
+              <h3 className="text-lg font-bold mb-2 text-[#FF00FF] ">Connect</h3>
               <div className="flex justify-center md:justify-start gap-4">
-                <a href="https://twitter.com" className="text-white hover:text-[#00DDEB] transition-colors drop-shadow-md">
+                <a href="https://twitter.com" className="text-white hover:text-[#00DDEB] transition-colors ">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="20"
@@ -69,7 +82,7 @@ function Home() {
                   </svg>
                   <span className="sr-only">Twitter</span>
                 </a>
-                <a href="https://github.com" className="text-white hover:text-[#00DDEB] transition-colors drop-shadow-md">
+                <a href="https://github.com" className="text-white hover:text-[#00DDEB] transition-colors ">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="20"
@@ -87,7 +100,7 @@ function Home() {
                   </svg>
                   <span className="sr-only">Github</span>
                 </a>
-                <a href="https://instagram.com" className="text-white hover:text-[#00DDEB] transition-colors drop-shadow-md">
+                <a href="https://instagram.com" className="text-white hover:text-[#00DDEB] transition-colors ">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="20"
@@ -116,6 +129,7 @@ function Home() {
           </div>
         </div>
       </footer>
+      </div>
     </div>
   )
 }
