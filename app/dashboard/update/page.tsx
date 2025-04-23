@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 import { useSearchParams } from "next/navigation";
 import Tiptap from "@/components/Tiptap";
-import { useDashboard } from "../providers";
+import { useDashboard } from "../../provider";
 import { useRouter } from "next/navigation";
 import Loading from "@/components/ui/Loading";
 
@@ -13,19 +13,26 @@ const GamifiedCourse: React.FC = () => {
   const initialTitle = searchParams.get("title") || "";
   const initialCategory = searchParams.get("category") || "";
 
-  const token = useDashboard();
+  const { token } = useDashboard();
   const router = useRouter();
-  interface UserData {
+  
+  // Move all useState declarations to the top, before any conditional returns
+  const [userData, setUserData] = useState<{
     user?: {
       firstName?: string;
       lastName?: string;
       email?: string;
       role?: string;
     };
-  }
-
-  const [userData, setUserData] = useState<UserData | null>(null);
+  } | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [title, setTitle] = useState(initialTitle ? initialTitle.split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ") : "");
+  const [category, setCategory] = useState(initialCategory);
+  const [description, setDescription] = useState("");
+  const [lessons, setLessons] = useState([{ title: "", content: "", points: 10 }]);
+  const [editingLessonIndex, setEditingLessonIndex] = useState<number | null>(null);
 
   useEffect(() => {
     // Early return and redirect if no token
@@ -116,31 +123,6 @@ const GamifiedCourse: React.FC = () => {
     );
   }
 
-  function generateTitle(slug: string) {
-    // Replace hyphens with spaces and capitalize the first letter of each word
-    return slug
-      .split("-") // Split the slug into words
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize each word
-      .join(" "); // Join the words with a space
-  }
-
-  // State for course metadata
-  const [title, setTitle] = useState(generateTitle(initialTitle));
-  const [category, setCategory] = useState(initialCategory);
-  const [description, setDescription] = useState("");
-
-  // State for course content (lessons)
-  const [lessons, setLessons] = useState([
-    { title: "", content: "", points: 10 },
-  ]);
-
-  // State for modal
-  const [editingLessonIndex, setEditingLessonIndex] = useState<number | null>(
-    null
-  );
-
-  // Track if the course is published
-
   // Handlers for lessons
   const handleAddLesson = () => {
     setLessons([...lessons, { title: "", content: "", points: 10 }]);
@@ -164,15 +146,6 @@ const GamifiedCourse: React.FC = () => {
     setEditingLessonIndex(index);
   };
 
-  // const handleSaveContent = (newContent: string) => {
-  //   if (editingLessonIndex !== null) {
-  //     const newLessons = [...lessons];
-  //     newLessons[editingLessonIndex].content = newContent;
-  //     setLessons(newLessons);
-  //     setEditingLessonIndex(null);
-  //   }
-  // };
-
   // Handler for saving the course
   const handleSaveCourse = async () => {
     // Ensure all lessons have their content properly updated
@@ -189,8 +162,6 @@ const GamifiedCourse: React.FC = () => {
       description,
       lessons: updatedLessons,
     };
-
-   
 
     console.log(courseData);
     try {
