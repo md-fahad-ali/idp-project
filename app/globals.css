@@ -150,9 +150,9 @@ nav {
   border-color: var(--card-border) !important;
 }
 
-.dark-theme [class*="shadow-"] {
+/* .dark-theme [class*="shadow-"] {
   box-shadow: var(--card-shadow) !important;
-}
+} */
 
 /* Apply dark theme to all cards and panels */
 .dark-theme div[class*="bg-white"],

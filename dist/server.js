@@ -48,6 +48,7 @@ const protectedRoute_1 = __importDefault(require("./routes/protectedRoute"));
 const refreshRoute_1 = __importDefault(require("./routes/refreshRoute"));
 const meRoute_1 = __importDefault(require("./routes/meRoute"));
 const courseRoute_1 = __importDefault(require("./routes/courseRoute"));
+const publicCourseRoute_1 = __importDefault(require("./routes/publicCourseRoute"));
 const leaderboardRoute_1 = __importDefault(require("./routes/leaderboardRoute"));
 const testRoute_1 = __importDefault(require("./routes/testRoute"));
 const userRoute_1 = __importDefault(require("./routes/userRoute"));
@@ -120,6 +121,7 @@ nextApp
     server.use("/api/protected", protectedRoute_1.default);
     server.use("/api/auth/me", meRoute_1.default);
     server.use("/api/course", courseRoute_1.default);
+    server.use("/api/public/courses", publicCourseRoute_1.default);
     server.use("/api/leaderboard", leaderboardRoute_1.default);
     server.use("/api/test", testRoute_1.default);
     server.use("/api/user", userRoute_1.default);

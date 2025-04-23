@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 import { useSearchParams } from "next/navigation";
 import Tiptap from "@/components/Tiptap";
-import { useDashboard } from "../providers";
+import { useDashboard } from "../../provider";
 import { useRouter } from "next/navigation";
 import Loading from "@/components/ui/Loading";
 
@@ -13,7 +13,7 @@ const GamifiedCourse: React.FC = () => {
   const initialTitle = searchParams.get("title") || "";
   const initialCategory = searchParams.get("category") || "";
 
-  const token = useDashboard();
+  const { token } = useDashboard();
   const router = useRouter();
   interface UserData {
     user?: {

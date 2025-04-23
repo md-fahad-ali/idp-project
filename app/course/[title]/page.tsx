@@ -590,6 +590,15 @@ export default function CourseDetailPage() {
     </div>
   );
 }
+// Helper function to escape HTML special characters
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // Helper function to convert HAST to HTML
 function hastToHtml(node: any): string {
@@ -626,14 +635,4 @@ function hastToHtml(node: any): string {
   }
   
   return '';
-}
-
-// Helper function to escape HTML special characters
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }
