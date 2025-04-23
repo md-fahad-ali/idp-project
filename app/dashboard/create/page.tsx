@@ -39,6 +39,17 @@ const GamifiedCourse: React.FC = () => {
 
   const [, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  
+  // Move all state declarations here at the top
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("");
+  const [description, setDescription] = useState("");
+  const [lessons, setLessons] = useState([
+    { title: "", content: "", points: 10 },
+  ]);
+  const [editingLessonIndex, setEditingLessonIndex] = useState<number | null>(
+    null
+  );
 
   useEffect(() => {
     // Early return and redirect if no token
@@ -86,6 +97,10 @@ const GamifiedCourse: React.FC = () => {
           return;
         }
         
+        // Initialize title and category after loading is complete (moved here from separate useEffect)
+        setTitle(generateTitle(initialTitle));
+        setCategory(initialCategory);
+        
         setLoading(false);
       } catch (error) {
         console.error("Error fetching profile:", error);
@@ -114,8 +129,6 @@ const GamifiedCourse: React.FC = () => {
     );
   }
 
-  //print the course
-
   function generateTitle(slug: string) {
     // Replace hyphens with spaces and capitalize the first letter of each word
     return slug
@@ -123,23 +136,6 @@ const GamifiedCourse: React.FC = () => {
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize each word
       .join(" "); // Join the words with a space
   }
-
-  // State for course metadata
-  const [title, setTitle] = useState(generateTitle(initialTitle));
-  const [category, setCategory] = useState(initialCategory);
-  const [description, setDescription] = useState("");
-
-  // State for course content (lessons)
-  const [lessons, setLessons] = useState([
-    { title: "", content: "", points: 10 },
-  ]);
-
-  // State for modal
-  const [editingLessonIndex, setEditingLessonIndex] = useState<number | null>(
-    null
-  );
-
-  // Track if the course is published
 
   // Handlers for lessons
   const handleAddLesson = () => {

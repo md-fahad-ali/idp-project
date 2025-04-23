@@ -56,6 +56,7 @@ export default function CourseDetailPage() {
   const [isCompleting, setIsCompleting] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [completionMessage, setCompletionMessage] = useState<string>('');
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -64,6 +65,36 @@ export default function CourseDetailPage() {
 
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  // Theme toggle function
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode;
+    setIsDarkMode(newTheme);
+    
+    // Save theme preference to localStorage
+    localStorage.setItem('darkMode', newTheme ? 'true' : 'false');
+    
+    // Apply theme to document
+    if (newTheme) {
+      document.documentElement.classList.add('dark-theme');
+    } else {
+      document.documentElement.classList.remove('dark-theme');
+    }
+  };
+
+  // Load saved theme preference
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('darkMode') === 'true';
+      setIsDarkMode(savedTheme);
+      
+      if (savedTheme) {
+        document.documentElement.classList.add('dark-theme');
+      } else {
+        document.documentElement.classList.remove('dark-theme');
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -368,7 +399,7 @@ export default function CourseDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-[100px] bg-[#6016a7] flex items-center justify-center text-[#E6F1FF]">
+      <div className="min-h-screen pt-[100px] bg-[var(--background-color)] flex items-center justify-center text-[var(--text-color)]">
        <Loading />
       </div>
        
@@ -377,9 +408,9 @@ export default function CourseDetailPage() {
 
   if (!course) {
     return (
-      <div className="min-h-screen pt-[100px] bg-[#6016a7] text-[#E6F1FF]">
+      <div className="min-h-screen pt-[100px] bg-[var(--background-color)] text-[var(--text-color)]">
         <div className="container mx-auto px-4">
-          <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]">
+          <div className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-6 shadow-[var(--card-shadow)]">
             <p className="text-center">Course not found</p>
           </div>
         </div>
@@ -389,17 +420,36 @@ export default function CourseDetailPage() {
 
   return (
     <div 
-      className="min-h-screen pt-[100px] bg-[#6016a7] text-[#E6F1FF]"
+      className="min-h-screen pt-[100px] bg-[var(--background-color)] text-[var(--text-color)]"
       suppressHydrationWarning={true}
     >
       <div 
         className="container mx-auto px-4"
         suppressHydrationWarning={true}
       >
+        {/* Theme toggle button */}
+        <div className="fixed top-24 right-6 z-10">
+          <button 
+            onClick={toggleTheme}
+            className="p-2 rounded-full border-2 border-black bg-[var(--card-bg)] shadow-[2px_2px_0px_0px_#000000] hover:shadow-[1px_1px_0px_0px_#000000] hover:translate-y-0.5 transition-all"
+            aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {isDarkMode ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[var(--navbar-text)]" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+              </svg>
+            )}
+          </button>
+        </div>
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8" suppressHydrationWarning={true}>
           {/* Left column: Lessons list */}
           <div className="lg:col-span-1" suppressHydrationWarning={true}>
-            <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000] mb-8" suppressHydrationWarning={true}>
+            <div className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000] mb-8" suppressHydrationWarning={true}>
               <div className="flex flex-col justify-between items-center mb-4">
                 <h1 className="text-xl font-bold">{course.title}</h1>
                 <div className="flex space-x-2">
@@ -422,10 +472,10 @@ export default function CourseDetailPage() {
                   <button
                     key={index}
                     onClick={() => setActiveLesson(index)}
-                    className={`w-full p-3 text-left border-2 border-black rounded-md transition-all duration-200 text-sm font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9D4EDD] ${
+                    className={`w-full p-3 text-left border-2 border-black rounded-md transition-all duration-200 text-sm font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--purple-primary)] ${
                       activeLesson === index
-                        ? "bg-[#9D4EDD] text-white shadow-[4px_4px_0px_0px_#000000]"
-                        : "bg-[#2f235a] text-[#E6F1FF] hover:bg-[#3a2b6e] shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000]"
+                        ? "bg-[var(--purple-primary)] text-white shadow-[4px_4px_0px_0px_#000000]"
+                        : "bg-[var(--card-bg)] text-[var(--text-color)] hover:bg-[var(--purple-light)] shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000]"
                     }`}
                     aria-label={`Select lesson: ${lesson.title}`}
                     tabIndex={0}
@@ -443,19 +493,19 @@ export default function CourseDetailPage() {
           {/* Middle column: Course details */}
           <div className="lg:col-span-2" suppressHydrationWarning={true}>
             {/* Course Header */}
-            <div className="bg-[#294268] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]" suppressHydrationWarning={true}>
-              <h1 className="text-3xl font-bold text-[#9D4EDD] mb-2 font-mono">{course.title}</h1>
+            <div className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]" suppressHydrationWarning={true}>
+              <h1 className="text-3xl font-bold text-[var(--purple-primary)] mb-2 font-mono">{course.title}</h1>
               <div className="flex items-center mb-4">
-                <span className="text-sm bg-[#2f235a] text-[#E6F1FF] px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] mr-3">
+                <span className="text-sm bg-[var(--card-bg)] text-[var(--text-color)] px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] mr-3">
                   {course.category}
                 </span>
-                <span className="text-xs text-[#8892B0]">
+                <span className="text-xs text-[var(--text-color)]">
                   {course.user ? `By: ${course.user.firstName || ''} ${course.user.lastName || ''}` : ''}
                 </span>
               </div>
-              <p className="text-[#E6F1FF] mb-4">{course.description}</p>
+              <p className="text-[var(--text-color)] mb-4">{course.description}</p>
               <div className="flex justify-between items-center">
-                <div className="text-xs text-[#8892B0]">
+                <div className="text-xs text-[var(--text-color)]">
                   Created: {new Date(course.createdAt).toISOString().split('T')[0]}
                 </div>
                 <div className="text-sm bg-[#FFD700] text-black px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
@@ -465,14 +515,14 @@ export default function CourseDetailPage() {
             </div>
 
             {/* Course Completion Section */}
-            <div className="bg-[#294268] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]">
+            <div className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-bold text-[#E6F1FF] font-mono">Course Progress</h2>
+                  <h2 className="text-xl font-bold text-[var(--text-color)] font-mono">Course Progress</h2>
                   {isCompleted ? (
                     <p className="text-[#5CDB95] mt-2">You have completed this course!</p>
                   ) : (
-                    <p className="text-[#E6F1FF] mt-2">Complete this course to earn points</p>
+                    <p className="text-[var(--text-color)] mt-2">Complete this course to earn points</p>
                   )}
                   {completionMessage && (
                     <p className={`mt-2 ${isCompleted ? 'text-[#FFD700]' : 'text-[#FF6B6B]'}`}>
@@ -487,7 +537,7 @@ export default function CourseDetailPage() {
                     isCompleted
                       ? 'bg-[#5CDB95] text-black cursor-not-allowed'
                       : isCompleting
-                      ? 'bg-[#8892B0] text-[#E6F1FF] cursor-wait'
+                      ? 'bg-[#8892B0] text-[var(--text-color)] cursor-wait'
                       : 'bg-[#FFD700] text-black hover:bg-[#FFC000] hover:shadow-[6px_6px_0px_0px_#000000]'
                   }`}
                 >
@@ -495,7 +545,7 @@ export default function CourseDetailPage() {
                 </button>
               </div>
               <div className="mt-4">
-                <h3 className="text-sm font-bold text-[#9D4EDD]">Total Points Available:</h3>
+                <h3 className="text-sm font-bold text-[var(--purple-primary)]">Total Points Available:</h3>
                 <p className="text-[#FFD700] font-bold">
                   {course.lessons.reduce((sum, lesson) => sum + lesson.points, 0)} Points
                 </p>
@@ -503,8 +553,8 @@ export default function CourseDetailPage() {
             </div>
 
             {/* Course Content */}
-            <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]">
-              <h2 className="text-2xl font-bold text-[#E6F1FF] mb-4 font-mono">
+            <div className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]">
+              <h2 className="text-2xl font-bold text-[var(--text-color)] mb-4 font-mono">
                 {course.lessons[activeLesson]?.title || "Lesson Content"}
               </h2>
               <div 

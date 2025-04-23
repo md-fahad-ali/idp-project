@@ -10,81 +10,202 @@
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
+  --background-color: #f0ece3;
+  --text-color: #333;
+  --navbar-bg: #f0ece3;
+  --navbar-text: #000;
+  --sidebar-bg: #3f155c;
+  --card-bg: #fff;
+  --card-border: #000;
+  --card-shadow: 8px 8px 0px 0px #000;
+  --purple-primary: #8b5cf6;
+  --purple-light: #e9d5ff;
+  --yellow-light: #fde68a;
+  --green-light: #bbf7d0;
+  --orange-light: #fed7aa;
+  --pink-light: #fbcfe8;
+  
+  /* Editor specific variables */
+  --editor-text: #000;
+  --editor-bg: #f5f5f5;
+  --editor-toolbar-bg: #e0e0e0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark-theme {
+  --background-color: #1f293d;
+  --text-color: #E6F1FF;
+  --navbar-bg: #1f293d;
+  --navbar-text: #E6F1FF;
+  --sidebar-bg: #1f293d;
+  --card-bg: #294268;
+  --card-border: #3a3b47;
+  --card-shadow: 6px 6px 0px 0px #363748;
+  --purple-primary: #a78bfa;
+  --purple-light: #9061f9;
+  --yellow-light: #fde68a;
+  --green-light: #34d399;
+  --orange-light: #fb923c;
+  --pink-light: #f472b6;
+  
+  /* Editor specific variables for dark mode */
+  --editor-text: #e6f1ff;
+  --editor-bg: #2f235a;
+  --editor-toolbar-bg: #294268;
 }
 
-.dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.129 0.042 264.695);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.129 0.042 264.695);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.984 0.003 247.858);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.279 0.041 260.031);
-  --input: oklch(0.279 0.041 260.031);
-  --ring: oklch(0.446 0.043 257.281);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(0.279 0.041 260.031);
-  --sidebar-ring: oklch(0.446 0.043 257.281);
+body {
+  background-color: var(--background-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  position: relative;
+  overflow-x: hidden;
+  /* background-image: linear-gradient(to bottom right, rgba(233, 213, 255, 0.259), rgba(245, 239, 255, 0.164)); */
+}
+
+/* Cool background pattern */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  background: 
+    radial-gradient(circle at 20% 30%, var(--purple-light) 0%, transparent 12%),
+    radial-gradient(circle at 75% 50%, var(--yellow-light) 0%, transparent 15%),
+    radial-gradient(circle at 40% 70%, var(--pink-light) 0%, transparent 18%),
+    radial-gradient(circle at 90% 20%, var(--green-light) 0%, transparent 12%),
+    radial-gradient(circle at 10% 90%, var(--orange-light) 0%, transparent 14%),
+    var(--background-color);
+  opacity: 0.5;
+}
+
+.dark-theme body::before {
+  opacity: 0.2;
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(144, 97, 249, 0.5) 0%, transparent 18%),
+    radial-gradient(circle at 75% 50%, rgba(253, 230, 138, 0.3) 0%, transparent 20%),
+    radial-gradient(circle at 40% 70%, rgba(244, 114, 182, 0.4) 0%, transparent 22%),
+    radial-gradient(circle at 90% 20%, rgba(52, 211, 153, 0.3) 0%, transparent 18%),
+    radial-gradient(circle at 10% 90%, rgba(251, 146, 60, 0.4) 0%, transparent 18%),
+    var(--background-color);
+}
+
+nav {
+  background-color: var(--navbar-bg) !important;
+  color: var(--navbar-text) !important;
+}
+
+.sidebar {
+  color: var(--navbar-text) !important;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.card {
+  background-color: var(--card-bg) !important;
+  border-color: var(--card-border) !important;
+  box-shadow: var(--card-shadow) !important;
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.dark-theme .sidebar {
+  background-color: var(--sidebar-bg) !important;
+  border-color: #3a3b47 !important;
+}
+
+/* Enhancement for sidebar in dark mode */
+.dark-theme .sidebar h2 {
+  color: #ffffff !important;
+}
+
+.dark-theme .sidebar div {
+  border-color: #3a3b47 !important;
+}
+
+.dark-theme .sidebar div.flex.items-center:hover {
+  background-color: #294268 !important;
+}
+
+/* Status card text fix */
+.dark-theme [class*="Role"],
+.dark-theme [class*="Status"],
+.dark-theme [class*="Points"],
+.dark-theme [class*="Streak"] {
+  color: #ffffff !important;
+}
+
+.dark-theme nav a,
+.dark-theme .sidebar a,
+.dark-theme .sidebar span,
+.dark-theme .card span:not(.text-white) {
+  color: #ffffff !important;
+}
+
+.dark-theme .bg-white {
+  background-color: var(--card-bg) !important;
+}
+
+.dark-theme .border-black {
+  border-color: var(--card-border) !important;
+}
+
+.dark-theme [class*="shadow-"] {
+  box-shadow: var(--card-shadow) !important;
+}
+
+/* Apply dark theme to all cards and panels */
+.dark-theme div[class*="bg-white"],
+.dark-theme section,
+.dark-theme article,
+.dark-theme aside,
+.dark-theme .card {
+  background-color: var(--card-bg) !important;
+  color: var(--text-color) !important;
+  border-color: var(--card-border) !important;
+}
+
+/* Ensure text contrast in dark mode */
+.dark-theme h1, 
+.dark-theme h2, 
+.dark-theme h3, 
+.dark-theme h4, 
+.dark-theme h5, 
+.dark-theme h6, 
+.dark-theme p, 
+.dark-theme li,
+/* .dark-theme span:not(.text-white):not([class*="text-"]) {
+  color: var(--text-color) !important;
+} */
+
+
+/* Fix badges and color blocks in dark mode */
+.dark-theme [style*="background-color"] {
+  border-color: var(--card-border) !important;
+}
+
+/* Improve contrast on progress bars */
+.dark-theme [class*="Progress"] {
+  background-color: #333333 !important;
+}
+
+/* Specific fixes for dark mode text visibility */
+.dark-theme .badge-card p,
+.dark-theme .course-card p,
+.dark-theme .course-card h3,
+.dark-theme .course-card span {
+  color: var(--text-color) !important;
+}
+
+/* Improve visibility of elements with background colors */
+.dark-theme div[style*="background-color"] {
+  background-color: color-mix(in srgb, currentColor 20%, var(--card-bg) 80%) !important;
+}
+
+/* Ensure all badge card text is visible */
+.dark-theme div[class*="badge"] p,
+.dark-theme div[class*="badge"] span {
+  color: var(--text-color) !important;
 }
 
 @theme inline {
@@ -148,6 +269,16 @@ html, body {
 
   .clip-circle-full {
     clip-path: circle(150% at 90% 5%);
+  }
+  
+  /* Hide scrollbar utility class */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
   }
 
   /* Retro styled scrollbar */
@@ -515,4 +646,464 @@ pre.line-numbers > code {
   border-bottom: none;
   margin-bottom: -0.5rem;
   width: fit-content;
+}
+
+/* Ensure badge text consistency in dark mode */
+.dark-theme .badge-card p,
+.dark-theme .course-card p,
+.dark-theme .course-card h3,
+.dark-theme .course-card span {
+  color: var(--text-color) !important;
+}
+
+/* Fix for badge text colors */
+span.inline-block.px-2.py-0\.5.text-xs.font-medium.rounded-full,
+.dark-theme [class*="issue"] {
+  color: black !important;
+}
+
+/* Overriding dark theme styling for badges */
+.dark-theme span[class*="bg-[var(--yellow-light)]"] {
+  color: black !important;
+}
+
+/* Fix dark mode code highlighting */
+.dark-theme pre[class*="language-"],
+.dark-theme .tiptap pre {
+  background-color: #0f172a !important;
+  color: #e6e6ff !important;
+  border: 2px solid #475569 !important;
+  box-shadow: 6px 6px 0px 0px #364155 !important;
+}
+
+.dark-theme code[class*="language-"],
+.dark-theme .tiptap code {
+  color: #e2e8f0 !important;
+}
+
+/* Maintain code syntax highlighting in dark mode */
+.dark-theme .token.comment,
+.dark-theme .token.prolog,
+.dark-theme .token.doctype,
+.dark-theme .token.cdata,
+.dark-theme .tiptap pre .comment {
+  color: #8b9cb3 !important;
+}
+
+.dark-theme .token.punctuation {
+  color: #e2e8f0 !important;
+}
+
+.dark-theme .token.property,
+.dark-theme .token.tag,
+.dark-theme .token.boolean,
+.dark-theme .token.number,
+.dark-theme .token.constant,
+.dark-theme .token.symbol,
+.dark-theme .token.deleted,
+.dark-theme .tiptap pre .number {
+  color: #fcd34d !important;
+}
+
+.dark-theme .token.selector,
+.dark-theme .token.attr-name,
+.dark-theme .token.string,
+.dark-theme .token.char,
+.dark-theme .token.builtin,
+.dark-theme .token.inserted,
+.dark-theme .tiptap pre .string {
+  color: #a5f3fc !important;
+}
+
+.dark-theme .token.operator,
+.dark-theme .token.entity,
+.dark-theme .token.url,
+.dark-theme .language-css .token.string,
+.dark-theme .style .token.string,
+.dark-theme .tiptap pre .operator {
+  color: #f9a8d4 !important;
+}
+
+.dark-theme .token.atrule,
+.dark-theme .token.attr-value,
+.dark-theme .token.keyword,
+.dark-theme .tiptap pre .keyword {
+  color: #c4b5fd !important;
+}
+
+.dark-theme .token.function,
+.dark-theme .token.class-name,
+.dark-theme .tiptap pre .function {
+  color: #86efac !important;
+}
+
+.dark-theme .token.regex,
+.dark-theme .token.important,
+.dark-theme .token.variable,
+.dark-theme .tiptap pre .variable {
+  color: #fdba74 !important;
+}
+
+.dark-theme .code-title {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #475569 !important;
+}
+
+.dark-theme .line-numbers-rows {
+  border-right-color: #475569 !important;
+}
+
+.dark-theme .line-numbers-rows > span:before {
+  color: #94a3b8 !important;
+}
+
+.dark-theme .tiptap code {
+  background-color: #1e293b !important;
+  color: #a5f3fc !important;
+  border-color: #475569 !important;
+}
+
+/* Fix inline code in paragraphs in dark mode */
+.dark-theme p code {
+  background-color: #1e293b !important;
+  color: #a5f3fc !important;
+  border-color: #475569 !important;
+}
+
+/* Additional fixes for specific code block types shown in the UI */
+.dark-theme pre code .token {
+  color: #e2e8f0 !important;
+}
+
+.dark-theme pre code .token.console,
+.dark-theme pre code .token.print {
+  color: #94a3b8 !important;
+}
+
+.dark-theme pre code .token.function {
+  color: #86efac !important;
+}
+
+.dark-theme pre code .token.string {
+  color: #fcd34d !important;
+}
+
+.dark-theme pre code .token.punctuation {
+  color: #e2e8f0 !important;
+}
+
+/* Fix for console.log and print specifically */
+.dark-theme [class*="console.log"],
+.dark-theme [class*="print"] {
+  color: #e2e8f0 !important;
+}
+
+.dark-theme .console,
+.dark-theme .log,
+.dark-theme .print {
+  color: #86efac !important;
+}
+
+.dark-theme [class*="Hello World"] {
+  color: #fcd34d !important;
+}
+
+/* Override any conflicting styles for code blocks */
+.dark-theme pre {
+  background-color: #0f172a !important;
+  border-color: #475569 !important;
+  box-shadow: 6px 6px 0px 0px #364155 !important;
+}
+
+/* Direct fix for specific code blocks in course pages */
+.dark-theme pre {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+  border-color: #475569 !important;
+}
+
+.dark-theme pre code {
+  color: #e2e8f0 !important;
+}
+
+/* Target the exact code blocks from the screenshot */
+.dark-theme pre code .console,
+.dark-theme pre code [class*="console"] {
+  color: #86efac !important;
+}
+
+.dark-theme pre code .log,
+.dark-theme pre code [class*="log"] {
+  color: #86efac !important;
+}
+
+.dark-theme pre code .print, 
+.dark-theme pre code [class*="print"] {
+  color: #86efac !important;
+}
+
+.dark-theme pre code .string,
+.dark-theme pre code span:has(> .string) {
+  color: #fcd34d !important;
+}
+
+/* Force all code elements to have proper colors */
+.dark-theme pre * {
+  color: #e2e8f0 !important;
+}
+
+.dark-theme pre .string,
+.dark-theme pre span:contains("Hello World"),
+.dark-theme pre span:contains("Hello World!") {
+  color: #fcd34d !important;
+}
+
+.dark-theme pre .console,
+.dark-theme pre .log,
+.dark-theme pre .print {
+  color: #86efac !important;
+}
+
+/* High priority override for code blocks */
+.dark-theme [id*="code-block"] pre,
+.dark-theme [class*="code-block"] pre,
+.dark-theme [class*="CodeBlock"] pre {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-theme [id*="code-block"] code,
+.dark-theme [class*="code-block"] code,
+.dark-theme [class*="CodeBlock"] code {
+  color: #e2e8f0 !important;
+}
+
+/* Direct fix for specific course page code blocks */
+body.dark-theme pre,
+body.dark-theme code {
+  background-color: #0f172a !important;
+  border-color: #475569 !important;
+  box-shadow: 6px 6px 0px 0px #364155 !important;
+  color: #e2e8f0 !important;
+}
+
+/* Target exact elements from course page */
+.dark-theme pre:has([id*="console"]),
+.dark-theme pre:has([id*="print"]) {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+  border-color: #475569 !important;
+}
+
+/* JavaScript syntax */
+.dark-theme span[style*="console"],
+.dark-theme span[style*="log"] {
+  color: #86efac !important;
+}
+
+.dark-theme span[style*='"Hello World"'],
+.dark-theme span[style*="'Hello World'"] {
+  color: #fcd34d !important;
+}
+
+/* Python syntax */
+.dark-theme span[style*="print"] {
+  color: #86efac !important;
+}
+
+.dark-theme span[style*='"Hello World!"'],
+.dark-theme span[style*="'Hello World!'"] {
+  color: #fcd34d !important;
+}
+
+/* Important override for code block backgrounds and colors */
+.dark-theme [class*="javascript"] pre,
+.dark-theme [class*="python"] pre {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+/* !important overrides with higher specificity */
+html body.dark-theme pre,
+html body.dark-theme pre code,
+html body.dark-theme pre span,
+html body.dark-theme code {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+html body.dark-theme pre .string,
+html body.dark-theme pre .number,
+html body.dark-theme pre span[class*="string"] {
+  color: #fcd34d !important;
+}
+
+html body.dark-theme pre .keyword,
+html body.dark-theme pre .function,
+html body.dark-theme pre span[class*="function"] {
+  color: #86efac !important;
+}
+
+/* DIRECT FIX FOR CODE HIGHLIGHTING - MODE INDEPENDENT */
+pre, .code-block, [class*="code-block"] {
+  background-color: #1a1a2e !important;
+  color: #e2e8f0 !important;
+  border: 2px solid #333 !important;
+  border-radius: 0.25rem !important;
+  padding: 1rem !important;
+  margin: 1rem 0 !important;
+  box-shadow: 6px 6px 0px 0px #363748 !important;
+  overflow-x: auto !important;
+  font-family: 'Courier New', Courier, monospace !important;
+}
+
+pre code, .code-block code, [class*="code-block"] code {
+  color: #e2e8f0 !important;
+  background-color: transparent !important;
+  font-family: 'Courier New', Courier, monospace !important;
+}
+
+/* JavaScript specific syntax */
+pre .console, pre [class*="console"], code .console,
+pre .log, pre [class*="log"], code .log {
+  color: #86efac !important;
+}
+
+pre [class*="print"], code [class*="print"], pre .print, code .print {
+  color: #86efac !important;
+}
+
+/* String values */
+pre .string, code .string,
+pre [class*="string"], code [class*="string"] {
+  color: #fcd34d !important;
+}
+
+pre [class*="'Hello World'"], pre [class*='"Hello World"'],
+pre [class*="'Hello World!'"], pre [class*='"Hello World!"'],
+code [class*="'Hello World'"], code [class*='"Hello World"'],
+code [class*="'Hello World!'"], code [class*='"Hello World!"'] {
+  color: #fcd34d !important;
+}
+
+/* Function names and keywords */
+pre .function, code .function,
+pre [class*="function"], code [class*="function"] {
+  color: #86efac !important;
+}
+
+pre .keyword, code .keyword,
+pre [class*="keyword"], code [class*="keyword"] {
+  color: #c4b5fd !important;
+}
+
+/* Directly target the specific code examples from the screenshot */
+#console-log-example, .console-log-example, 
+[id*="console-log"], [class*="console-log"] {
+  color: #e2e8f0 !important;
+}
+
+#console-log-example .console, #console-log-example .log,
+.console-log-example .console, .console-log-example .log {
+  color: #86efac !important;
+}
+
+#console-log-example .string, .console-log-example .string {
+  color: #fcd34d !important;
+}
+
+#print-example, .print-example,
+[id*="print-example"], [class*="print-example"] {
+  color: #e2e8f0 !important;
+}
+
+#print-example .print, .print-example .print {
+  color: #86efac !important;
+}
+
+#print-example .string, .print-example .string {
+  color: #fcd34d !important;
+}
+
+/* Brute force approach for specific elements */
+span:not([class]) {
+  color: inherit !important;
+}
+
+span[class*="console"], span[class*="log"], span[class*="print"] {
+  color: #86efac !important;
+}
+
+span[class*="string"] {
+  color: #fcd34d !important;
+}
+
+/* Force syntax highlighting for specific syntax patterns */
+pre, code {
+  color: #e2e8f0 !important;
+}
+
+/* Direct selectors for specific code examples */
+.console-log .console, 
+.console-log-example .console,
+code .console {
+  color: #86efac !important;
+}
+
+.console-log .log,
+.console-log-example .log,
+code .log {
+  color: #86efac !important;
+}
+
+.print-example .print,
+code .print {
+  color: #86efac !important;
+}
+
+.hello-world,
+.code .hello-world,
+code .string {
+  color: #fcd34d !important;
+}
+
+/* Direct simple selectors as fallback */
+.console { color: #86efac !important; }
+.log { color: #86efac !important; }
+.print { color: #86efac !important; }
+.string { color: #fcd34d !important; }
+
+/* Force code blocks to have the correct colors */
+body pre,
+body code {
+  background-color: #1a1a2e !important;
+  color: #e2e8f0 !important;
+}
+
+body pre *,
+body code * {
+  font-family: 'Courier New', Courier, monospace !important;
+}
+
+/* Force specific syntax patterns with inline styles */
+pre span[style*="color"],
+code span[style*="color"] {
+  color: inherit !important;
+}
+
+pre span[style*="console"],
+code span[style*="console"],
+pre span[style*="log"],
+code span[style*="log"],
+pre span[style*="print"],
+code span[style*="print"] {
+  color: #86efac !important;
+}
+
+pre span[style*="Hello World"],
+code span[style*="Hello World"],
+pre span[style*="string"],
+code span[style*="string"] {
+  color: #fcd34d !important;
 }

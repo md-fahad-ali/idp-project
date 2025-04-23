@@ -11,6 +11,7 @@ import protectedRoute from './routes/protectedRoute';
 import refreshRoute from './routes/refreshRoute';
 import meRoute from './routes/meRoute';
 import courseRoute from './routes/courseRoute';
+import publicCourseRoute from './routes/publicCourseRoute';
 import leaderboardRoute from './routes/leaderboardRoute';
 import testRoute from './routes/testRoute';
 import userRoute from './routes/userRoute';
@@ -134,12 +135,14 @@ nextApp
     server.use("/api/protected", protectedRoute);
     server.use("/api/auth/me", meRoute);
     server.use("/api/course", courseRoute);
+    server.use("/api/public/courses", publicCourseRoute);
     server.use("/api/leaderboard", leaderboardRoute);
     server.use("/api/test", testRoute);
     server.use("/api/user", userRoute);
     server.use("/api/find_friends", ffRoute);
     server.use("/api/activity", activityRoute);
     server.use("/api/challenge", challengeRoute);
+
 
     // Handle all other routes with Next.js
     server.all("*", (req: Request, res: Response) => {

@@ -23,9 +23,9 @@ const jwtOptions = {
 // Configure Passport JWT Strategy
 const jwtStrategy = new passport_jwt_1.Strategy(jwtOptions, async (jwtPayload, done) => {
     try {
-        console.log('JWT Payload:', jwtPayload);
+        // console.log('JWT Payload:', jwtPayload);
         const user = await User_1.default.findById(new mongoose_1.Types.ObjectId(jwtPayload._id)).select('-password').lean();
-        console.log('Found user:', user);
+        // console.log('Found user:', user);
         if (user) {
             // Convert ObjectId to string
             const userWithStringId = {
@@ -45,23 +45,23 @@ const jwtStrategy = new passport_jwt_1.Strategy(jwtOptions, async (jwtPayload, d
 passport_1.default.use(jwtStrategy);
 // Custom authentication middleware
 const authenticateJWT = (req, res, next) => {
-    console.log('Auth Header:', req.headers.authorization);
+    // console.log('Auth Header:', req.headers.authorization);
     passport_1.default.authenticate('jwt', { session: false }, async (err, user) => {
-        console.log('Passport authenticate callback');
-        console.log('Error:', err);
-        console.log('User:', user);
+        // console.log('Passport authenticate callback');
+        // console.log('Error:', err);
+        // console.log('User:', user);
         if (err) {
             console.error('Authentication error:', err);
             return res.status(500).json({ message: "Internal server error", error: err.message });
         }
         if (!user) {
             const refreshToken = req.cookies.refresh_token;
-            console.log('Refresh token:', refreshToken);
+            // console.log('Refresh token:', refreshToken);
             if (refreshToken) {
                 try {
                     const refreshSecret = process.env.JWT_REFRESH_SECRET;
                     if (!refreshSecret) {
-                        console.error('JWT_REFRESH_SECRET is not defined');
+                        // console.error('JWT_REFRESH_SECRET is not defined');
                         return res.status(500).json({ message: "Server configuration error" });
                     }
                     const decodedRefreshToken = jsonwebtoken_1.default.verify(refreshToken, refreshSecret);
@@ -76,7 +76,7 @@ const authenticateJWT = (req, res, next) => {
                                 _id: refreshedUser._id.toString()
                             };
                             const newToken = jsonwebtoken_1.default.sign({ _id: userWithStringId._id, email: userWithStringId.email }, JWT_SECRET, { expiresIn: '1h' });
-                            console.log('New token:', newToken);
+                            // console.log('New token:', newToken);
                             res.cookie('access_token', newToken, { httpOnly: true, secure: true, sameSite: 'strict' });
                             req.user = userWithStringId;
                             return next();
@@ -87,10 +87,10 @@ const authenticateJWT = (req, res, next) => {
                     console.error('Refresh token error:', error);
                 }
             }
-            console.log('No user found - Unauthorized');
+            // console.log('No user found - Unauthorized');
             return res.status(401).json({ message: "Unauthorized - Invalid token" });
         }
-        console.log('Authentication successful');
+        // console.log('Authentication successful');
         req.user = user;
         next();
     })(req, res, next);

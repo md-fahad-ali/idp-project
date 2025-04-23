@@ -17,7 +17,7 @@ passport_1.default.use(new passport_jwt_1.Strategy(opts, async (jwt_payload, don
     try {
         // Mock user verification (Replace with database logic)
         const user = { id: jwt_payload.id, username: jwt_payload.username };
-        console.log('JWT Payload:', jwt_payload);
+        // console.log('JWT Payload:', jwt_payload);
         if (user)
             return done(null, user);
         return done(null, false);

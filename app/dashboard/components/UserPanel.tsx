@@ -8,23 +8,93 @@ interface UserPanelProps {
 }
 
 export default function UserPanel({ user }: UserPanelProps) {
+  // Mock data for progress charts
+  const progressData = [
+    { course: 'UI Design', progress: 55 },
+    { course: 'Web Development', progress: 70 },
+    { course: 'Marketing', progress: 45 }
+  ];
+
   return (
-    <div className="bg-[#294268] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]">
-      <h2 className="text-2xl font-bold text-[#E6F1FF] mb-4 font-mono">User Dashboard</h2>
-      <div className="mb-4">
-        <p className="text-[#E6F1FF] mb-2">
-          Welcome to your learning dashboard. Browse through available courses and track your progress.
-        </p>
-        <div className="bg-[#2A3A4A] border-2 border-black rounded-md p-3 mt-4">
-          <h3 className="text-lg font-bold text-[#9D4EDD] mb-1">Your Stats</h3>
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-[#E6F1FF]">
-              <p>Role: <span className="font-semibold">{user?.role || 'Learner'}</span></p>
-              <p>Status: <span className="font-semibold text-[#5CDB95]">Active</span></p>
-              <p>Points: <span className="font-semibold text-[#FFD700]">{user?.points || 0}</span></p>
+    <div className="grid grid-cols-1 gap-6 mb-8 w-full">
+      <div className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-4 md:p-6 shadow-[var(--card-shadow)] card w-full">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-xl font-bold text-[var(--text-color)] mb-4 font-mono">Your Progress</h2>
+          
+          <div className="space-y-4">
+            {progressData.map((item, index) => (
+              <div key={index} className="mb-3">
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm font-medium text-[var(--text-color)]">{item.course}</span>
+                  <span className="text-sm font-medium text-[var(--text-color)]">{item.progress}%</span>
+                </div>
+                <div className="w-full bg-[#333333] h-3 rounded-full border border-[var(--card-border)]">
+                  <div 
+                    className="h-full rounded-full bg-[var(--purple-primary)]" 
+                    style={{ width: `${item.progress}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-[var(--card-border)]">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-[var(--text-color)]">Learning time</p>
+                <p className="text-lg font-bold text-[var(--text-color)]">12h 45m</p>
+              </div>
+              <div className="bg-[var(--card-bg)] p-3 rounded-md border-2 border-[var(--card-border)] shadow-[2px_2px_0px_0px_var(--card-border)]">
+                <p className="text-2xl">⏱️</p>
+              </div>
             </div>
-            <div className="bg-[#2f235a] border-2 border-black rounded-md p-2 shadow-[2px_2px_0px_0px_#000000]">
-              <p className="text-xs text-[#E6F1FF]">Learning streak: <span className="font-bold text-[#FFD700]">3 days</span></p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-4 md:p-6 shadow-[var(--card-shadow)] card w-full">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-xl font-bold text-[var(--text-color)] mb-4 font-mono">Your Stats</h2>
+          
+          <div className="grid grid-cols-2 gap-3 md:gap-4">
+            <div className="bg-[color-mix(in_srgb,var(--purple-light)_15%,var(--card-bg)_85%)] border-2 border-[var(--card-border)] rounded-md p-2 md:p-3 shadow-[2px_2px_0px_0px_var(--card-border)]">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-[var(--text-color)] font-semibold">Role</p>
+                  <p className="text-lg font-bold text-[var(--navbar-text)]">user</p>
+                </div>
+                <span className="text-2xl">👤</span>
+              </div>
+            </div>
+            
+            <div className="bg-[color-mix(in_srgb,var(--green-light)_15%,var(--card-bg)_85%)] border-2 border-[var(--card-border)] rounded-md p-2 md:p-3 shadow-[2px_2px_0px_0px_var(--card-border)]">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-[var(--text-color)] font-semibold">Status</p>
+                  <p className="text-lg font-bold text-[var(--green-light)]">Active</p>
+                </div>
+                <span className="text-2xl">✅</span>
+              </div>
+            </div>
+            
+            <div className="bg-[color-mix(in_srgb,var(--yellow-light)_15%,var(--card-bg)_85%)] border-2 border-[var(--card-border)] rounded-md p-2 md:p-3 shadow-[2px_2px_0px_0px_var(--card-border)]">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-[var(--text-color)] font-semibold">Points</p>
+                  <p className="text-lg font-bold text-[var(--yellow-light)]">37</p>
+                </div>
+                <span className="text-2xl">⭐</span>
+              </div>
+            </div>
+            
+            <div className="bg-[color-mix(in_srgb,var(--orange-light)_15%,var(--card-bg)_85%)] border-2 border-[var(--card-border)] rounded-md p-2 md:p-3 shadow-[2px_2px_0px_0px_var(--card-border)]">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-[var(--text-color)] font-semibold">Streak</p>
+                  <p className="text-lg font-bold text-[var(--orange-light)]">3 days</p>
+                </div>
+                <span className="text-2xl">🔥</span>
+              </div>
             </div>
           </div>
         </div>

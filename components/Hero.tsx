@@ -56,13 +56,12 @@ const buttonVariants = {
 
 function Hero() {
   return (
-    <div className="flex">
-      <div className="flex">
-        <div>
-          <Retro />
-        </div>
+    <div className="relative w-screen h-screen" style={{ width: '100vw', height: '100vh' }}>
+      {/* Background retro effect - full viewport width/height */}
+      <div className="absolute inset-0 w-full h-full">
+        <Retro />
         <div
-          className="absolute"
+          className="absolute inset-0"
           style={{
             width: '100%',
             height: '100%',
@@ -70,8 +69,10 @@ function Hero() {
           }}
         ></div>
       </div>
+      
+      {/* Content overlay */}
       <motion.div
-        className="absolute w-full h-full flex flex-col justify-center items-center"
+        className="absolute inset-0 w-full h-full flex flex-col justify-center items-center"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -114,7 +115,7 @@ function Hero() {
         >
           <motion.div variants={buttonVariants} whileHover="hover">
             <Link
-              href="/signup"
+              href="/dashboard"
               style={{ boxShadow: '4px 5px #00000099' }}
               className="text-center px-6 sm:px-8 py-2 sm:py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 rounded-md text-white font-bold flex items-center justify-center gap-2 transform transition shadow-lg shadow-pink-600/30 group"
             >
