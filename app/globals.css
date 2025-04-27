@@ -10,20 +10,54 @@
 }
 
 :root {
-  --background-color: #f0ece3;
-  --text-color: #333;
+  /* Semantic colors for theming */
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --border: 214.3 31.8% 91.4%;
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 210 40% 98%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+
+  /* Light theme (default) */
+  --background-color: #f8fafc;
+  --card-bg: #ffffff;
+  --text-color: #333333;
+  --text-secondary: #8892B0;
+  --text-highlight: #FFD700;
+  --card-border: #e2e8f0;
+  --card-shadow: rgba(0, 0, 0, 0.2);
+  --purple-primary: #6d28d9;
+  --purple-light: #ede9fe;
+  --yellow-light: #fef3c7;
+  --green-light: #d1fae5;
+  --question-bg: #f8fafc;
+  --question-text: #1e1e1e;  /* Darker text for better contrast */
+  --option-bg: #f1f5f9;
+  --option-selected-bg: #4ade80;
+  --option-hover-bg: #e2e8f0;
+  --quiz-container-bg: #ffffff;
+  --quiz-container-shadow: rgba(0, 0, 0, 0.1);
   --navbar-bg: #f0ece3;
   --navbar-text: #000;
   --sidebar-bg: #3f155c;
   --card-bg: #fff;
-  --card-border: #000;
-  --card-shadow: 8px 8px 0px 0px #000;
+  --card-border: #334155;
+  --card-shadow: #667085;
   --purple-primary: #8b5cf6;
   --purple-light: #e9d5ff;
   --yellow-light: #fde68a;
   --green-light: #bbf7d0;
   --orange-light: #fed7aa;
   --pink-light: #fbcfe8;
+  --purple-secondary: #6d28d9;
+  --error-bg: #fecaca;
+  --error-light: #ef4444;
+  --error-text: #7f1d1d;
+  --success-light: #22c55e;
+  --red-primary: #ef4444;
   
   /* Editor specific variables */
   --editor-text: #000;
@@ -32,20 +66,54 @@
 }
 
 .dark-theme {
-  --background-color: #1f293d;
-  --text-color: #E6F1FF;
+  /* Semantic colors for dark theme */
+  --background: 224 71% 4%;
+  --foreground: 213 31% 91%;
+  --card: 224 71% 4%;
+  --card-foreground: 213 31% 91%;
+  --border: 216 34% 17%;
+  --primary: 210 40% 98%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --muted: 223 47% 11%;
+  --muted-foreground: 215.4 16.3% 56.9%;
+
+  /* Dark theme overrides */
+  --background-color: #0f172a;
+  --card-bg: #1e293b;
+  --text-color: #f8fafc;
+  --text-secondary: #8892B0;
+  --text-highlight: #FFD700;
+  --card-border: #334155;
+  --card-shadow: rgba(0, 0, 20, 0.5);
+  --purple-primary: #a78bfa;
+  --purple-light: #4c1d95;
+  --yellow-light: #78350f;
+  --green-light: #064e3b;
+  --question-bg: #1e293b;
+  --question-text: #ffffff;  /* Pure white for maximum contrast */
+  --option-bg: #334155;
+  --option-selected-bg: #15803d;
+  --option-hover-bg: #475569;
+  --quiz-container-bg: #1e293b;
+  --quiz-container-shadow: rgba(0, 0, 0, 0.5);
   --navbar-bg: #1f293d;
   --navbar-text: #E6F1FF;
   --sidebar-bg: #1f293d;
   --card-bg: #294268;
   --card-border: #3a3b47;
-  --card-shadow: 6px 6px 0px 0px #363748;
+  --card-shadow: #363748;
   --purple-primary: #a78bfa;
   --purple-light: #9061f9;
   --yellow-light: #fde68a;
   --green-light: #34d399;
   --orange-light: #fb923c;
   --pink-light: #f472b6;
+  --purple-secondary: #9061f9;
+  --error-bg: #7f1d1d;
+  --error-light: #b91c1c;
+  --error-text: #fee2e2;
+  --success-light: #15803d;
+  --red-primary: #ff4f4f;
   
   /* Editor specific variables for dark mode */
   --editor-text: #e6f1ff;
@@ -54,8 +122,8 @@
 }
 
 body {
-  background-color: var(--background-color);
-  color: var(--text-color);
+  background-color: var(--background-color) !important;
+  color: var(--text-color) !important;
   transition: background-color 0.3s ease, color 0.3s ease;
   position: relative;
   overflow-x: hidden;
@@ -252,14 +320,19 @@ nav {
     @apply border-border outline-ring/50;
   }
   body {
-    background-color: #160226;
+    background-color: var(--background-color) !important;
+  }
+  
+  .dark-theme body {
+    background-color: var(--background-color) !important;
   }
 }
 
 html, body {
+  height: 100%;
+  width: 100%;
   margin: 0;
   padding: 0;
-  height: 100%;
 }
 
 @layer utilities {
@@ -1106,4 +1179,108 @@ code span[style*="Hello World"],
 pre span[style*="string"],
 code span[style*="string"] {
   color: #fcd34d !important;
+}
+
+/* Ensure smooth transitions between themes */
+html {
+  transition: color 0.3s ease, background-color 0.3s ease;
+}
+
+/* Update the quiz-related classes to use CSS variables */
+.quiz-container {
+  background-color: var(--quiz-container-bg);
+  color: var(--question-text);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 6px 6px 0px 0px var(--card-shadow);
+  position: relative;
+  transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+  border: 2px solid var(--card-border);
+}
+
+.quiz-option {
+  background-color: var(--option-bg);
+  color: var(--question-text);
+  border: 2px solid var(--card-border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.quiz-option:hover {
+  background-color: var(--option-hover-bg);
+  transform: translateY(-2px);
+  box-shadow: 4px 4px 0px 0px var(--card-shadow);
+}
+
+.quiz-option.selected {
+  background-color: var(--option-selected-bg);
+  border-color: var(--purple-primary);
+  box-shadow: 4px 4px 0px 0px var(--purple-primary);
+  color: white;
+}
+
+.quiz-progress {
+  height: 0.5rem;
+  background-color: var(--option-bg);
+  border-radius: 1rem;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.quiz-progress-inner {
+  height: 100%;
+  background-color: var(--purple-primary);
+  border-radius: 1rem;
+  transition: width 0.3s ease;
+}
+
+.quiz-difficulty {
+  position: absolute;
+  right: 1.5rem;
+  top: 1.5rem;
+  background-color: var(--purple-primary);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.quiz-timer {
+  font-family: monospace;
+  font-size: 0.875rem;
+  background-color: var(--option-bg);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  color: var(--text-color);
+}
+
+.next-button {
+  padding: 0.75rem 1.5rem;
+  background-color: var(--purple-primary);
+  color: white;
+  font-weight: 500;
+  border-radius: 0.5rem;
+  box-shadow: 4px 4px 0px 0px var(--card-shadow);
+  transition: all 0.3s ease;
+}
+
+.next-button:hover {
+  box-shadow: 5px 5px 0px 0px var(--card-shadow);
+  transform: translateY(-2px);
+}
+
+.next-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.next-button:disabled:hover {
+  transform: translateY(0);
+  box-shadow: 4px 4px 0px 0px var(--card-shadow);
 }

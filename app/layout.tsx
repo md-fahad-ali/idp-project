@@ -10,6 +10,7 @@ import { Toaster } from "react-hot-toast";
 import { Inter } from "next/font/google";
 import dynamic from "next/dynamic";
 import { DM_Mono } from "next/font/google";
+import ThemeWrapper from "./provider/theme-wrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -53,17 +54,19 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} ${inter.className} ${dmMono.variable} antialiased`}>
-        <DashboardProvider initialToken={token}>
-          <ActivityProvider>
-            <NavbarComponent access_token={token} />
-            <SidebarComponent token={token} />
-            <ContentWrapper>
-              {children}
-            </ContentWrapper>
-            <GlobalNotifications />
-            <RoomControls />
-          </ActivityProvider>
-        </DashboardProvider>
+        <ThemeWrapper>
+          <DashboardProvider initialToken={token}>
+            <ActivityProvider>
+              <NavbarComponent access_token={token} />
+              <SidebarComponent token={token} />
+              <ContentWrapper>
+                {children}
+              </ContentWrapper>
+              <GlobalNotifications />
+              <RoomControls />
+            </ActivityProvider>
+          </DashboardProvider>
+        </ThemeWrapper>
         <Toaster position="top-center" reverseOrder={false} />
       </body>
     </html>

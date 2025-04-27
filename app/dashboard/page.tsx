@@ -11,6 +11,7 @@ import WelcomeCard from './components/WelcomeCard';
 import AdminPanel from './components/AdminPanel';
 import UserPanel from './components/UserPanel';
 import CoursesList from './components/CoursesList';
+import WeeklyStreakCard from './components/WeeklyStreakCard';
 
 export default function DashboardPage() {
   const { token } = useDashboard();
@@ -48,6 +49,8 @@ export default function DashboardPage() {
   }
   const [user, setUser] = useState<IUser | null>(null);
   const [loading, setLoading] = useState(true);
+  // Track login activity for weekly streaks
+  const [loginActivity, setLoginActivity] = useState<string[]>([]); // Array of dates when user logged in
 
   // Check if user is admin
   const isAdmin = user?.role === 'admin';
@@ -165,25 +168,7 @@ export default function DashboardPage() {
             
             <div className="lg:col-span-1">
               {/* Weekly Streaks Section */}
-              <div className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-4 md:p-6 h-full shadow-[var(--card-shadow)] relative overflow-hidden card">
-                <div className="absolute -bottom-10 -left-10 w-20 h-20 rounded-full bg-[var(--pink-light)] opacity-30"></div>
-                <div className="relative z-10">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-[var(--text-color)] font-mono">Weekly Streaks</h2>
-                    <span className="text-xs bg-[var(--pink-light)] text-[var(--text-color)] font-medium p-1 px-2 rounded-full">🎯 Keep it up!</span>
-                  </div>
-                  <div className="flex justify-between">
-                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
-                      <div key={day} className="flex flex-col items-center">
-                        <div className={`w-8 h-8 flex items-center justify-center mb-1 ${i < 4 ? '' : 'opacity-50'}`}>
-                          <span className="text-xl">{i < 5 ? '🔥' : '🔥'}</span>
-                        </div>
-                        <span className="text-xs font-medium">{day}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <WeeklyStreakCard userId={user?._id} token={token} />
             </div>
           </div>
 

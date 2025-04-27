@@ -162,7 +162,7 @@ export default function Sidebar({ token }: { token: string | undefined }) {
       </div>
       
       {/* Desktop Sidebar - hidden on mobile */}
-      <div className={`w-64 h-screen ${!isDarkMode ? 'bg-white text-[#333] border-r-2 border-[#ddd]' : 'bg-[var(--sidebar-bg)] border-r-4 border-[var(--card-border)]'} pt-[100px] fixed left-0 top-0 z-10 sidebar hidden lg:block`}>
+      <div className={`w-64 h-screen ${!isDarkMode ? 'bg-white text-[#333] border-r-2 border-[#ddd]' : 'bg-[var(--sidebar-bg)] border-r-4 border-[var(--card-border)]'} pt-[100px] fixed left-0 top-0 z-10 sidebar hidden md:block`}>
         <div className="p-6 flex flex-col h-[calc(100vh-100px)]">
           <h2 className={`text-2xl font-bold ${!isDarkMode ? 'text-[#333]' : 'text-[var(--navbar-text)]'} mb-8 font-mono`}>My Profile</h2>
           

@@ -5,12 +5,25 @@ interface ViewCourseButtonProps {
   title: string;
   category: string;
   isAdmin: boolean;
+  courseId?: string;
+  onStartCourse?: () => void;
 }
 
-export default function ViewCourseButton({ title, category, isAdmin }: ViewCourseButtonProps) {
+export default function ViewCourseButton({ 
+  title, 
+  category, 
+  isAdmin, 
+  courseId,
+  onStartCourse 
+}: ViewCourseButtonProps) {
   const router = useRouter();
 
   const handleClick = () => {
+    // Call onStartCourse if provided (to mark course as in-progress)
+    if (!isAdmin && onStartCourse) {
+      onStartCourse();
+    }
+
     // For admins, go to update page
     if (isAdmin) {
       router.push(`/dashboard/update?title=${encodeURIComponent(title)}&category=${encodeURIComponent(category)}`);

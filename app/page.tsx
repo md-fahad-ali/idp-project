@@ -3,7 +3,6 @@ import Hero from '@/components/Hero'
 import { Exprience } from '@/components/Experience'
 import Credits from '@/components/Credits'
 
-
 function Home() {
   return (
     <div className="w-full">
@@ -130,6 +129,7 @@ function Home() {
         </div>
       </footer>
       </div>
+     
     </div>
   )
 }

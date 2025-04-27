@@ -2,8 +2,21 @@ import { Router } from 'express';
 import { authenticateJWT } from '../lib/authMiddleware';
 import User from '../models/User';
 import UserActivity from '../models/UserActivity';
+import mongoose from 'mongoose';
 
 const router = Router();
+
+// Helper function to get the last 7 days of dates
+const getLast7Days = () => {
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    days.push(formattedDate);
+  }
+  return days;
+};
 
 // Get global leaderboard
 router.get('/', authenticateJWT, async (req, res) => {
@@ -72,10 +85,29 @@ router.get('/', authenticateJWT, async (req, res) => {
     
     const activeUserIds = activeUsers.map(user => user.userId.toString());
     
-    // Add activity status to users
+    // Get user activity for the last 7 days
+    const last7Days = getLast7Days();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    // Get all user activities in the last 7 days
+    const userActivities = await UserActivity.find(
+      { lastActive: { $gte: sevenDaysAgo } },
+      { userId: 1, 'activities.date': 1 }
+    );
+    
+    // Create a map of user IDs to activity dates
+    const userActivityDates: Record<string, string[]> = {};
+    userActivities.forEach(activity => {
+      const userId = activity.userId.toString();
+      userActivityDates[userId] = activity.activities?.map(act => act.date) || [];
+    });
+    
+    // Add activity status and dates to users
     const usersWithActivity = usersWithPoints.map(user => ({
       ...user,
-      isActive: activeUserIds.includes(user._id.toString())
+      isActive: activeUserIds.includes(user._id.toString()),
+      activityDates: userActivityDates[user._id.toString()] || [] as string[]
     }));
 
     res.json({
@@ -173,10 +205,29 @@ router.get('/course/:courseId', authenticateJWT, async (req, res) => {
     
     const activeUserIds = activeUsers.map(user => user.userId.toString());
     
-    // Add activity status to users
+    // Get user activity for the last 7 days
+    const last7Days = getLast7Days();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    // Get all user activities in the last 7 days
+    const userActivities = await UserActivity.find(
+      { lastActive: { $gte: sevenDaysAgo } },
+      { userId: 1, 'activities.date': 1 }
+    );
+    
+    // Create a map of user IDs to activity dates
+    const userActivityDates: Record<string, string[]> = {};
+    userActivities.forEach(activity => {
+      const userId = activity.userId.toString();
+      userActivityDates[userId] = activity.activities?.map(act => act.date) || [];
+    });
+    
+    // Add activity status and dates to users
     const usersWithActivity = usersWithPoints.map(user => ({
       ...user,
-      isActive: activeUserIds.includes(user._id.toString())
+      isActive: activeUserIds.includes(user._id.toString()),
+      activityDates: userActivityDates[user._id.toString()] || []
     }));
 
     res.json({

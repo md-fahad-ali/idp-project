@@ -247,6 +247,26 @@ export const submitAnswer = (
   });
 };
 
+// Broadcast score update to opponents
+export const broadcastScore = (
+  roomId: string,
+  userId: string,
+  userName: string,
+  score: number,
+  isCorrect: boolean,
+  questionId?: string
+): void => {
+  const socket = initSocket();
+  socket.emit('broadcast_score', {
+    roomId,
+    userId,
+    userName,
+    score,
+    isCorrect,
+    questionId
+  });
+};
+
 // React hook for challenge notifications
 export const useChallengeNotifications = (userId: string) => {
   const [pendingChallenges, setPendingChallenges] = useState<ChallengeData[]>([]);

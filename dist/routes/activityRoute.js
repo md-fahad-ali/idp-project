@@ -8,6 +8,39 @@ const authMiddleware_1 = require("../lib/authMiddleware");
 const UserActivity_1 = __importDefault(require("../models/UserActivity"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const router = (0, express_1.Router)();
+// Get user activity for streaks
+router.get('/user-activity', authMiddleware_1.authenticateJWT, async (req, res) => {
+    try {
+        const userId = req.user?._id;
+        if (!userId) {
+            res.status(401).json({ error: 'Unauthorized: User ID is missing' });
+            return;
+        }
+        // Get activity for the last 14 days (2 weeks)
+        const twoWeeksAgo = new Date();
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+        const userActivities = await UserActivity_1.default.find({
+            userId,
+            lastActive: { $gte: twoWeeksAgo }
+        })
+            .sort({ lastActive: -1 })
+            .lean();
+        // Format the activities for the client
+        const activities = userActivities.map(activity => ({
+            timestamp: activity.lastActive,
+            date: activity.lastActive.toISOString().split('T')[0] // Format as YYYY-MM-DD
+        }));
+        res.json({
+            userId,
+            activities,
+            totalDays: activities.length
+        });
+    }
+    catch (error) {
+        console.error('Error fetching user activity:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 // Get active users
 router.get('/active', authMiddleware_1.authenticateJWT, async (req, res) => {
     try {

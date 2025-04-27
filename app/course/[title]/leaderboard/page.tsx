@@ -5,11 +5,12 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useDashboard } from '../../../provider';
 import { useActivity } from '../../../activity-provider';
+import { useTheme } from '../../../provider/theme-provider';
 import { LeaderboardEntry } from '../../../types';
 import Avatar from "boring-avatars";
 import Loading from '../../../../components/ui/Loading';
-import { createChallengeRoom, navigateToChallengeRoom, checkInRoom, initSocket } from '../../../services/socketService';
-import ChallengeQuiz from '../../../components/ChallengeQuiz';
+import { createChallengeRoom, checkInRoom, initSocket } from '../../../services/socketService';
+
 import { toast } from 'react-hot-toast';
 
 interface ICourse {
@@ -27,6 +28,22 @@ interface ICourse {
   };
 }
 
+interface DashboardUser {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  avatarUrl?: string;
+  testsCompleted?: number;
+  averageScore?: number;
+  points?: number;
+}
+
+// Add an extended LeaderboardEntry interface that includes activityDates
+interface EnhancedLeaderboardEntry extends LeaderboardEntry {
+  activityDates?: string[];
+}
+
 const ITEMS_PER_PAGE = 20;
 
 export default function CourseLeaderboardPage() {
@@ -34,7 +51,8 @@ export default function CourseLeaderboardPage() {
   const router = useRouter();
   const { token, user, refreshUserData } = useDashboard();
   const { isUserActive } = useActivity();
-  const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
+  const { theme } = useTheme();
+  const [leaderboardData, setLeaderboardData] = useState<EnhancedLeaderboardEntry[]>([]);
   const [courseData, setCourseData] = useState<ICourse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +66,7 @@ export default function CourseLeaderboardPage() {
     opponent: string;
     opponentAccepted: boolean;
   } | null>(null);
+  const dashboardUser = user as DashboardUser; // Explicitly cast to our local interface
 
   // Format time from seconds to MM:SS
   const formatTime = (seconds: number): string => {
@@ -433,9 +452,10 @@ export default function CourseLeaderboardPage() {
     }
   };
 
+
   if (loading) {
     return (
-      <div className="min-h-screen pt-[100px] bg-[#6016a7] flex items-center justify-center text-[#E6F1FF]">
+      <div className="min-h-screen pt-[100px] flex items-center justify-center text-[var(--text-color)]">
         <Loading />
       </div>
     );
@@ -443,13 +463,13 @@ export default function CourseLeaderboardPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen pt-[100px] bg-[#6016a7] text-[#E6F1FF]">
+      <div className="min-h-screen pt-[100px] text-[var(--text-color)]">
         <div className="container mx-auto px-4">
-          <div className="bg-[#2f235a] p-4 rounded-lg border-2 border-black text-[#FF6B6B]">
+          <div className="bg-[var(--card-bg)] p-4 rounded-lg border-2 border-[var(--card-border)] text-[var(--error-text)]">
             <p>⚠️ {error}</p>
             <Link 
               href="/dashboard"
-              className="mt-2 px-4 py-2 bg-[#9D4EDD] text-white rounded-md hover:bg-[#8A2BE2] transition-colors inline-block"
+              className="mt-2 px-4 py-2 bg-[var(--purple-primary)] text-white rounded-md hover:bg-[var(--purple-secondary)] transition-colors inline-block"
             >
               Return to Dashboard
             </Link>
@@ -460,18 +480,20 @@ export default function CourseLeaderboardPage() {
   }
 
   return (
-    <div className="min-h-screen pt-[100px] pb-20 bg-[#6016a7] text-[#E6F1FF]">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen pt-[80px] sm:pt-[100px] pb-10 sm:pb-20 text-[var(--text-color)]">
+      <div className="container mx-auto px-4 max-w-4xl">
+        
+        
         <div className="grid grid-cols-1 gap-8">
           {/* Course Title */}
-          <div className="bg-[#294268] border-4 border-black rounded-lg p-4 sm:p-6 shadow-[8px_8px_0px_0px_#000000]">
-            <div className="flex flex-col sm:flex-row gap-4 sm:gap-0 items-center sm:justify-between">
-              <h1 className="text-2xl sm:text-3xl font-bold text-[#E6F1FF] font-mono text-center sm:text-left">
+          <div className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-3 sm:p-4 md:p-6 shadow-[8px_8px_0px_0px_var(--card-border)]">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-center justify-between">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[var(--text-color)] font-mono text-center sm:text-left">
                 {courseData?.title} Leaderboard
               </h1>
               <Link 
                 href={`/course/${title}`}
-                className="px-4 py-2 bg-[#FFD700] text-black font-bold rounded-md border-2 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] transition-all duration-200"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-[var(--yellow-light)] text-black font-bold rounded-md border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[6px_6px_0px_0px_var(--card-border)] transition-all duration-200"
               >
                 Back to Course
               </Link>
@@ -480,56 +502,60 @@ export default function CourseLeaderboardPage() {
 
           {/* User's Current Rank */}
           {user && userRank > 0 && (
-            <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]">
+            <div className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-4 sm:p-5 md:p-6 shadow-[8px_8px_0px_0px_var(--card-border)]">
               <div>
-              <h2 className="text-2xl font-bold text-[#E6F1FF] mb-4 font-mono">
+              <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-color)] mb-3 sm:mb-4 font-mono">
                 Your Ranking in This Course
               </h2>
                 
               </div>
-              <div className="bg-[#2f235a] p-4 rounded-lg border-2 border-black">
+              <div className="bg-[var(--question-bg)] p-3 sm:p-4 rounded-lg border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)]">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
                   <div className="flex items-center mb-3 sm:mb-0">
                     <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center">
                       <span className="text-xl sm:text-2xl font-bold">#{userRank}</span>
                     </div>
-                    <div className="flex-shrink-0 w-10 h-10 bg-[#9D4EDD] rounded-full overflow-hidden border-2 border-black ml-2">
-                      {user.avatarUrl ? (
+                    <div className="flex-shrink-0 w-10 h-10 bg-[var(--purple-primary)] rounded-full overflow-hidden border-2 border-[var(--card-border)] ml-2">
+                      {dashboardUser && dashboardUser.avatarUrl ? (
                         <img
-                          src={user.avatarUrl}
-                          alt="Your avatar"
+                          src={dashboardUser.avatarUrl}
+                          alt={`${dashboardUser.firstName}'s avatar`}
                           className="w-full h-full object-cover"
                         />
                       ) : (
                         <Avatar
                           size={40}
-                          name={user._id}
-                          variant="beam"
-                          colors={["#6016a7", "#9D4EDD", "#FFD700", "#5CDB95", "#E6F1FF"]}
+                          name={dashboardUser._id || 'user'}
+                          variant="beam" 
+                          colors={['#92A1C6', '#146A7C', '#F0AB3D', '#C271B4', '#C20D90']}
                         />
                       )}
                     </div>
                     <div className="ml-4">
-                      <h3 className="font-bold text-[#E6F1FF]">
-                        {user.firstName} {user.lastName}
+                      <h3 className="font-bold text-[var(--text-color)]">
+                        {dashboardUser.firstName} {dashboardUser.lastName}
                       </h3>
-                      <p className="text-sm text-[#8892B0]">
-                        Tests: {user.testsCompleted || 0} | Avg Score: {Math.round(user.averageScore || 0)}%
+                      <p className="text-sm text-[var(--text-secondary)]">
+                        Tests: {dashboardUser.testsCompleted || 0} | Avg Score: {Math.round(dashboardUser.averageScore || 0)}%
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
+
+                  <div className="flex flex-col items-end gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                     <div className="flex items-center sm:flex-col sm:items-end">
-                      <span className="text-[#FFD700] font-bold text-xl">
-                        {leaderboardData.find(entry => entry._id === user._id)?.points || 0} {isUserActive(user._id) ? '🟢' : '🔴'}
+                      <span className="text-[var(--text-highlight)] font-bold text-xl">
+                        {leaderboardData.find(entry => entry._id === dashboardUser._id)?.points || 0} {isUserActive(dashboardUser._id) ? '🟢' : '🔴'}
                       </span>
-                      <p className="text-xs text-[#8892B0] ml-2 sm:ml-0">points</p>
+                      <p className="text-xs text-[var(--text-secondary)] ml-2 sm:ml-0">points</p>
                     </div>
+                    
+                 
+                    
                     {challengeRoomInfo?.roomId && challengeRoomInfo.opponentAccepted && (
                       <div className="flex flex-col sm:flex-row gap-2">
                         <Link 
                           href={`/room/course/${typeof title === 'string' ? title.toLowerCase().replace(/\s+/g, '-') : 'challenge'}/${user?.firstName?.toLowerCase() || 'user1'}/${challengeRoomInfo.opponent.split(' ')[0]?.toLowerCase() || 'user2'}?roomId=${challengeRoomInfo.roomId}`}
-                          className="mt-2 px-3 py-1 bg-[#ffb500] text-black font-bold rounded border-2 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[2px_2px_0px_0px_#000000] transition-all duration-200 text-sm"
+                          className="mt-2 px-3 py-1 bg-[var(--yellow-light)] text-black font-bold rounded border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[2px_2px_0px_0px_var(--card-border)] transition-all duration-200 text-sm"
                           onClick={() => {
                             // Mark that we're entering the room (for session tracking)
                             if (typeof window !== 'undefined') {
@@ -537,17 +563,30 @@ export default function CourseLeaderboardPage() {
                             }
                           }}
                         >
-                          Enter Room
+                          Enter Challenge
                         </Link>
                         <button
                           onClick={exitChallengeRoom}
-                          className="mt-2 px-3 py-1 bg-[#ff4f4f] text-white font-bold rounded border-2 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[2px_2px_0px_0px_#000000] transition-all duration-200 text-sm"
+                          className="mt-2 px-3 py-1 bg-[var(--red-primary)] text-white font-bold rounded border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[2px_2px_0px_0px_var(--card-border)] transition-all duration-200 text-sm"
                         >
                           Leave Challenge
                         </button>
                       </div>
                     )}
-                    
+                    {/* Waiting for opponent message */}
+                    {challengeRoomInfo?.roomId && !challengeRoomInfo.opponentAccepted && (
+                      <div className="flex flex-col items-end">
+                        <p className="text-sm text-[var(--text-secondary)] italic">
+                          Waiting for {challengeRoomInfo.opponent} to accept...
+                        </p>
+                        <button
+                          onClick={exitChallengeRoom}
+                          className="mt-2 px-3 py-1 bg-[var(--red-primary)] text-white font-bold rounded border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[2px_2px_0px_0px_var(--card-border)] transition-all duration-200 text-sm"
+                        >
+                          Cancel Challenge
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -555,37 +594,38 @@ export default function CourseLeaderboardPage() {
           )}
 
           {/* Course Rankings */}
-          <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]">
-            <h2 className="text-2xl font-bold text-[#E6F1FF] mb-6 font-mono">
+          <div className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-6 shadow-[8px_8px_0px_0px_var(--card-border)]">
+            <h2 className="text-2xl font-bold text-[var(--text-color)] mb-6 font-mono">
               Top Performers
             </h2>
             
             {!hasPassedUsers ? (
-              <div className="bg-[#2f235a] p-8 rounded-lg border-2 border-black text-center">
-                <p className="text-xl text-[#E6F1FF]">No users have passed any tests for this course yet.</p>
-                <p className="mt-2 text-[#8892B0]">Be the first to complete a test and earn points!</p>
+              <div className="bg-[var(--question-bg)] p-8 rounded-lg border-2 border-[var(--card-border)] text-center">
+                <p className="text-xl text-[var(--text-color)]">No users have passed any tests for this course yet.</p>
+                <p className="mt-2 text-[var(--text-secondary)]">Be the first to complete a test and earn points!</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {currentData.map((entry, index) => (
                   <div
                     key={entry._id}
-                    className="flex flex-col justify-between md:flex-row items-start md:items-center bg-[#2f235a] p-4 rounded-lg border-2 border-black transition-transform hover:transform hover:translate-x-1 hover:-translate-y-1"
+                    className="flex flex-col justify-between md:flex-row items-start md:items-center bg-[var(--question-bg)] p-3 sm:p-4 rounded-lg border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)] transition-transform hover:transform hover:translate-x-1 hover:-translate-y-1"
                   >
                     <div className="flex items-center w-full md:w-auto mb-3 md:mb-0">
-                      {/* Rank Number */}
-                      <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center">
-                        {startIndex + index + 1 <= 3 ? (
-                          <span className="text-xl md:text-2xl">
-                            {startIndex + index + 1 === 1 ? '🥇' : startIndex + index + 1 === 2 ? '🥈' : '🥉'}
+                      {/* Rank & Avatar (desktop) */}
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center">
+                          {index + startIndex < 3 ? (
+                            <span className="text-lg md:text-xl">
+                              {index + startIndex === 0 ? '🥇' : index + startIndex === 1 ? '🥈' : '🥉'}
                           </span>
                         ) : (
-                          <span className="text-lg md:text-xl font-bold text-[#8892B0]">#{startIndex + index + 1}</span>
+                            <span className="text-lg md:text-xl font-bold text-[var(--text-secondary)]">#{startIndex + index + 1}</span>
                         )}
                       </div>
 
                       {/* Avatar */}
-                      <div className="flex-shrink-0 w-10 h-10 bg-[#9D4EDD] rounded-full overflow-hidden border-2 border-black ml-2">
+                        <div className="flex-shrink-0 w-10 h-10 bg-[var(--purple-primary)] rounded-full overflow-hidden border-2 border-[var(--card-border)] ml-2">
                         {entry.avatarUrl ? (
                           <img
                             src={entry.avatarUrl}
@@ -596,56 +636,50 @@ export default function CourseLeaderboardPage() {
                           <Avatar
                             size={40}
                             name={entry._id}
-                            variant="beam"
-                            colors={["#6016a7", "#9D4EDD", "#FFD700", "#5CDB95", "#E6F1FF"]}
+                              variant="pixel"
+                              colors={['#92A1C6', '#146A7C', '#F0AB3D', '#C271B4', '#C20D90']}
                           />
                         )}
                       </div>
 
-                      {/* User Info */}
                       <div className="ml-4 flex-grow">
                         <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-[#E6F1FF]">
+                            <h3 className="font-bold text-[var(--text-color)]">
                             {entry.firstName} {entry.lastName}
                           </h3>
                         </div>
-                        <p className="text-sm text-[#8892B0]">
+                          <p className="text-sm text-[var(--text-secondary)]">
                           Tests: {entry.testsCompleted} | Avg Score: {Math.round(entry.averageScore)}%
                           {entry.averageTimeSpent && entry.averageTimeSpent < Number.MAX_SAFE_INTEGER && (
                             <> | Avg Time: {formatTime(entry.averageTimeSpent)}</>
                           )}
                         </p>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Score and Challenge Button */}
                     <div className="flex-shrink-0 flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto mt-2 md:mt-0">
                       <div className="flex items-center">
-                        <span className="text-[#FFD700] font-bold text-xl">
+                        <span className="text-[var(--text-highlight)] font-bold text-xl">
                           {isUserActive(entry._id) ? '🟢' : '🔴'} {entry.points || 0} 
                         </span>
-                        <p className="text-xs text-[#8892B0] ml-1 md:ml-0 md:text-right">points</p>
+                        <p className="text-xs text-[var(--text-secondary)] ml-1 md:ml-0 md:text-right">points</p>
                       </div>
+                      
+                    
                       
                       {isUserActive(entry._id) && entry._id !== user?._id && (
                         <button 
-                          className={`px-3 py-1 border-black text-xs font-bold rounded border border-black transition-colors md:mt-2 shadow-[4px_5px_0px_0px_black] active:shadow-[0px_0px_0px_0px_black] ${
+                          className={`px-3 py-1 border-[var(--card-border)] text-xs font-bold rounded border border-[var(--card-border)] transition-colors md:mt-2 shadow-[4px_5px_0px_0px_var(--card-border)] active:shadow-[0px_0px_0px_0px_var(--card-border)] ${
                             usersInRoom[entry._id] 
                               ? 'bg-gray-400 cursor-not-allowed text-gray-700' 
-                              : 'bg-[#ffb500] text-black hover:bg-[#ff4f4f]'
+                              : 'bg-[var(--yellow-light)] text-black hover:bg-[var(--red-primary)]'
                           }`}
                           onClick={() => handleSendChallenge(entry._id, `${entry.firstName} ${entry.lastName}`)}
-                          disabled={isSendingChallenge === entry._id || usersInRoom[entry._id]}
-                          title={usersInRoom[entry._id] ? 'User is currently in a challenge' : 'Send challenge'}
+                          disabled={usersInRoom[entry._id] || !!challengeRoomInfo || isSendingChallenge !== null}
                         >
                           {isSendingChallenge === entry._id ? (
-                            <span className="inline-flex items-center">
-                              <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Sending...
-                            </span>
+                            <span className="inline-block animate-pulse">Sending...</span>
                           ) : usersInRoom[entry._id] ? (
                             "In Challenge"
                           ) : (
@@ -656,65 +690,68 @@ export default function CourseLeaderboardPage() {
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
 
-            {/* Pagination - only show if we have multiple users */}
-            {hasMultipleUsers && totalPages > 1 && (
-              <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-0 sm:space-x-4">
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
-                  className="w-full sm:w-auto px-4 py-2 bg-[#2f235a] text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3f336a] transition-colors"
+                      className="w-full sm:w-auto px-4 py-2 bg-[var(--question-bg)] text-[var(--text-color)] rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--card-bg)] transition-colors"
                 >
                   Previous
                 </button>
-                <div className="flex items-center space-x-2">
+                    
+                    <div className="flex gap-2">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
+                        let pageNum = i + 1;
+                        
+                        // Adjust page numbers for pagination with more than 5 pages
+                        if (totalPages > 5) {
+                          if (currentPage > 3 && currentPage < totalPages - 1) {
+                            pageNum = currentPage + i - 2;
+                          } else if (currentPage >= totalPages - 1) {
                       pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
+                          }
                     }
 
-                    return (
+                        return pageNum <= totalPages ? (
                       <button
-                        key={i}
+                            key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
                         className={`w-8 h-8 sm:w-10 sm:h-10 rounded-md flex items-center justify-center ${
                           currentPage === pageNum
-                            ? 'bg-[#9D4EDD] text-white'
-                            : 'bg-[#2f235a] text-[#8892B0] hover:bg-[#3f336a]'
+                                ? 'bg-[var(--purple-primary)] text-white'
+                                : 'bg-[var(--question-bg)] text-[var(--text-secondary)] hover:bg-[var(--card-bg)]'
                         }`}
                       >
                         {pageNum}
                       </button>
-                    );
+                        ) : null;
                   })}
+                      
                   {totalPages > 5 && currentPage < totalPages - 2 && (
                     <>
-                      <span className="text-[#8892B0]">...</span>
+                          <span className="text-[var(--text-secondary)]">...</span>
                       <button
                         onClick={() => setCurrentPage(totalPages)}
-                        className="w-8 h-8 sm:w-10 sm:h-10 rounded-md flex items-center justify-center bg-[#2f235a] text-[#8892B0] hover:bg-[#3f336a]"
+                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-md flex items-center justify-center bg-[var(--question-bg)] text-[var(--text-secondary)] hover:bg-[var(--card-bg)]"
                       >
                         {totalPages}
                       </button>
                     </>
                   )}
                 </div>
+                    
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage === totalPages}
-                  className="w-full sm:w-auto px-4 py-2 bg-[#2f235a] text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3f336a] transition-colors"
+                      className="w-full sm:w-auto px-4 py-2 bg-[var(--question-bg)] text-[var(--text-color)] rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--card-bg)] transition-colors"
                 >
                   Next
                 </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
