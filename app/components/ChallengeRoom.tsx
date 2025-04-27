@@ -12,9 +12,16 @@ interface ChallengeRoomProps {
     name: string;
     avatarUrl?: string;
   };
+  scores?: {
+    [userId: string]: number;
+  };
 }
 
-export default function ChallengeRoom({ challenger, challenged }: ChallengeRoomProps) {
+export default function ChallengeRoom({ challenger, challenged, scores = {} }: ChallengeRoomProps) {
+  // Get scores from props, default to 0 if not provided
+  const challengerScore = scores[challenger.id] || 0;
+  const challengedScore = scores[challenged.id] || 0;
+  
   return (
     <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000] max-w-2xl mx-auto">
       <h2 className="text-2xl font-bold text-[#E6F1FF] mb-6 font-mono text-center">
@@ -46,7 +53,7 @@ export default function ChallengeRoom({ challenger, challenged }: ChallengeRoomP
                 {challenger.name}
               </h3>
               <div className="flex items-center gap-2">
-                <span className="text-[#FFD700] font-bold text-xl">0</span>
+                <span className="text-[#FFD700] font-bold text-xl">{challengerScore}</span>
                 <p className="text-xs text-[#8892B0]">points</p>
               </div>
             </div>
@@ -85,7 +92,7 @@ export default function ChallengeRoom({ challenger, challenged }: ChallengeRoomP
                 {challenged.name}
               </h3>
               <div className="flex items-center gap-2">
-                <span className="text-[#FFD700] font-bold text-xl">0</span>
+                <span className="text-[#FFD700] font-bold text-xl">{challengedScore}</span>
                 <p className="text-xs text-[#8892B0]">points</p>
               </div>
             </div>

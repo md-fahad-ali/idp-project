@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import { configDotenv } from "dotenv";
 import User, { IUser } from "../models/User";
+import UserActivity from "../models/UserActivity";
 import { generateToken } from "../lib/generateToken";
 
 
@@ -43,6 +44,17 @@ router.post("/", async (req: LoginRequest, res: Response): Promise<void> => {
     // Set tokens in cookie
     res.cookie("access_token", token, { httpOnly: true, secure: true, sameSite: "strict" });
     res.cookie("refresh_token", refreshToken, { httpOnly: true, secure: true, sameSite: "strict" });
+
+    // Record user activity for streak tracking
+    await UserActivity.findOneAndUpdate(
+      { userId: user._id },
+      {
+        userId: user._id,
+        isActive: true,
+        lastActive: new Date()
+      },
+      { upsert: true }
+    );
 
     // Convert user document to a plain object and handle ObjectId
     const userResponse = {

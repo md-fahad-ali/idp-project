@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 interface Lesson {
   title: string;
   content: string;
@@ -31,11 +33,13 @@ export default function CourseCard({ course }: CourseCardProps) {
       
       <div className="pt-4">
         <h3 className="text-xl font-bold text-[var(--card-foreground)] mb-3">{course.title}</h3>
-        <div className="flex justify-between items-center mb-4">
-          <span className="text-sm font-medium px-3 py-1 bg-[var(--card-bg)] rounded-full border-2 border-[var(--card-border)]">
+        
+        {/* Fixed tag layout for better tablet view */}
+        <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+          <span className="inline-block text-sm font-medium px-3 py-1 bg-[var(--card-bg)] rounded-full border-2 border-[var(--card-border)]">
             {course.category}
           </span>
-          <span className="text-sm bg-[var(--yellow-light)] px-3 py-1 rounded-full border-2 border-[var(--card-border)]">
+          <span className="inline-block text-sm bg-[var(--yellow-light)] px-3 py-1 rounded-full border-2 border-[var(--card-border)]">
             {course.lessons.length} {course.lessons.length === 1 ? 'Lesson' : 'Lessons'}
           </span>
         </div>
@@ -53,12 +57,12 @@ export default function CourseCard({ course }: CourseCardProps) {
           )}
         </div>
         
-        <a 
-          href={`/course/${encodeURIComponent(course.title)}`}
+        <Link 
+          href={`/course/${encodeURIComponent(course.title.toLowerCase().replace(/\s+/g, '-'))}`}
           className="block w-full text-center py-3 px-4 bg-[var(--purple-primary)] text-white font-bold rounded-md border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[2px_2px_0px_0px_var(--card-border)] hover:translate-y-1 transition-all"
         >
           View Course
-        </a>
+        </Link>
       </div>
     </div>
   );

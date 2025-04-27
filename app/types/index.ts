@@ -72,4 +72,5 @@ export interface LeaderboardEntry {
   averageScore: number;
   averageTimeSpent?: number;
   rank?: number;
+  activityDates?: string[];
 } 

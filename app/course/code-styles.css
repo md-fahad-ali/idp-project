@@ -203,4 +203,121 @@ pre code span[class*="print"] {
   pre.hljs-line-numbers {
     padding: 1rem !important;
   }
+}
+
+/* Quiz theme styles */
+.quiz-container {
+  background-color: var(--quiz-container-bg);
+  color: var(--question-text);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px var(--quiz-container-shadow);
+  position: relative;
+  transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+  border: 1px solid var(--card-border);
+}
+
+.quiz-option {
+  background-color: var(--option-bg);
+  color: var(--question-text);
+  border: 2px solid var(--card-border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.quiz-option:hover {
+  background-color: var(--option-hover-bg);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--card-shadow);
+}
+
+.quiz-option.selected {
+  background-color: var(--option-selected-bg);
+  border-color: var(--purple-primary);
+  box-shadow: 0 0 0 2px var(--purple-primary);
+  color: white;
+}
+
+.quiz-progress {
+  height: 0.5rem;
+  background-color: var(--card-border);
+  border-radius: 1rem;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.quiz-progress-inner {
+  height: 100%;
+  background-color: var(--purple-primary);
+  border-radius: 1rem;
+  transition: width 0.5s ease, background-color 0.3s ease;
+}
+
+.quiz-difficulty {
+  position: absolute;
+  right: 1.5rem;
+  top: 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: var(--purple-primary);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.quiz-timer {
+  color: var(--question-text);
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.next-button {
+  background-color: var(--purple-primary);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.next-button:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--card-shadow);
+}
+
+.next-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Add styles for the page background */
+.page-bg {
+  background-color: #5b21b6; /* Purple background regardless of theme */
+  background-image: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
+  min-height: 100vh;
+  width: 100%;
+  padding: 1rem;
+}
+
+/* Main content wrapper for better contrast against purple bg */
+.content-wrapper {
+  background-color: var(--background-color);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  transition: background-color 0.3s ease, color 0.3s ease;
 } 

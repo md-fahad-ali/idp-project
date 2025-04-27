@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Clock, BookOpen, Award } from 'lucide-react';
+import { X, Clock, BookOpen, Award, ChevronDown, ChevronUp, Check, CheckCircle, Trash2 } from 'lucide-react';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import ViewCourseButton from './ViewCourseButton';
 
@@ -21,6 +21,8 @@ interface ICourse {
     email?: string;
     _id: string;
   };
+  status?: 'completed' | 'in-progress'; // New property to track course status
+  progress?: number; // Store actual progress
 }
 
 interface CoursesListProps {
@@ -42,11 +44,126 @@ export default function CoursesList({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [courseToDelete, setCourseToDelete] = useState<ICourse | null>(null);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [showMore, setShowMore] = useState(false);
+  const [courseStatuses, setCourseStatuses] = useState<Record<string, { 
+    status: 'completed' | 'in-progress' | null, 
+    progress: number 
+  }>>({});
+
+  // Get user progress from localStorage or API on component mount
+  useEffect(() => {
+    // Try to get course statuses from localStorage
+    const savedStatuses = localStorage.getItem('course_statuses');
+    if (savedStatuses) {
+      setCourseStatuses(JSON.parse(savedStatuses));
+    }
+
+    // Also try to fetch from API if we have a token
+    if (token) {
+      fetchCourseProgress();
+    }
+  }, [token]);
+
+  // Fetch course progress from API
+  const fetchCourseProgress = async () => {
+    try {
+      const response = await fetch('/api/course/get-progress', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.progress && data.progress.completedCourses) {
+          // Process the completed courses data
+          const statusMap: Record<string, { status: 'completed' | 'in-progress' | null, progress: number }> = {};
+          
+          // Mark completed courses
+          data.progress.completedCourses.forEach((completedCourse: any) => {
+            const courseId = typeof completedCourse.course === 'object' 
+              ? completedCourse.course._id 
+              : completedCourse.course;
+              
+            statusMap[courseId] = { status: 'completed', progress: 100 };
+          });
+          
+          // Update state with the combined statuses
+          setCourseStatuses(prevStatuses => {
+            const newStatuses = { ...prevStatuses, ...statusMap };
+            // Save to localStorage for persistence
+            localStorage.setItem('course_statuses', JSON.stringify(newStatuses));
+            return newStatuses;
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching course progress:', error);
+    }
+  };
 
   // Handle delete course confirmation
   const handleDeleteConfirm = (course: ICourse) => {
     setCourseToDelete(course);
     setShowDeleteConfirm(true);
+  };
+
+  // Handle marking a course as completed
+  const handleCompleteCourse = async (courseId: string) => {
+    try {
+      // Call API to mark course as completed
+      const response = await fetch(`/api/course/complete/${courseId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        // Update local state
+        setCourseStatuses(prev => {
+          const updated = { 
+            ...prev, 
+            [courseId]: { status: 'completed' as const, progress: 100 } 
+          };
+          localStorage.setItem('course_statuses', JSON.stringify(updated));
+          return updated;
+        });
+      } else {
+        const errorData = await response.json();
+        if (errorData.error === "Course already completed") {
+          // Course is already completed, just update UI
+          setCourseStatuses(prev => {
+            const updated = { 
+              ...prev, 
+              [courseId]: { status: 'completed' as const, progress: 100 } 
+            };
+            localStorage.setItem('course_statuses', JSON.stringify(updated));
+            return updated;
+          });
+        } else {
+          alert('Failed to complete course: ' + errorData.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error completing course:', error);
+      alert('Failed to mark course as completed');
+    }
+  };
+
+  // Mark a course as in-progress
+  const handleMarkInProgress = (courseId: string) => {
+    setCourseStatuses(prev => {
+      const updated = { 
+        ...prev, 
+        [courseId]: { status: 'in-progress' as const, progress: 30 } 
+      };
+      localStorage.setItem('course_statuses', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   // Handle actual course deletion
@@ -71,6 +188,13 @@ export default function CoursesList({
       setShowDeleteConfirm(false);
       setCourseToDelete(null);
       
+      // Also remove from local storage
+      setCourseStatuses(prev => {
+        const updated = { ...prev };
+        delete updated[courseToDelete._id];
+        localStorage.setItem('course_statuses', JSON.stringify(updated));
+        return updated;
+      });
     } catch (error) {
       console.error('Error deleting course:', error);
       alert('Failed to delete course. Please try again.');
@@ -82,16 +206,19 @@ export default function CoursesList({
     return isAdmin || (currentUserId && course.user && course.user._id === currentUserId);
   };
 
-  // Function to get a random progress value (in a real app, this would come from the API)
-  const getRandomProgress = (courseId: string) => {
-    // Use the first 4 characters of the ID to generate a consistent random number
-    const seed = courseId.substring(0, 4);
-    let hash = 0;
-    for (let i = 0; i < seed.length; i++) {
-      hash = seed.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return Math.abs(hash % 101); // 0-100
-  };
+  // Filter courses based on active filter
+  const filteredCourses = courses.filter(course => {
+    const courseStatus = courseStatuses[course._id]?.status;
+    
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'completed') return courseStatus === 'completed';
+    if (activeFilter === 'in-progress') return courseStatus === 'in-progress';
+    
+    return true;
+  });
+
+  // Limit courses shown based on showMore state
+  const displayedCourses = showMore ? filteredCourses : filteredCourses.slice(0, 3);
 
   // Get category color based on category name
   const getCategoryColor = (category: string) => {
@@ -104,9 +231,17 @@ export default function CoursesList({
       'Music': 'rgba(244, 114, 182, 0.3)', // pink
       'Academic': 'rgba(156, 163, 175, 0.3)', // gray
       'Personal Development': 'rgba(45, 212, 191, 0.3)', // teal
+      'database': 'rgba(96, 165, 250, 0.3)', // blue for database
     };
     
     return colors[category] || 'rgba(209, 213, 219, 0.3)'; // Default gray
+  };
+
+  // Function to handle starting a course (setting its status to "in-progress")
+  const handleStartCourse = (courseId: string) => {
+    if (courseStatuses[courseId]?.status !== "completed") {
+      handleMarkInProgress(courseId);
+    }
   };
 
   return (
@@ -150,15 +285,20 @@ export default function CoursesList({
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 max-w-6xl mx-auto">
-        {courses && courses.length > 0 ? (
-          courses.map((course: ICourse) => {
-            const progress = getRandomProgress(course._id);
+        {displayedCourses && displayedCourses.length > 0 ? (
+          displayedCourses.map((course: ICourse) => {
+            const courseStatus = courseStatuses[course._id] || { status: null, progress: 0 };
+            const progress = courseStatus.progress || 0;
+            const isCompleted = courseStatus.status === 'completed';
+            const isInProgress = courseStatus.status === 'in-progress';
             
             return (
               <div
                 key={course._id}
                 className="relative bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-md p-4 shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[6px_6px_0px_0px_var(--card-border)] transition-all flex flex-col h-full group course-card"
               >
+                
+                
                 {/* Circular letter icon */}
                 <div className="absolute -top-3 -left-3 w-10 h-10 rounded-full bg-[var(--purple-primary)] border-2 border-[var(--card-border)] shadow-[2px_2px_0px_0px_var(--card-border)] flex items-center justify-center text-white font-bold">
                   {course.title.charAt(0)}
@@ -167,7 +307,12 @@ export default function CoursesList({
                 <div className="pt-2">
                   <h3 className="text-lg font-bold text-[var(--text-color)] mb-2">{course.title}</h3>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-medium px-2 py-1 bg-[var(--card-bg)] rounded-full border border-[var(--card-border)]">{course.category}</span>
+                    <span 
+                      className="text-xs font-medium px-2 py-1 rounded-full border border-[var(--card-border)]"
+                      style={{ backgroundColor: getCategoryColor(course.category.toLowerCase()) }}
+                    >
+                      {course.category}
+                    </span>
                     <span className="text-xs bg-[var(--yellow-light)] text-[var(--text-color)] px-2 py-1 rounded-full border border-[var(--card-border)]">
                       {course.lessons.length} {course.lessons.length === 1 ? 'Lesson' : 'Lessons'}
                     </span>
@@ -181,7 +326,12 @@ export default function CoursesList({
                       <span className="text-[var(--text-color)]">{progress}%</span>
                     </div>
                     <div className="w-full bg-[#333333] h-2 rounded-full">
-                      <div className="h-full bg-[var(--purple-primary)] rounded-full" style={{ width: `${progress}%` }}></div>
+                      <div 
+                        className={`h-full rounded-full ${
+                          isCompleted ? 'bg-green-500' : 'bg-[var(--purple-primary)]'
+                        }`} 
+                        style={{ width: `${progress}%` }}
+                      ></div>
                     </div>
                   </div>
                   
@@ -198,6 +348,15 @@ export default function CoursesList({
                     )}
                   </div>
                   
+                  {/* View Course button - will now automatically mark as in-progress */}
+                  <ViewCourseButton 
+                    title={course.title}
+                    category={course.category}
+                    isAdmin={isAdmin}
+                    courseId={course._id}
+                    onStartCourse={() => handleStartCourse(course._id)}
+                  />
+                  
                   {/* Delete button - only show if user can modify the course */}
                   {canModifyCourse(course) && (
                     <button
@@ -207,12 +366,6 @@ export default function CoursesList({
                       <X size={18} strokeWidth={2} className="text-[#ef4444]" />
                     </button>
                   )}
-                  
-                  <ViewCourseButton 
-                    title={course.title}
-                    category={course.category}
-                    isAdmin={isAdmin}
-                  />
                 </div>
               </div>
             );
@@ -222,12 +375,37 @@ export default function CoursesList({
             <div className="text-5xl mb-3">📚</div>
             <p className="text-lg text-[var(--text-color)] font-medium mb-2">No courses available</p>
             <p className="text-sm text-[var(--text-color)] mb-4">Start your learning journey by exploring available courses</p>
-            <button className="inline-flex items-center text-sm font-medium bg-[var(--purple-primary)] text-white py-2 px-4 rounded-md border-2 border-[var(--card-border)] shadow-[2px_2px_0px_0px_var(--card-border)] hover:shadow-[3px_3px_0px_0px_var(--card-border)] hover:-translate-y-0.5 transition-all">
+            <button 
+              onClick={() => router.push('/courses')}
+              className="inline-flex items-center text-sm font-medium bg-[var(--purple-primary)] text-white py-2 px-4 rounded-md border-2 border-[var(--card-border)] shadow-[2px_2px_0px_0px_var(--card-border)] hover:shadow-[3px_3px_0px_0px_var(--card-border)] hover:-translate-y-0.5 transition-all"
+            >
               Browse Catalog
             </button>
           </div>
         )}
       </div>
+
+      {/* Show More/Less Button */}
+      {filteredCourses.length > 3 && (
+        <div className="flex justify-center mt-6">
+          <button
+            onClick={() => setShowMore(!showMore)}
+            className="inline-flex items-center text-sm font-medium bg-[var(--card-bg)] text-[var(--text-color)] py-2 px-4 rounded-md border-2 border-[var(--card-border)] shadow-[2px_2px_0px_0px_var(--card-border)] hover:shadow-[3px_3px_0px_0px_var(--card-border)] hover:-translate-y-0.5 transition-all"
+          >
+            {showMore ? (
+              <>
+                <ChevronUp size={16} className="mr-1" />
+                Show Less
+              </>
+            ) : (
+              <>
+                <ChevronDown size={16} className="mr-1" />
+                Show More
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && courseToDelete && (

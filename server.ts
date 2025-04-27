@@ -18,7 +18,6 @@ import userRoute from './routes/userRoute';
 import ffRoute from './routes/ffRoute';
 import activityRoute from './routes/activityRoute';
 import challengeRoute from './routes/challengeRoute';
-import * as bodyParser from 'body-parser';
 import connectDB from './routes/db'; // Import the db module
 import * as cookieParser from 'cookie-parser';
 import * as cors from 'cors';
@@ -28,8 +27,7 @@ import TestResult from './models/TestResult';
 import Course from './models/Course';
 import UserActivity from './models/UserActivity';
 import { generateQuestionsForCourse } from './ai-quiz-generator';
-import axios from 'axios';
-import { Groq } from 'groq-sdk';
+
 
 const dev = process.env.NODE_ENV !== 'production';
 const nextApp = next.default({ dev });
@@ -558,6 +556,16 @@ nextApp
           room.userScores[userId].score += pointsEarned;
           room.userScores[userId].timeSpent += timeSpent;
           
+          // Broadcast score update to all users in the room
+          io.to(roomId).emit('score_broadcast', {
+            roomId, 
+            userId, 
+            userName: userId === room.challengerId ? room.challengerName : room.challengedName,
+            score: room.userScores[userId].score,
+            isCorrect,
+            correctAnswer: isCorrect ? null : currentQuestion.correctAnswer
+          });
+          
           // Check if both users have answered
           const allUsersAnswered = [room.challengerId, room.challengedId].every(uid => {
             return room.userScores[uid]?.answers && 
@@ -565,8 +573,17 @@ nextApp
           });
           
           if (allUsersAnswered) {
+            // Include current scores in the both_answered event
+            const scores = {
+              [room.challengerId]: room.userScores[room.challengerId].score,
+              [room.challengedId]: room.userScores[room.challengedId].score
+            };
+            
             // Notify both users that both have answered
-            io.to(roomId).emit('both_answered');
+            io.to(roomId).emit('both_answered', { 
+              scores, 
+              correctAnswer: currentQuestion.correctAnswer 
+            });
             
             // Move to the next question or end the challenge
             room.currentQuestionIndex++;
@@ -582,6 +599,47 @@ nextApp
         } catch (error) {
           console.error('Error submitting answer:', error);
           socket.emit('answer_error', 'Server error');
+        }
+      });
+      
+      // Handle broadcast_score event for real-time score updates
+      socket.on('broadcast_score', ({ roomId, userId, userName, score, isCorrect, questionId }) => {
+        try {
+          console.log(`[DEBUG] Broadcasting score update: ${userName} scored ${score} points`);
+          
+          // Get the room to validate the request
+          const room = challengeRooms[roomId];
+          if (!room) {
+            console.error(`[ERROR] Room ${roomId} not found for score broadcast`);
+            return;
+          }
+          
+          // Validate that the user belongs to this room
+          if (room.challengerId !== userId && room.challengedId !== userId) {
+            console.error(`[ERROR] User ${userId} not authorized for score broadcast in room ${roomId}`);
+            return;
+          }
+          
+          // Update the score in the room data - This is important for score accumulation
+          if (room.userScores[userId]) {
+            // Since the client is sending the total score, we'll use that value
+            // This ensures scores are accumulated properly across questions
+            room.userScores[userId].score = score;
+          }
+          
+          // Broadcast the score to everyone in the room except the sender
+          socket.to(roomId).emit('score_broadcast', {
+            roomId,
+            userId,
+            userName,
+            score,
+            isCorrect,
+            questionId
+          });
+          
+          console.log(`[DEBUG] Score broadcast sent for ${userName} (${score} points)`);
+        } catch (error) {
+          console.error('Error broadcasting score:', error);
         }
       });
       

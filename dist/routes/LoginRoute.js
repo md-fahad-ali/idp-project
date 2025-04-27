@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const dotenv_1 = require("dotenv");
 const User_1 = __importDefault(require("../models/User"));
+const UserActivity_1 = __importDefault(require("../models/UserActivity"));
 const generateToken_1 = require("../lib/generateToken");
 (0, dotenv_1.configDotenv)();
 if (!process.env.JWT_SECRET) {
@@ -31,6 +32,12 @@ router.post("/", async (req, res) => {
         // Set tokens in cookie
         res.cookie("access_token", token, { httpOnly: true, secure: true, sameSite: "strict" });
         res.cookie("refresh_token", refreshToken, { httpOnly: true, secure: true, sameSite: "strict" });
+        // Record user activity for streak tracking
+        await UserActivity_1.default.findOneAndUpdate({ userId: user._id }, {
+            userId: user._id,
+            isActive: true,
+            lastActive: new Date()
+        }, { upsert: true });
         // Convert user document to a plain object and handle ObjectId
         const userResponse = {
             id: user._id.toString(),

@@ -122,7 +122,7 @@ export default function Leaderboard({ currentUserId, courseId, isAdmin }: Leader
 
   return (
     <div 
-      className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]"
+      className=" border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]"
       suppressHydrationWarning={true}
     >
       <h2 className="text-2xl font-bold text-[#E6F1FF] mb-6 font-mono">

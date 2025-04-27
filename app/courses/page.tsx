@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import CourseCard from './components/CourseCard';
-
+import Loading from '@/components/ui/Loading';
 interface Lesson {
   title: string;
   content: string;
@@ -121,7 +121,7 @@ export default function CoursesPage() {
         {/* Courses Grid */}
         {loading ? (
           <div className="flex justify-center items-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--purple-primary)]"></div>
+            <Loading />
           </div>
         ) : error ? (
           <div className="text-center py-10 bg-[var(--card-bg)] rounded-lg border-4 border-[var(--card-border)] shadow-[var(--card-shadow)]">
