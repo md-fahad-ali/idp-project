@@ -22,6 +22,11 @@ export default function ChallengeRoom({ challenger, challenged, scores = {} }: C
   const challengerScore = scores[challenger.id] || 0;
   const challengedScore = scores[challenged.id] || 0;
   
+  // Determine who is winning for visual indicators
+  const challengerWinning = challengerScore > challengedScore;
+  const challengedWinning = challengedScore > challengerScore;
+  const isTied = challengerScore === challengedScore && challengerScore > 0;
+  
   return (
     <div className="bg-[#294268] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000] max-w-2xl mx-auto">
       <h2 className="text-2xl font-bold text-[#E6F1FF] mb-6 font-mono text-center">
@@ -31,9 +36,9 @@ export default function ChallengeRoom({ challenger, challenged, scores = {} }: C
       <div className="flex justify-between items-center gap-4">
         {/* Challenger */}
         <div className="flex-1">
-          <div className="bg-[#2f235a] p-4 rounded-lg border-2 border-black">
+          <div className={`bg-[#2f235a] p-4 rounded-lg border-2 ${challengerWinning ? 'border-[#FFD700] shadow-[0_0_10px_#FFD700]' : 'border-black'} transition-all duration-300`}>
             <div className="flex flex-col items-center">
-              <div className="w-20 h-20 bg-[#9D4EDD] rounded-full overflow-hidden border-2 border-black mb-3">
+              <div className={`w-20 h-20 bg-[#9D4EDD] rounded-full overflow-hidden border-2 ${challengerWinning ? 'border-[#FFD700]' : 'border-black'} mb-3 ${challengerWinning ? 'animate-pulse' : ''}`}>
                 {challenger.avatarUrl ? (
                   <img
                     src={challenger.avatarUrl}
@@ -53,9 +58,21 @@ export default function ChallengeRoom({ challenger, challenged, scores = {} }: C
                 {challenger.name}
               </h3>
               <div className="flex items-center gap-2">
-                <span className="text-[#FFD700] font-bold text-xl">{challengerScore}</span>
+                <span className={`font-bold text-xl ${challengerWinning ? 'text-[#FFD700] scale-110' : 'text-[#FFD700]'} transition-all duration-300`}>
+                  {challengerScore}
+                </span>
                 <p className="text-xs text-[#8892B0]">points</p>
               </div>
+              {challengerWinning && (
+                <div className="mt-2 px-2 py-1 bg-[#FFD700] text-black text-xs font-bold rounded-full">
+                  Leading
+                </div>
+              )}
+              {isTied && (
+                <div className="mt-2 px-2 py-1 bg-[#E6F1FF] text-black text-xs font-bold rounded-full">
+                  Tied
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -70,9 +87,9 @@ export default function ChallengeRoom({ challenger, challenged, scores = {} }: C
 
         {/* Challenged */}
         <div className="flex-1">
-          <div className="bg-[#2f235a] p-4 rounded-lg border-2 border-black">
+          <div className={`bg-[#2f235a] p-4 rounded-lg border-2 ${challengedWinning ? 'border-[#FFD700] shadow-[0_0_10px_#FFD700]' : 'border-black'} transition-all duration-300`}>
             <div className="flex flex-col items-center">
-              <div className="w-20 h-20 bg-[#9D4EDD] rounded-full overflow-hidden border-2 border-black mb-3">
+              <div className={`w-20 h-20 bg-[#9D4EDD] rounded-full overflow-hidden border-2 ${challengedWinning ? 'border-[#FFD700]' : 'border-black'} mb-3 ${challengedWinning ? 'animate-pulse' : ''}`}>
                 {challenged.avatarUrl ? (
                   <img
                     src={challenged.avatarUrl}
@@ -92,9 +109,21 @@ export default function ChallengeRoom({ challenger, challenged, scores = {} }: C
                 {challenged.name}
               </h3>
               <div className="flex items-center gap-2">
-                <span className="text-[#FFD700] font-bold text-xl">{challengedScore}</span>
+                <span className={`font-bold text-xl ${challengedWinning ? 'text-[#FFD700] scale-110' : 'text-[#FFD700]'} transition-all duration-300`}>
+                  {challengedScore}
+                </span>
                 <p className="text-xs text-[#8892B0]">points</p>
               </div>
+              {challengedWinning && (
+                <div className="mt-2 px-2 py-1 bg-[#FFD700] text-black text-xs font-bold rounded-full">
+                  Leading
+                </div>
+              )}
+              {isTied && (
+                <div className="mt-2 px-2 py-1 bg-[#E6F1FF] text-black text-xs font-bold rounded-full">
+                  Tied
+                </div>
+              )}
             </div>
           </div>
         </div>

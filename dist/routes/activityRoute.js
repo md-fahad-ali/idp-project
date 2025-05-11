@@ -8,6 +8,11 @@ const authMiddleware_1 = require("../lib/authMiddleware");
 const UserActivity_1 = __importDefault(require("../models/UserActivity"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const router = (0, express_1.Router)();
+// Helper function to get current date in YYYY-MM-DD format
+const getCurrentDateString = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
 // Get user activity for streaks
 router.get('/user-activity', authMiddleware_1.authenticateJWT, async (req, res) => {
     try {
@@ -19,21 +24,34 @@ router.get('/user-activity', authMiddleware_1.authenticateJWT, async (req, res) 
         // Get activity for the last 14 days (2 weeks)
         const twoWeeksAgo = new Date();
         twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-        const userActivities = await UserActivity_1.default.find({
-            userId,
-            lastActive: { $gte: twoWeeksAgo }
+        const userActivity = await UserActivity_1.default.findOne({
+            userId
         })
-            .sort({ lastActive: -1 })
             .lean();
+        if (!userActivity) {
+            res.json({
+                userId,
+                activities: [],
+                totalDays: 0
+            });
+            return;
+        }
         // Format the activities for the client
-        const activities = userActivities.map(activity => ({
-            timestamp: activity.lastActive,
-            date: activity.lastActive.toISOString().split('T')[0] // Format as YYYY-MM-DD
-        }));
+        const activities = userActivity.activities?.map(activity => ({
+            timestamp: activity.timestamp,
+            date: activity.date
+        })) || [];
+        const dateActivities = {};
+        activities.forEach(activity => {
+            if (!dateActivities[activity.date] || new Date(activity.timestamp) > new Date(dateActivities[activity.date].timestamp)) {
+                dateActivities[activity.date] = activity;
+            }
+        });
+        const uniqueActivities = Object.values(dateActivities);
         res.json({
             userId,
-            activities,
-            totalDays: activities.length
+            activities: uniqueActivities,
+            totalDays: uniqueActivities.length
         });
     }
     catch (error) {
@@ -64,10 +82,6 @@ router.get('/active', authMiddleware_1.authenticateJWT, async (req, res) => {
 // Update user activity
 router.post('/update', authMiddleware_1.authenticateJWT, async (req, res) => {
     try {
-        // console.log('Received activity update request:', {
-        //   body: req.body,
-        //   headers: req.headers['content-type']
-        // });
         const { userId } = req.body;
         if (!userId) {
             console.log('Missing userId in request body');
@@ -76,11 +90,26 @@ router.post('/update', authMiddleware_1.authenticateJWT, async (req, res) => {
         }
         // Convert string ID to ObjectId if needed
         const userObjectId = typeof userId === 'string' ? new mongoose_1.default.Types.ObjectId(userId) : userId;
-        // console.log('Updating activity for user:', userObjectId);
+        // Get current date in YYYY-MM-DD format
+        const today = getCurrentDateString();
+        const now = new Date();
+        // Update user activity document with today's date in the activities array
         await UserActivity_1.default.findOneAndUpdate({ userId: userObjectId }, {
-            userId: userObjectId,
-            isActive: true,
-            lastActive: new Date()
+            $set: {
+                userId: userObjectId,
+                isActive: true,
+                lastActive: now,
+            },
+            $push: {
+                activities: {
+                    $each: [{
+                            date: today,
+                            timestamp: now,
+                            action: 'login'
+                        }],
+                    $position: 0
+                }
+            }
         }, { upsert: true });
         res.json({ success: true });
     }

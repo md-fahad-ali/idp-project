@@ -208,11 +208,11 @@ const Navbar = ({
           )}
 
           {!isUserLoggedIn ? (
-            <Link href="/auth/login" className="relative">
-              <button className="px-5 py-2 bg-[var(--purple-primary)] text-white text-sm font-bold rounded-md border-2 border-[var(--card-border)] shadow-[2px_2px_0px_0px_var(--card-border)] hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_var(--card-border)] transition-all duration-200">
+            <a href="/auth/login" className="relative">
+              <div className="px-6 py-2 bg-[#8b5cf6] text-white font-bold rounded-md border-2 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[2px_2px_0px_0px_#000000] hover:translate-y-1 transition-all">
                 Login
-              </button>
-            </Link>
+              </div>
+            </a>
           ) : (
             <div className="flex relative">
               <button
@@ -245,9 +245,9 @@ const Navbar = ({
       {/* Mobile Menu Button */}
       <div className="md:hidden flex justify-between items-center px-4 py-3">
         <div className="flex items-center overflow-x-auto scrollbar-hide w-3/4">
-          <Link href="/" className="text-xl font-bold text-[var(--navbar-text)] font-mono whitespace-nowrap mr-4">
+          <a href="/" className="text-xl font-bold text-[var(--navbar-text)] font-mono whitespace-nowrap mr-4">
             SkillStreet
-          </Link>
+          </a>
           {/* Hide navigation links in mobile view */}
           <div className="hidden">
             {navItems.map((item) => {
@@ -318,90 +318,99 @@ const Navbar = ({
 
       {/* Mobile Menu Slide-in */}
       <div
-        className={`fixed inset-y-0 right-0 w-[280px] bg-[var(--sidebar-bg)] shadow-lg transform ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        } transition-transform duration-300 ease-in-out md:hidden z-50`}
+        className={`fixed inset-0 z-50 bg-opacity-90 bg-[#12100B] transform transition-all duration-300 ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
-        <div className="flex flex-col h-full bg-[var(--navbar-bg)] text-[var(--navbar-text)] border-l-4 border-[var(--card-border)] p-6 transition-colors duration-300">
+        <div className="flex flex-col h-full p-8">
+          {/* Header with close button */}
           <div className="flex justify-between items-center mb-8">
-            <span className="text-xl font-bold text-[var(--navbar-text)] font-mono">Menu</span>
+            <a href="/" className="text-3xl font-bold text-white">
+              SkillStreet
+            </a>
             <button
+              className="text-white"
               onClick={() => setIsOpen(false)}
-              className="text-[var(--navbar-text)] p-2 border-2 border-[var(--card-border)] rounded-md shadow-[2px_2px_0px_0px_var(--card-border)] focus:outline-none"
-              aria-label="Close menu"
             >
               <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
                 xmlns="http://www.w3.org/2000/svg"
+                className="h-8 w-8"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
               >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth="2"
+                  strokeWidth={2}
                   d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
             </button>
           </div>
 
-          <div className="flex flex-col space-y-4 mb-8">
-            {isDashboard ? (
-              // Dashboard navigation items
-              dashboardItems.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="flex items-center py-3 px-4 rounded-md hover:bg-[var(--card-bg)] transition text-[var(--navbar-text)]"
-                  onClick={() => setIsOpen(false)}
-                >
-                  <span className="mr-3 text-xl">{item.icon}</span>
-                  <span className="font-medium">{item.name}</span>
-                </Link>
-              ))
-            ) : (
-              // Regular navigation items - only showing Services and Courses in mobile menu
-              navItems.filter(item => item.name === "Services" || item.name === "Courses").map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="text-[var(--navbar-text)] py-2 text-lg font-medium border-b border-[var(--card-border)]"
-                  onClick={() => setIsOpen(false)}
-                >
-                  {item.name}
-                </Link>
-              ))
-            )}
-          </div>
-
-          <div className="flex flex-col space-y-1">
-              {!isUserLoggedIn ? (
-              <Link 
-                href="/auth/login" 
-                className="block w-full py-3 px-4 mt-8 bg-[var(--purple-primary)] text-white text-center font-bold border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[2px_2px_0px_0px_var(--card-border)] hover:translate-y-1 transition-all"
+          {/* Nav Links */}
+          <div className="flex flex-col space-y-6 mb-auto">
+            {navItems.map((item) => (
+              <a
+                key={item.name}
+                href={item.href}
+                className="text-2xl text-white hover:text-[#9D4EDD] transition-colors"
                 onClick={() => setIsOpen(false)}
               >
-                    Login
-                </Link>
-              ) : (
-              <div className="mt-8">
-                <div className="flex items-center space-x-3 mb-4">
-                  <Avatar name={user?.fullName} variant="beam" size={40} />
-                  <div>
-                    <h3 className="text-lg font-bold text-[var(--navbar-text)]">{user.fullName}</h3>
-                    <p className="text-sm text-[var(--navbar-text)]">{user.email}</p>
+                {item.name}
+              </a>
+            ))}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="mt-auto">
+            {!isUserLoggedIn ? (
+              <a
+                href="/auth/login"
+                className="block w-full py-3 bg-[#9D4EDD] text-white text-center font-bold rounded-lg"
+              >
+                Login / Sign Up
+              </a>
+            ) : (
+              <>
+                {/* User info and dashboard links */}
+                <div className="bg-[#1F1A24] rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-3 border-b border-gray-700 pb-4 mb-4">
+                    <div className="w-12 h-12 bg-[#9D4EDD] rounded-full flex items-center justify-center text-xl text-white font-bold">
+                      {user.fullName.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">
+                        {user.fullName}
+                      </p>
+                      <p className="text-gray-400 text-sm">{user.email}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {dashboardItems.map((item) => (
+                      <a
+                        key={item.name}
+                        href={item.href}
+                        className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors py-2"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        <span>{item.icon}</span>
+                        <span>{item.name}</span>
+                      </a>
+                    ))}
                   </div>
                 </div>
-                        <button 
-                          onClick={handleLogout}
-                  className="block w-full py-3 px-4 bg-[var(--purple-primary)] text-white text-center font-bold border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[2px_2px_0px_0px_var(--card-border)] hover:translate-y-1 transition-all"
+                
+                <button
+                  onClick={handleLogout}
+                  className="w-full py-3 bg-[#F43F5E] text-white font-bold rounded-lg"
                 >
-                          Logout
-                        </button>
-                </div>
-              )}
+                  Logout
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

@@ -5,10 +5,11 @@
     "routes/*",
     "lib/*",
     "models/*",
-    ".env"
+    ".env",
+    "app/services/*"
   ],
-  "exec": "node --require ts-node/register server.ts",
-  "ext": "ts,js,json",
+  "exec": "ts-node --project tsconfig.server.json server.ts",
+  "ext": "ts,js,json,tsx,jsx",
   "env": {
     "NODE_ENV": "development"
   },

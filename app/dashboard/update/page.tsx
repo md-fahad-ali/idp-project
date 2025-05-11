@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-
 import { useSearchParams } from "next/navigation";
 import Tiptap from "@/components/Tiptap";
 import { useDashboard } from "../../provider";
 import { useRouter } from "next/navigation";
 import Loading from "@/components/ui/Loading";
+import toast from "react-hot-toast";
 
 const GamifiedCourse: React.FC = () => {
   const searchParams = useSearchParams();
@@ -163,31 +163,66 @@ const GamifiedCourse: React.FC = () => {
       lessons: updatedLessons,
     };
 
-    console.log(courseData);
+    console.log('Course data to update:', courseData);
     try {
+      // Show loading toast
+      const loadingToast = toast.loading("Updating your course...");
+      
       // Get the course ID from the API response when the course was loaded
+      console.log(`Fetching course with title=${initialTitle}, category=${initialCategory}`);
       const response = await fetch(`/api/course/get?title=${initialTitle}&category=${initialCategory}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include'
       });
       
+      console.log('Get course response status:', response.status);
+      
       if (!response.ok) {
-        alert("Failed to get course information");
+        toast.dismiss(loadingToast);
+        
+        let errorMessage = 'Failed to get course information';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+          console.error('Failed to get course:', errorData);
+        } catch (e) {
+          console.error('Failed to parse error response:', e);
+        }
+        
+        toast.error(errorMessage, {
+          style: {
+            border: '2px solid #F44336',
+            padding: '16px',
+            color: '#F44336',
+          },
+          duration: 4000,
+        });
         return;
       }
       
       const data = await response.json();
+      console.log('Course data retrieved:', data);
       
       if (!data?.courses || data.courses.length === 0) {
-        alert("Course not found");
+        toast.dismiss(loadingToast);
+        toast.error("Course not found", {
+          style: {
+            border: '2px solid #F44336',
+            padding: '16px',
+            color: '#F44336',
+          },
+          duration: 4000,
+        });
         router.push('/404');
         return;
       }
       
       const courseId = data.courses[0]._id;
+      console.log('Course ID for update:', courseId);
       
       // Make the PUT request to update the course
       const updateResponse = await fetch(`/api/course/update/${courseId}`, {
@@ -197,20 +232,58 @@ const GamifiedCourse: React.FC = () => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(courseData),
+        credentials: 'include'
       });
+
+      console.log('Update response status:', updateResponse.status);
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
 
       if (updateResponse.ok) {
         const result = await updateResponse.json();
-        console.log(result);
-        alert("Course updated successfully!");
-        router.push("/dashboard");
+        console.log('Update successful:', result);
+        toast.success("Course updated successfully!", {
+          style: {
+            border: '2px solid #4CAF50',
+            padding: '16px',
+            color: '#4CAF50',
+            fontWeight: 'bold',
+          },
+          duration: 3000,
+        });
+        // Use direct navigation for more reliable page change
+        window.location.href = "/dashboard";
       } else {
-        const error = await updateResponse.json();
-        alert("Failed to update course: " + error.error);
+        let errorMessage = 'Failed to update course';
+        try {
+          const errorData = await updateResponse.json();
+          errorMessage = errorData.error || errorMessage;
+          console.error('Failed to update course:', errorData);
+        } catch (e) {
+          const errorText = await updateResponse.text();
+          console.error('Failed to parse error response:', errorText);
+        }
+        
+        toast.error(errorMessage, {
+          style: {
+            border: '2px solid #F44336',
+            padding: '16px',
+            color: '#F44336',
+          },
+          duration: 4000,
+        });
       }
     } catch (err) {
       console.error("Unexpected error:", err);
-      alert("An unexpected error occurred.");
+      toast.error("An unexpected error occurred while updating the course", {
+        style: {
+          border: '2px solid #F44336',
+          padding: '16px',
+          color: '#F44336',
+        },
+        duration: 4000,
+      });
     }
   };
 
@@ -218,7 +291,7 @@ const GamifiedCourse: React.FC = () => {
     <div className="pt-[100px] bg-[#6016a7] text-[#E6F1FF] min-h-screen">
       <div className="container mx-auto px-4 pb-16">
         <h1 className="text-3xl font-bold text-[aqua] mb-8 font-mono">
-          Create New Course
+          Update Course
         </h1>
 
         {/* Course Information Section */}

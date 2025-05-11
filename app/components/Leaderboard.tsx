@@ -198,7 +198,8 @@ export default function Leaderboard({ currentUserId, courseId, isAdmin }: Leader
           {showAllRankers && !courseId && (
             <Link
               href="/rankings"
-              className="block w-full mt-6 p-3 text-center border-4 border-black rounded-md bg-[#9D4EDD] text-white font-bold shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 hover:bg-[#8A2BE2] hover:shadow-[6px_6px_0px_0px_#000000]"
+              className="block w-full mt-6 p-3 text-center border-4 border-black rounded-md bg-[#9D4EDD] text-white font-bold shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 hover:bg-[#7B2CBF] hover:shadow-[6px_6px_0px_0px_#000000]"
+              prefetch={false}
             >
               View Full Rankings
             </Link>

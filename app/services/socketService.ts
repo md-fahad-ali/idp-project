@@ -1,6 +1,7 @@
 import { Socket } from 'socket.io-client';
 import io from 'socket.io-client';
 import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 
 // Types for challenge data
 interface ChallengeData {
@@ -25,6 +26,13 @@ interface QuestionData {
   totalQuestions?: number;
 }
 
+interface UserAnswer {
+  userId: string;
+  userName: string;
+  answer: string;
+  isCorrect?: boolean;
+}
+
 interface ActiveChallengeData {
   challengerName: string;
   challengedName: string;
@@ -41,6 +49,7 @@ interface ActiveChallengeData {
   timeLeft?: number;
   questionNumber?: number;
   totalQuestions?: number;
+  preparingQuestions?: boolean; // Flag to indicate that questions are being prepared
 }
 
 interface ChallengeResultData {
@@ -57,93 +66,210 @@ interface ChallengeResultData {
   winnerName: string;
 }
 
-let socket: ReturnType<typeof io> | null = null;
+// Store the socket instance at the module level
+let socket: any = null;
 
-// Initialize socket connection
-export const initSocket = (): ReturnType<typeof io> => {
-  if (!socket) {
-    socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000', {
-      autoConnect: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 10000,
-      transports: ['websocket'],
-      withCredentials: true
-    } as any);
-    
-    // Setup listeners for connection events
-    socket.on('connect', () => {
-      console.log('Socket connected:', socket?.id);
-      
-      // Re-identify on reconnection if userId is stored in localStorage
-      if (typeof window !== 'undefined') {
-        const storedUserId = localStorage.getItem('userId');
-        if (storedUserId) {
-          console.log('Auto re-identifying after connect with stored userId:', storedUserId);
-          forceIdentify(storedUserId);
-        }
-      }
-    });
-    
-    socket.on('disconnect', (reason: any) => {
-      console.log('Socket disconnected:', reason);
-    });
-    
-    socket.on('reconnect', (attemptNumber: any) => {
-      console.log('Socket reconnected after', attemptNumber, 'attempts');
-      
-      // Re-identify on reconnection if userId is stored in localStorage
-      if (typeof window !== 'undefined') {
-        const storedUserId = localStorage.getItem('userId');
-        if (storedUserId) {
-          console.log('Auto re-identifying after reconnect with stored userId:', storedUserId);
-          forceIdentify(storedUserId);
-        }
-      }
-    });
-    
-    socket.on('reconnect_error', (error:any) => {
-      console.error('Socket reconnection error:', error);
-    });
-    
-    socket.on('error', (error:any) => {
-      console.error('Socket error:', error);
-    });
-    
-    // Add global listeners for opponent leaving events
-    socket.on('opponent_left', (data: any) => {
-      console.log('GLOBAL EVENT: Opponent left room:', data);
-    });
-    
-    socket.on('leave_room', (data: any) => {
-      console.log('GLOBAL EVENT: Leave room event received:', data);
-    });
-    
-    // Add listener for system messages
-    socket.on('system_message', (data: any) => {
-      console.log('GLOBAL EVENT: System message received:', data);
-      
-      // If this is a user_left message, handle it similarly to opponent_left
-      if (data.type === 'user_left') {
-        console.log('User left notification:', data.userName, 'left the game');
-        // Display an alert to ensure the user sees it
-        if (typeof window !== 'undefined') {
-          window.alert(`${data.userName} has left the game.`);
-        }
-      }
-    });
+// Utility function to create a socket connection if it doesn't exist
+export default function initSocket() {
+  if (typeof window === 'undefined') {
+    return null; // Return null on server-side
   }
   
-  // Force a reconnect if the socket exists but is not connected
-  if (socket && !socket.connected) {
-    console.log('Socket exists but not connected. Reconnecting...');
-    socket.connect();
+  try {
+    if (!socket) {
+      // Get the base URL dynamically (works in both dev and production)
+      const baseUrl = window.location.origin;
+      
+      // Create socket instance with options
+      socket = io(baseUrl, {
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 10, // Increased from 5
+        reconnectionDelay: 1000,
+      });
+      
+      // Set up error handling
+      socket.on('connect_error', (err: any) => {
+        console.error('Socket connection error:', err);
+      });
+      
+      socket.on('disconnect', (reason: string) => {
+        console.log(`Socket disconnected: ${reason}`);
+      });
+
+      // Auto-reconnect and identify on connection
+      socket.on('connect', () => {
+        console.log('Socket connected, auto-identifying user');
+        
+        // Auto-identify if user ID is in localStorage
+        const autoIdentifyUser = () => {
+          try {
+            // Get user from localStorage if available
+            const user = localStorage.getItem('user');
+            if (user) {
+              const userData = JSON.parse(user);
+              if (userData && userData._id) {
+                // Auto-identify this user to the server
+                console.log('Auto-identifying user:', userData._id);
+                identifyUser(userData._id);
+              }
+            }
+          } catch (err) {
+            console.error('Error auto-identifying user:', err);
+          }
+        };
+        
+        // Try to identify after a short delay to ensure connection is stable
+        setTimeout(autoIdentifyUser, 500);
+      });
+      
+      // Setup reconnect event
+      socket.io.on("reconnect", () => {
+        console.log('Socket reconnected, re-identifying user');
+        
+        // Re-identify user after reconnection
+        try {
+          const user = localStorage.getItem('user');
+          if (user) {
+            const userData = JSON.parse(user);
+            if (userData && userData._id) {
+              console.log('Re-identifying user after reconnect:', userData._id);
+              identifyUser(userData._id);
+            }
+          }
+        } catch (err) {
+          console.error('Error re-identifying user after reconnect:', err);
+        }
+      });
+      
+      console.log('Socket initialized');
+    }
+    
+    return socket;
+  } catch (error) {
+    console.error('Error initializing socket:', error);
+    return null;
   }
-  
-  return socket;
-};
+}
+
+// Safe socket initialization (won't throw errors)
+export function initSafeSocket() {
+  try {
+    return initSocket();
+  } catch (e) {
+    console.error('Error in initSafeSocket:', e);
+    return null;
+  }
+}
+
+// Check if user is in a challenge room
+export async function checkInRoom(userId: string): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    try {
+      const s = initSocket();
+      
+      if (!s || !s.connected) {
+        console.warn('Socket not connected when checking room status');
+        resolve(false);
+        return;
+      }
+      
+      // Set timeout to prevent hanging
+      const timeout = setTimeout(() => {
+        s.off('in_room_response');
+        reject('Timeout checking room status');
+      }, 5000);
+      
+      s.emit('check_in_room', { userId });
+      
+      s.on('in_room_response', (data: { inRoom: boolean, roomId?: string }) => {
+        clearTimeout(timeout);
+        s.off('in_room_response'); // Remove the listener
+        resolve(data.inRoom);
+      });
+    } catch (error) {
+      console.error('Error in checkInRoom:', error);
+      reject(error);
+    }
+  });
+}
+
+// Create a challenge room
+export async function createChallengeRoom(
+  challengerId: string,
+  challengedId: string,
+  courseId: string
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    try {
+      const s = initSocket();
+      
+      if (!s || !s.connected) {
+        reject('Socket not connected');
+        return;
+      }
+      
+      // Set timeout to prevent hanging
+      const timeout = setTimeout(() => {
+        s.off('room_created');
+        reject('Timeout creating challenge room');
+      }, 5000);
+      
+      s.emit('create_challenge_room', {
+        challengerId,
+        challengedId,
+        courseId
+      });
+      
+      s.on('room_created', (data: { roomId: string }) => {
+        clearTimeout(timeout);
+        s.off('room_created'); // Remove the listener
+        resolve(data.roomId);
+      });
+    } catch (error) {
+      console.error('Error in createChallengeRoom:', error);
+      reject(error);
+    }
+  });
+}
+
+// Utility function to check if socket is working
+export async function isSocketWorking(): Promise<boolean> {
+  return new Promise(resolve => {
+    try {
+      // Return false immediately for server-side rendering
+      if (typeof window === 'undefined') {
+        resolve(false);
+        return;
+      }
+      
+      const s = initSocket();
+      
+      // If we couldn't create a socket or it's not connected, return false
+      if (!s || !s.connected) {
+        resolve(false);
+        return;
+      }
+      
+      // Set a timeout for the ping test
+      const timeout = setTimeout(() => {
+        resolve(false);
+      }, 3000);
+      
+      // Try a simple ping to verify socket is responsive
+      s.emit('ping');
+      
+      // Set up a one-time listener for the response
+      s.once('pong', () => {
+        clearTimeout(timeout);
+        resolve(true);
+      });
+    } catch (error) {
+      console.error('Error checking socket status:', error);
+      resolve(false);
+    }
+  });
+}
 
 // Get course slug from course name
 export const getCourseSlug = (courseName: string): string => {
@@ -157,70 +283,79 @@ export const navigateToChallengeRoom = (
   challengedName: string,
   roomId?: string
 ): string => {
-  // Use meaningful defaults that describe the relationship
-  const effectiveCourseName = courseName || 'challenge';
-  const effectiveChallengerName = challengerName || 'challenger';
-  const effectiveChallengedName = challengedName || 'opponent';
+  console.log('[DEBUG] navigateToChallengeRoom called with:', { courseName, challengerName, challengedName, roomId });
   
-  const courseSlug = getCourseSlug(effectiveCourseName);
-  const user1 = effectiveChallengerName.split(' ')[0].toLowerCase();
-  const user2 = effectiveChallengedName.split(' ')[0].toLowerCase();
+  // Ensure we have actual values, not placeholders
+  if (!courseName || courseName === 'challenge') {
+    console.error('[ERROR] Invalid course name for challenge room navigation:', courseName);
+  }
+  
+  if (!challengerName || challengerName === 'challenger' || !challengedName || challengedName === 'opponent') {
+    console.error('[ERROR] Invalid user names for challenge room navigation:', { challengerName, challengedName });
+  }
+  
+  // Always use actual course name and user names, never use placeholders
+  const courseSlug = getCourseSlug(courseName);
+  const user1 = challengerName.split(' ')[0].toLowerCase();
+  const user2 = challengedName.split(' ')[0].toLowerCase();
   
   // Include roomId as a query parameter when it's provided
   const baseUrl = `/room/course/${courseSlug}/${user1}/${user2}`;
-  return roomId ? `${baseUrl}?roomId=${roomId}` : baseUrl;
-};
-
-export const checkInRoom = (userId: string): Promise<boolean> => {
-  return new Promise((resolve, reject) => {
-    const socket = initSocket();
-    
-    // Create a handler function that we can reference for removal
-    const handleRoomStatusResponse = (data: { isInRoom: boolean }) => {
-      clearTimeout(timeoutId); // Clear the timeout when we get a response
-      socket.off('room_status_response', handleRoomStatusResponse); // Remove the listener
-      resolve(data.isInRoom);
-    };
-    
-    // Add the event listener
-    socket.on('room_status_response', handleRoomStatusResponse);
-    
-    // Emit the event to check room status
-    socket.emit('check_room_status', userId);
-    
-    // Set timeout and store its ID so we can clear it if needed
-    const timeoutId = setTimeout(() => {
-      socket.off('room_status_response', handleRoomStatusResponse); // Clean up listener on timeout
-      resolve(false); // Resolve with false instead of rejecting to avoid unhandled exceptions
-      console.warn(`Room status check timed out for user ${userId}`);
-    }, 5000);
-  });
-};
-
-// Create a challenge room
-export const createChallengeRoom = (
-  challengerId: string, 
-  challengedId: string, 
-  courseId: string
-): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const socket = initSocket();
-    socket.emit('create_challenge', { challengerId, challengedId, courseId });
-    
-    socket.on('challenge_room_created', (roomId: string) => {
-      resolve(roomId);
-    });
-    
-    socket.on('challenge_room_error', (error: string) => {
-      reject(error);
-    });
-  });
+  
+  // Log the constructed URL for debugging
+  const finalUrl = roomId ? `${baseUrl}?roomId=${roomId}` : baseUrl;
+  console.log('[DEBUG] Challenge room URL constructed:', finalUrl);
+  
+  return finalUrl;
 };
 
 // Join a challenge room
-export const joinChallengeRoom = (roomId: string, userId: string): void => {
-  const socket = initSocket();
-  socket.emit('join_challenge', { roomId, userId });
+export const joinChallengeRoom = (roomId: string, userId: string): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
+    if (!roomId || !userId) {
+      console.error('Missing required parameters for joinChallengeRoom:', { roomId, userId });
+      reject('Room ID and User ID are required');
+      return;
+    }
+    
+    try {
+      console.log(`[DEBUG] Joining challenge room ${roomId} with user ${userId}`);
+      const socket = initSocket();
+      
+      // Set up a one-time handler for join confirmation
+      const handleJoinConfirm = (data: { success: boolean, error?: string }) => {
+        socket.off('join_challenge_confirm', handleJoinConfirm);
+        
+        if (data.success) {
+          console.log(`[DEBUG] Successfully joined room ${roomId}`);
+          resolve(true);
+        } else {
+          console.error(`[DEBUG] Failed to join room: ${data.error}`);
+          reject(data.error || 'Failed to join room');
+        }
+      };
+      
+      // Set up timeout for join confirmation
+      const timeoutId = setTimeout(() => {
+        socket.off('join_challenge_confirm', handleJoinConfirm);
+        console.warn(`[DEBUG] Join room ${roomId} timed out after 5 seconds`);
+        // Resolve with false instead of rejecting to avoid unhandled promises
+        resolve(false);
+      }, 5000);
+      
+      // Register the confirmation handler
+      socket.on('join_challenge_confirm', handleJoinConfirm);
+      
+      // Actually emit the join event
+      socket.emit('join_challenge', { roomId, userId });
+      
+      console.log(`[DEBUG] Sent join_challenge event for room ${roomId}`);
+      
+    } catch (error) {
+      console.error('[DEBUG] Error in joinChallengeRoom:', error);
+      reject(error);
+    }
+  });
 };
 
 // Start the challenge quiz
@@ -235,16 +370,38 @@ export const submitAnswer = (
   userId: string, 
   questionId: string, 
   answer: string,
-  timeSpent: number
+  timeSpent: number,
+  answerLetter: string = ''
 ): void => {
+  console.log(`[DEBUG SOCKET] submitAnswer called with:`, { roomId, userId, questionId, answer, timeSpent, answerLetter });
+  
   const socket = initSocket();
-  socket.emit('submit_answer', { 
-    roomId, 
-    userId, 
-    questionId, 
-    answer,
-    timeSpent 
-  });
+  
+  // Check if socket is connected
+  if (!socket.connected) {
+    console.error(`[DEBUG SOCKET] Socket not connected! Attempting reconnection before submitting answer`);
+    
+    // Force connect
+    socket.connect();
+    
+    // Set up a one-time event listener for when the socket connects
+    socket.once('connect', () => {
+      console.log(`[DEBUG SOCKET] Socket reconnected, now submitting answer`);
+      socket.emit('submit_answer', { roomId, userId, questionId, answer, timeSpent, answerLetter });
+    });
+  } else {
+    // Socket is connected, emit normally
+    console.log(`[DEBUG SOCKET] Socket connected, emitting submit_answer event`);
+    socket.emit('submit_answer', { roomId, userId, questionId, answer, timeSpent, answerLetter });
+  }
+  
+  // Ping the server after answer submission to maintain connection
+  try {
+    console.log(`[DEBUG SOCKET] Pinging server after answer submission to maintain connection`);
+    socket.emit('ping_test', { userId, timestamp: Date.now(), message: 'Post-answer submission ping' });
+  } catch (error) {
+    console.error(`[DEBUG SOCKET] Error pinging server after answer submission:`, error);
+  }
 };
 
 // Broadcast score update to opponents
@@ -256,15 +413,43 @@ export const broadcastScore = (
   isCorrect: boolean,
   questionId?: string
 ): void => {
-  const socket = initSocket();
-  socket.emit('broadcast_score', {
-    roomId,
-    userId,
-    userName,
-    score,
-    isCorrect,
-    questionId
+  console.log(`[DEBUG SOCKET] broadcastScore called with:`, {
+    roomId, userId, userName, score, isCorrect, questionId
   });
+
+  const socket = initSocket();
+  
+  // Check if socket is connected
+  if (!socket.connected) {
+    console.error(`[DEBUG SOCKET] Socket not connected! Attempting reconnection before broadcasting score`);
+    
+    // Force connect
+    socket.connect();
+    
+    // Wait for connection and then emit
+    socket.once('connect', () => {
+      console.log(`[DEBUG SOCKET] Socket reconnected, now broadcasting score`);
+      socket.emit('broadcast_score', {
+        roomId,
+        userId,
+        userName,
+        score,
+        isCorrect,
+        questionId
+      });
+    });
+  } else {
+    // Socket is connected, emit normally
+    console.log(`[DEBUG SOCKET] Socket connected, emitting broadcast_score event`);
+    socket.emit('broadcast_score', {
+      roomId,
+      userId,
+      userName,
+      score,
+      isCorrect,
+      questionId
+    });
+  }
 };
 
 // React hook for challenge notifications
@@ -377,57 +562,62 @@ export const declineChallenge = (challengeId: string, userId: string): void => {
 export const leaveRoom = (
   roomId: string, 
   userId: string, 
-  isChallenger: boolean,
+  isChallenger: boolean = false,
   customMessage?: string
-): void => {
-  const socket = initSocket();
+): {
+  roomId: string;
+  userId: string;
+  isChallenger: boolean;
+  customMessage: string;
+} => {
+  if (!socket || !socket.connected) {
+    console.warn('Cannot leave room: socket not connected');
+    return { roomId, userId, isChallenger, customMessage: customMessage || 'Player has left the game.' };
+  }
   
-  // More detailed logging
-  console.log('[DEBUG SOCKETSERVICE] Emitting leave_room event with data:', {
-    roomId,
-    userId,
+  console.log('Preparing leave room data:', { roomId, userId, isChallenger, customMessage });
+  
+  // Instead of emitting the event, just prepare the data to be used by confirmLeaveRoom
+  const leaveData = { 
+    roomId, 
+    userId, 
     isChallenger,
     customMessage: customMessage || 'Player has left the game.'
-  });
+  };
   
-  // Test ping first to see if server receives any events
-  pingServer(userId);
-  
-  // Check if socket is connected before emitting
-  if (!socket.connected) {
-    console.error('[DEBUG SOCKETSERVICE] Socket not connected! Attempting to reconnect...');
-    socket.connect();
-    
-    // Wait for connection and then emit
-    socket.once('connect', () => {
-      console.log('[DEBUG SOCKETSERVICE] Socket reconnected, now emitting leave_room');
-      socket.emit('leave_room', {
-        roomId,
-        userId,
-        isChallenger,
-        customMessage: customMessage || 'Player has left the game.'
-      });
-    });
-  } else {
-    // Socket is connected, emit normally
-    socket.emit('leave_room', {
-      roomId,
-      userId,
-      isChallenger,
-      customMessage: customMessage || 'Player has left the game.'
-    });
-  }
+  // Return the data so the component can show a confirmation dialog
+  return leaveData;
 };
 
-// Add a ping test function
-export const pingServer = (userId: string): void => {
+// Enhanced pingServer function with response handling
+export const pingServer = (userId: string, callback?: (success: boolean) => void): void => {
+  try {
   const socket = initSocket();
-  console.log('[DEBUG] Pinging server with test event...');
-  socket.emit('ping_test', { 
-    userId, 
-    timestamp: Date.now(),
-    message: 'Testing socket connection'
-  });
+    const timestamp = Date.now();
+    
+    // If a callback was provided, set up a one-time response handler
+    if (callback) {
+      // Set a timeout in case server doesn't respond
+      const timeoutId = setTimeout(() => {
+        socket.off('pong_test');
+        callback(false);
+      }, 3000);
+      
+      // Listen for pong response
+      socket.once('pong_test', (data: { timestamp: number }) => {
+        clearTimeout(timeoutId);
+        const responseTime = Date.now() - data.timestamp;
+        console.log(`[SOCKET] Ping response received in ${responseTime}ms`);
+        callback(true);
+      });
+    }
+    
+    // Send the ping request with timestamp and userId for tracking
+    socket.emit('ping_test', { userId, timestamp });
+  } catch (error) {
+    console.error('[SOCKET] Error pinging server:', error);
+    if (callback) callback(false);
+  }
 };
 
 // Register a callback for when an opponent leaves
@@ -483,19 +673,184 @@ export const onSystemMessage = (callback: (data: any) => void): () => void => {
 
 // Identify user to socket server
 export const forceIdentify = (userId: string): void => {
-  const socket = initSocket();
-  
-  // Store userId in localStorage for reconnection
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('userId', userId);
+  try {
+    if (!userId) {
+      console.error('[SOCKET] Cannot identify: userId is empty');
+      return;
+    }
+    
+    const socket = initSocket();
+    
+    if (!socket) {
+      console.error('[SOCKET] Cannot identify: failed to initialize socket');
+      return;
+    }
+    
+    // Store userId in localStorage for reconnection
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('socketUserId', userId);
+    }
+    
+    // Check if socket is connected
+    if (!socket.connected) {
+      console.warn('[SOCKET] Socket not connected when trying to identify. Connecting...');
+      socket.connect();
+      
+      // Wait for connection and then identify
+      socket.once('connect', () => {
+        console.log('[SOCKET] Socket connected, now identifying user:', userId);
+        socket.emit('identify', { userId });
+        
+        // Double check by emitting a ping after identification
+        setTimeout(() => {
+          socket.emit('ping_test', { userId, timestamp: Date.now() });
+        }, 500);
+      });
+    } else {
+      // Socket is already connected, just identify
+      console.log('[SOCKET] Identifying user to socket server:', userId);
+      socket.emit('identify', { userId });
+      
+      // Double check by emitting a ping after identification
+      setTimeout(() => {
+        socket.emit('ping_test', { userId, timestamp: Date.now() });
+      }, 500);
+    }
+  } catch (error) {
+    console.error('[SOCKET] Error in forceIdentify:', error);
   }
-  
-  console.log('[DEBUG] Force identifying user to socket server:', userId);
-  socket.emit('identify', { userId });
 };
 
 // Modified identify that will always try to identify, supporting reconnection
 export const identifyUser = (userId: string): void => {
   // Always force identify to ensure user-socket mapping is current
   forceIdentify(userId);
-}; 
+};
+
+// Add event handler for user answer
+export const onUserAnswer = (callback: (data: UserAnswer) => void): () => void => {
+  const socket = initSocket();
+  
+  const handler = (data: UserAnswer) => {
+    console.log("[DEBUG] User answer received:", data);
+    callback(data);
+  };
+  
+  socket.on('user_answer', handler);
+  
+  return () => {
+    socket.off('user_answer', handler);
+  };
+};
+
+// Listen for time sync events
+export const onTimeSync = (callback: (data: { timeLeft: number }) => void): () => void => {
+  const socket = initSocket();
+  
+  const handler = (data: { timeLeft: number }) => {
+    // Ensure time is a positive number
+    const timeLeft = Math.max(0, Math.round(data.timeLeft));
+    callback({ timeLeft });
+  };
+  
+  socket.on('time_sync', handler);
+  
+  return () => {
+    socket.off('time_sync', handler);
+  };
+};
+
+// Request a new question when duplicate is detected
+export const requestNewQuestion = (
+  roomId: string,
+  userId: string,
+  excludeIds: string[]
+): void => {
+  console.log(`[DEBUG SOCKET] Requesting new question for room ${roomId}`);
+  console.log(`[DEBUG SOCKET] Excluding question IDs:`, excludeIds);
+  
+  const socket = initSocket();
+  
+  // Check if socket is connected
+  if (!socket.connected) {
+    console.error(`[DEBUG SOCKET] Socket not connected! Attempting reconnection before requesting new question`);
+    socket.connect();
+    
+    // Set up a one-time event listener for when the socket connects
+    socket.once('connect', () => {
+      console.log(`[DEBUG SOCKET] Socket reconnected, now requesting new question`);
+      socket.emit('request_new_question', { roomId, userId, excludeIds });
+    });
+  } else {
+    // Socket is connected, emit normally
+    console.log(`[DEBUG SOCKET] Socket connected, emitting request_new_question event`);
+    socket.emit('request_new_question', { roomId, userId, excludeIds });
+  }
+};
+
+// Fixed useSocketStatus hook with proper initialization
+export const useSocketStatus = () => {
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [isChecking, setIsChecking] = useState<boolean>(true);
+  
+  // Initialize socket status checking
+  useEffect(() => {
+    // Skip on server-side
+    if (typeof window === 'undefined') {
+      setIsChecking(false);
+      setIsConnected(false);
+      return;
+    }
+    
+    setIsChecking(true);
+    
+    // Check socket status immediately
+    const checkSocketStatus = async () => {
+      try {
+        const isWorking = await isSocketWorking();
+        setIsConnected(isWorking);
+      } catch (error) {
+        console.error('[SOCKET] Error checking status:', error);
+        setIsConnected(false);
+      } finally {
+        setIsChecking(false);
+      }
+    };
+    
+    // Initial check
+    checkSocketStatus();
+    
+    // Check periodically (every 30 seconds)
+    const interval = setInterval(checkSocketStatus, 30000);
+    
+    // Check on window focus
+    const handleFocus = () => {
+      setIsChecking(true);
+      checkSocketStatus();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    
+    // Cleanup
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+  
+  return { isConnected, isChecking };
+};
+
+// Safe socket initialization function with error handling
+
+// Add a new function to actually leave after confirmation
+export const confirmLeaveRoom = (leaveData: any): void => {
+  const socket = initSocket();
+  if (!socket || !socket.connected) {
+    console.warn('Cannot leave room: socket not connected');
+    return;
+  }
+  
+  console.log('Confirmed leave - emitting leave_room event with data:', leaveData);
+  socket.emit('leave_room', leaveData);
+};

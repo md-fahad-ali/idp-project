@@ -66,37 +66,44 @@ passport.use(jwtStrategy);
 
 // Custom authentication middleware
 export const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
-  // console.log('Auth Header:', req.headers.authorization);
+  console.log(`[AuthMiddleware] Path: ${req.path}, Auth Header: ${req.headers.authorization ? 'Present' : 'Missing'}`);
   
-  passport.authenticate('jwt', { session: false }, async (err: unknown, user: Express.User | false | null) => {
-    // console.log('Passport authenticate callback');
-    // console.log('Error:', err);
-    // console.log('User:', user);
-
+  passport.authenticate('jwt', { session: false }, async (err: unknown, user: Express.User | false | null, info: any) => {
+    console.log('[AuthMiddleware] Passport authenticate callback triggered.');
     if (err) {
-      console.error('Authentication error:', err);
-      return res.status(500).json({ message: "Internal server error", error: (err as Error).message });
+      console.error('[AuthMiddleware] Passport error:', err);
+      return res.status(500).json({ message: "Authentication error", error: (err as Error).message });
     }
     
+    if (info) {
+      console.log("[AuthMiddleware] Passport info:", info.message);
+    }
+
     if (!user) {
+      console.log('[AuthMiddleware] No user from JWT. Attempting token refresh.');
       const refreshToken = req.cookies.refresh_token;
-      // console.log('Refresh token:', refreshToken);
+      console.log('[AuthMiddleware] Refresh token from cookie:', refreshToken ? 'Present' : 'Missing');
+
       if (refreshToken) {
         try {
           const refreshSecret = process.env.JWT_REFRESH_SECRET;
           if (!refreshSecret) {
-            // console.error('JWT_REFRESH_SECRET is not defined');
-            return res.status(500).json({ message: "Server configuration error" });
+            console.error('[AuthMiddleware] JWT_REFRESH_SECRET is not defined');
+            return res.status(500).json({ message: "Server configuration error: Refresh secret missing" });
           }
           
+          console.log('[AuthMiddleware] Verifying refresh token...');
           const decodedRefreshToken = jwt.verify(refreshToken, refreshSecret) as JwtPayload;
-          if (decodedRefreshToken) {
+          console.log('[AuthMiddleware] Refresh token decoded:', decodedRefreshToken);
+
+          if (decodedRefreshToken && decodedRefreshToken._id) {
             const refreshedUser = await User.findById(new Types.ObjectId(decodedRefreshToken._id))
               .select('-password')
               .lean();
             
+            console.log('[AuthMiddleware] User found from refresh token:', refreshedUser ? refreshedUser._id.toString() : 'None');
+
             if (refreshedUser) {
-              // Convert ObjectId to string
               const userWithStringId = {
                 ...refreshedUser,
                 _id: refreshedUser._id.toString()
@@ -105,26 +112,47 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
               const newToken = jwt.sign(
                 { _id: userWithStringId._id, email: userWithStringId.email },
                 JWT_SECRET,
-                { expiresIn: '1h' }
+                { expiresIn: '1h' } // Or your preferred expiration for access tokens
               );
-              // console.log('New token:', newToken);
-              res.cookie('access_token', newToken, { httpOnly: true, secure: true, sameSite: 'strict' });
+              console.log('[AuthMiddleware] New access token generated.');
+
+              // Important: Set the new access_token cookie correctly for the client to use
+              res.cookie('access_token', newToken, { 
+                httpOnly: true, 
+                secure: process.env.NODE_ENV === 'production', // Use secure in production
+                sameSite: 'strict', 
+                path: '/' // Make sure path is appropriate
+              });
+              
               req.user = userWithStringId as Express.User;
-              return next();
+              console.log('[AuthMiddleware] Token refreshed successfully. Calling next().');
+              return next(); // Ensure next() is called here
+            } else {
+              console.log('[AuthMiddleware] User not found for refresh token. Sending 401.');
+              return res.status(401).json({ message: "Unauthorized - Invalid refresh token (user not found)" });
             }
+          } else {
+            console.log('[AuthMiddleware] Decoded refresh token invalid or missing _id. Sending 401.');
+            return res.status(401).json({ message: "Unauthorized - Invalid refresh token (decode error)" });
           }
         } catch (error) {
-          console.error('Refresh token error:', error);
+          console.error('[AuthMiddleware] Refresh token verification error:', error);
+          // Check the type of error to provide more specific feedback if it's a JWT error
+          if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
+            return res.status(401).json({ message: `Unauthorized - Refresh token issue: ${(error as Error).message}` });
+          }
+          return res.status(500).json({ message: "Internal server error during token refresh" });
         }
+      } else {
+        console.log('[AuthMiddleware] No refresh token found. Sending 401.');
+        return res.status(401).json({ message: "Unauthorized - No user and no refresh token" });
       }
-      
-      // console.log('No user found - Unauthorized');
-      return res.status(401).json({ message: "Unauthorized - Invalid token" });
+    } else {
+      // User was found by JWT strategy
+      console.log('[AuthMiddleware] Authentication successful with JWT. User:', user._id);
+      req.user = user;
+      return next(); // Ensure next() is called here
     }
-
-    // console.log('Authentication successful');
-    req.user = user;
-    next();
   })(req, res, next);
 };
 

@@ -68,47 +68,65 @@ export const ActivityProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     // Update activity when component mounts
-    if (token && user) {
+    if (token && user && user.role !== 'admin') {
       updateActivity();
     }
 
     // Set up interval to update activity and fetch active users
-    const activityInterval = setInterval(() => {
-      if (token && user) {
-        updateActivity();
+    // Only run these for non-admin users
+    let activityInterval: NodeJS.Timeout | null = null;
+    let fetchInterval: NodeJS.Timeout | null = null;
+
+    if (user && user.role !== 'admin') {
+      activityInterval = setInterval(() => {
+        if (token && user) { // Inner check still useful
+          updateActivity();
+        }
+      }, 5000); // Send ping every 5 seconds
+
+      fetchInterval = setInterval(() => {
+        if (token) { // Inner check for token is sufficient here
+           fetchActiveUsers();
+        }
+      }, 5000); // Fetch active users every 5 seconds
+
+      // Set up event listeners for user activity
+      const handleActivity = () => {
+        if (token && user) {
+          updateActivity();
+        }
+      };
+
+      window.addEventListener('mousemove', handleActivity);
+      window.addEventListener('keydown', handleActivity);
+      window.addEventListener('click', handleActivity);
+      window.addEventListener('scroll', handleActivity);
+      window.addEventListener('focus', handleActivity);
+
+      // Clean up event listeners and intervals
+      return () => {
+        if (activityInterval) clearInterval(activityInterval);
+        if (fetchInterval) clearInterval(fetchInterval);
+        window.removeEventListener('mousemove', handleActivity);
+        window.removeEventListener('keydown', handleActivity);
+        window.removeEventListener('click', handleActivity);
+        window.removeEventListener('scroll', handleActivity);
+        window.removeEventListener('focus', handleActivity);
+      };
+    } else {
+      // For admin users, or if user data is not yet available,
+      // still fetch active users once to populate the list initially if needed elsewhere.
+      // But do not set up intervals or event listeners for activity updates.
+      if (token) {
+        fetchActiveUsers();
       }
-    }, 5000); // Send ping every 10 seconds
-
-    const fetchInterval = setInterval(fetchActiveUsers, 5000); // Fetch active users every 10 seconds
-
-    // Set up event listeners for user activity
-    const handleActivity = () => {
-      if (token && user) {
-        updateActivity();
-      }
-    };
-
-    window.addEventListener('mousemove', handleActivity);
-    window.addEventListener('keydown', handleActivity);
-    window.addEventListener('click', handleActivity);
-    window.addEventListener('scroll', handleActivity);
-    window.addEventListener('focus', handleActivity);
-
-    // Clean up event listeners and intervals
-    return () => {
-      clearInterval(activityInterval);
-      clearInterval(fetchInterval);
-      window.removeEventListener('mousemove', handleActivity);
-      window.removeEventListener('keydown', handleActivity);
-      window.removeEventListener('click', handleActivity);
-      window.removeEventListener('scroll', handleActivity);
-      window.removeEventListener('focus', handleActivity);
-    };
+    }
   }, [token, user]);
 
-  // Fetch active users initially
+  // Fetch active users initially (this might be redundant now due to the above block, but kept for safety)
+  // Consider removing if the logic in the main useEffect is sufficient.
   useEffect(() => {
-    if (token && user) {
+    if (token && user) { // No role check here, let admins also fetch initial list if needed
       fetchActiveUsers();
     }
   }, [token, user]);

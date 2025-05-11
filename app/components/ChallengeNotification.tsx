@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useDashboard } from '../provider';
 import { useActivity } from '../activity-provider';
 import { 
@@ -12,42 +12,97 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 
+// Define interface for room info based on server structure
+interface RoomInfo {
+  courseName: string;
+  challengerName: string;
+  challengedName: string;
+  roomId: string;
+}
+
+// Add better error handling to prevent timeout errors
+export const checkUserRoomStatus = async (userId: string): Promise<boolean> => {
+  // Don't try to check room status if userId is empty
+  if (!userId) return false;
+  
+  try {
+    // Use a timeout promise to prevent hanging
+    const timeoutPromise = new Promise<boolean>((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout checking room status')), 8000); // Increase timeout to 8 seconds
+    });
+    
+    // Create the actual request promise
+    const checkPromise = new Promise<boolean>(async (resolve) => {
+      try {
+        const result = await checkInRoom(userId);
+        resolve(result);
+      } catch (err) {
+        console.error('Error in checkInRoom:', err);
+        resolve(false); // Resolve with false instead of rejecting
+      }
+    });
+    
+    // Race the promises - whichever completes first wins
+    return await Promise.race([checkPromise, timeoutPromise]);
+  } catch (err) {
+    console.warn('Could not check room status:', err);
+    return false; // Default to not in room on error
+  }
+};
+
 export default function ChallengeNotification() {
   const { user } = useDashboard();
   const { pendingChallenges, activeChallenge, declinedChallenges } = useChallengeNotifications(user?._id || '');
   const [showNotifications, setShowNotifications] = useState(false);
   const [userInRoom, setUserInRoom] = useState(false);
-  const [roomInfo, setRoomInfo] = useState(null);
+  const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null);
   const router = useRouter();
+
+  // Deduplicate pending challenges to prevent multiple notifications for the same challenge
+  const deduplicatedChallenges = useMemo(() => {
+    const challengeMap = new Map();
+    
+    // Use the challengeId as the key to deduplicate
+    pendingChallenges.forEach(challenge => {
+      if (!challengeMap.has(challenge.challengeId)) {
+        challengeMap.set(challenge.challengeId, challenge);
+      }
+    });
+    
+    return Array.from(challengeMap.values());
+  }, [pendingChallenges]);
 
   // Auto-open notifications when new challenges arrive
   useEffect(() => {
-    if (pendingChallenges.length > 0 || declinedChallenges.length > 0) {
+    if (deduplicatedChallenges.length > 0 || declinedChallenges.length > 0) {
       setShowNotifications(true);
     }
-  }, [pendingChallenges.length, declinedChallenges.length]);
+  }, [deduplicatedChallenges.length, declinedChallenges.length]);
 
   // Check if user is in a room according to the server
   useEffect(() => {
     if (!user) return;
     
-    const checkUserRoomStatus = async () => {
+    const checkUserCurrentRoomStatus = async () => {
       try {
-        const result = await checkInRoom(user._id);
-        if (result && typeof result === 'object' && result.inRoom) {
-          setUserInRoom(true);
-          setRoomInfo(result.roomInfo || null);
-        } else {
-          setUserInRoom(false);
+        const isInRoom = await checkUserRoomStatus(user._id);
+        setUserInRoom(isInRoom);
+        
+        if (!isInRoom) {
           setRoomInfo(null);
         }
+        
+        // Note: In the actual implementation, checkInRoom only returns a boolean.
+        // If we need roomInfo details, we would need a separate API call or socket event.
+        // For now, we can only determine if user is in a room, not the room details.
       } catch (error) {
         console.error('Error checking room status:', error);
       }
     };
     
-    checkUserRoomStatus();
-    const interval = setInterval(checkUserRoomStatus, 30000); // Check every 30 seconds
+    checkUserCurrentRoomStatus();
+    // Reduced polling frequency - only check every 3 minutes instead of 30 seconds
+    const interval = setInterval(checkUserCurrentRoomStatus, 180000);
     
     return () => clearInterval(interval);
   }, [user]);
@@ -73,8 +128,19 @@ export default function ChallengeNotification() {
       );
       
       console.log('Navigating to challenge room:', roomUrl);
+      
+      // Store roomUrl in localStorage for persistence
       localStorage.setItem('roomUrl', roomUrl);
-      router.push(roomUrl);
+      
+      // Force immediate redirect using window.location instead of router
+      // This ensures a full page navigation rather than client-side routing
+      if (typeof window !== 'undefined') {
+        console.log('Forcing redirect to:', roomUrl);
+        window.location.href = roomUrl;
+      } else {
+        // Fallback to router push if window is not available (SSR context)
+        router.push(roomUrl);
+      }
     } catch (error) {
       console.error('Error navigating to challenge room:', error);
       toast.error('Could not join the challenge room. Please try again.');
@@ -84,8 +150,64 @@ export default function ChallengeNotification() {
   if (!user) return null;
   
   const handleAccept = (challengeId: string) => {
-    acceptChallenge(challengeId, user._id);
-    // Notification will be auto-removed by the socket hook when challenge starts
+    if (!user) return;
+    
+    try {
+      console.log('Accepting challenge:', challengeId);
+      
+      // Find the challenge in the pending challenges list
+      const challenge = deduplicatedChallenges.find(c => c.challengeId === challengeId);
+      if (!challenge) {
+        console.error('Challenge not found in pending challenges');
+        toast.error('Could not find challenge details');
+        return;
+      }
+
+      // Provide visual feedback immediately
+      toast.success('Accepting challenge...');
+      
+      // Call the accept challenge function
+      acceptChallenge(challengeId, user._id);
+      
+      // Immediately prepare and navigate to challenge room without waiting for socket events
+      const roomUrl = navigateToChallengeRoom(
+        challenge.courseName,
+        challenge.challengerName,
+        challenge.challengedName,
+        challengeId
+      );
+      
+      console.log('Directly navigating to challenge room:', roomUrl);
+      
+      // Store room URL in localStorage
+      localStorage.setItem('roomUrl', roomUrl);
+      
+      // Store additional room info
+      const roomInfo: RoomInfo = {
+        courseName: challenge.courseName,
+        challengerName: challenge.challengerName,
+        challengedName: challenge.challengedName,
+        roomId: challengeId
+      };
+      localStorage.setItem('challengeRoomInfo', JSON.stringify(roomInfo));
+      
+      // Close the notification panel
+      setShowNotifications(false);
+      
+      // Force immediate redirect using window.location for reliable navigation
+      if (typeof window !== 'undefined') {
+        // Short delay to ensure the accept message is sent before navigation
+        setTimeout(() => {
+          console.log('Forcing redirect to:', roomUrl);
+          window.location.href = roomUrl;
+        }, 300);
+      } else {
+        router.push(roomUrl);
+      }
+    } catch (error) {
+      console.error('Error accepting challenge:', error);
+      toast.error('Failed to accept challenge. Please try again.');
+    }
   };
   
   const handleDecline = (challengeId: string) => {
@@ -119,7 +241,7 @@ export default function ChallengeNotification() {
   if (activeChallenge) return null;
 
   // Calculate total notifications
-  const totalNotifications = pendingChallenges.length + declinedChallenges.length;
+  const totalNotifications = deduplicatedChallenges.length + declinedChallenges.length;
   
   return (
     <>
@@ -214,11 +336,11 @@ export default function ChallengeNotification() {
               </div>
             )}
             
-            {pendingChallenges.length === 0 && declinedChallenges.length === 0 && !userInRoom ? (
+            {deduplicatedChallenges.length === 0 && declinedChallenges.length === 0 && !userInRoom ? (
               <p className="text-[#8892B0] text-sm">No pending challenges</p>
             ) : (
               <div className="space-y-3 max-h-80 overflow-y-auto">
-                {pendingChallenges.map((challenge) => (
+                {deduplicatedChallenges.map((challenge) => (
                   <div 
                     key={challenge.challengeId}
                     className="bg-[#3f336a] p-3 rounded-lg border-2 border-black"

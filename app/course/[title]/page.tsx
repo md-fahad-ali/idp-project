@@ -2,10 +2,63 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useDashboard } from "../../provider";
 import Loading from "../../../components/ui/Loading";
 import confetti from 'canvas-confetti';
 import '../code-styles.css';
+import { Tooltip } from 'react-tooltip';
+import useSWR from 'swr';
+import { LeaderboardButton } from "../../dashboard/components/ViewCourseButton";
+import { motion } from 'framer-motion';
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.3
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { 
+    opacity: 1, 
+    y: 0,
+    transition: { 
+      type: "spring", 
+      stiffness: 100,
+      damping: 12
+    }
+  },
+  hover: {
+    scale: 1.02,
+    boxShadow: "6px 6px 0px 0px var(--card-border)",
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 10
+    }
+  },
+  tap: {
+    scale: 0.98,
+    boxShadow: "2px 2px 0px 0px var(--card-border)",
+  }
+};
+
+// Helper function to create URL-friendly slugs
+function slugify(text: string): string {
+  return text.toString().toLowerCase()
+    .replace(/\s+/g, '-')           // Replace spaces with -
+    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+    .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+    .replace(/^-+/, '')             // Trim - from start of text
+    .replace(/-+$/, '');            // Trim - from end of text
+}
 
 // Lowlight imports for syntax highlighting
 import { common, createLowlight } from 'lowlight';
@@ -45,13 +98,27 @@ interface ICourse {
   };
 }
 
+// SWR fetcher function
+const fetcher = async (url: string, token: string) => {
+  const res = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    }
+  });
+  
+  if (!res.ok) {
+    throw new Error('An error occurred while fetching the data.');
+  }
+  
+  return res.json();
+};
+
 export default function CourseDetailPage() {
   const params = useParams();
   const titleSlug = params.title as string;
   
   const { token } = useDashboard();
-  const [course, setCourse] = useState<ICourse | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
   const [activeLesson, setActiveLesson] = useState<number>(0);
   const [isCompleting, setIsCompleting] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
@@ -66,6 +133,57 @@ export default function CourseDetailPage() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Use SWR for data fetching
+  const { data: coursesData, error: coursesError } = useSWR(
+    token ? ['/api/course/get', token] : null,
+    ([url, token]) => fetcher(url, token),
+    {
+      revalidateOnFocus: false,
+      revalidateIfStale: false,
+      dedupingInterval: 5000, // Cache for 5 seconds
+    }
+  );
+  
+  // Use SWR for progress data
+  const { data: progressData, error: progressError } = useSWR(
+    token ? ['/api/course/get-progress', token] : null,
+    ([url, token]) => fetcher(url, token),
+    {
+      revalidateOnFocus: false,
+      revalidateIfStale: false,
+      dedupingInterval: 5000, // Cache for 5 seconds
+    }
+  );
+
+  // Find matching course from SWR data
+  const course = coursesData?.courses?.find((c: ICourse) => {
+    const courseSlug = c.title.toLowerCase().replace(/\s+/g, '-');
+    return courseSlug === titleSlug;
+  }) || null;
+
+  // Check if course is already completed from SWR data
+  useEffect(() => {
+    if (progressData?.progress?.completedCourses && course) {
+      const isAlreadyCompleted = progressData.progress.completedCourses.some(
+        (completedCourse: any) => {
+          // Handle null/undefined cases
+          if (!completedCourse || !completedCourse.course) return false;
+          
+          // Compare course ID strings, handling both object and string cases
+          const completedCourseId = typeof completedCourse.course === 'object' 
+            ? completedCourse.course._id 
+            : completedCourse.course;
+
+          return completedCourseId === course._id || completedCourseId?.toString() === course._id;
+        }
+      );
+      setIsCompleted(isAlreadyCompleted);
+    }
+  }, [progressData, course]);
+
+  // Loading state derived from SWR
+  const loading = (!coursesData && !coursesError) || (!progressData && !progressError && token);
 
   // Theme toggle function
   const toggleTheme = () => {
@@ -96,89 +214,6 @@ export default function CourseDetailPage() {
       }
     }
   }, []);
-
-  useEffect(() => {
-    const fetchCourse = async () => {
-      if (!token) return;
-
-      try {
-        // First get all courses
-        const response = await fetch(`/api/course/get`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (data?.courses && data.courses.length > 0) {
-          // Find the course that matches the slug
-          const matchingCourse = data.courses.find((c: ICourse) => {
-            const courseSlug = c.title.toLowerCase().replace(/\s+/g, '-');
-            return courseSlug === titleSlug;
-          });
-          
-          if (matchingCourse) {
-            setCourse(matchingCourse);
-          }
-        }
-        
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching course:", error);
-        setLoading(false);
-      }
-    };
-
-    fetchCourse();
-  }, [titleSlug, token]);
-
-  // Check if course is already completed
-  useEffect(() => {
-    const checkCompletion = async () => {
-      if (!course || !token) return;
-      
-      try {
-        const response = await fetch(`/api/course/get-progress`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.progress && data.progress.completedCourses) {
-            const isAlreadyCompleted = data.progress.completedCourses.some(
-              (completedCourse: any) => {
-                // Handle null/undefined cases
-                if (!completedCourse || !completedCourse.course) return false;
-                
-                // Compare course ID strings, handling both object and string cases
-                const completedCourseId = typeof completedCourse.course === 'object' 
-                  ? completedCourse.course._id 
-                  : completedCourse.course;
-
-                return completedCourseId === course._id || completedCourseId?.toString() === course._id;
-              }
-            );
-            setIsCompleted(isAlreadyCompleted);
-          }
-        }
-      } catch (error) {
-        console.error("Error checking course completion:", error);
-      }
-    };
-
-    checkCompletion();
-  }, [course, token]);
 
   // Function to handle course completion
   const handleCompleteCourse = async () => {
@@ -427,33 +462,59 @@ export default function CourseDetailPage() {
         className="container mx-auto px-4"
         suppressHydrationWarning={true}
       >
-        {/* Theme toggle button */}
-       
-        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8" suppressHydrationWarning={true}>
           {/* Left column: Lessons list */}
-          <div className="lg:col-span-1" suppressHydrationWarning={true}>
-            <div className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000] mb-8" suppressHydrationWarning={true}>
+          <motion.div 
+            className="lg:col-span-1" 
+            suppressHydrationWarning={true}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <motion.div 
+              className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000] mb-8" 
+              suppressHydrationWarning={true}
+            >
               <div className="flex flex-col justify-between items-center mb-4">
-                <h1 className="text-xl font-bold">{course.title}</h1>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => router.push(`/test/${titleSlug}`)}
-                    className="px-3 py-2 bg-[#FFD700] text-black font-bold rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 text-sm"
+                <div className="flex flex-col space-y-2">
+                  <motion.h1 
+                    className="text-xl font-bold"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2, duration: 0.5 }}
                   >
-                    Take Test
-                  </button>
-                  <button
-                    onClick={() => router.push(`/course/${titleSlug}/leaderboard`)}
-                    className="px-3 py-2 bg-[#4CAF50] text-white font-bold rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 text-sm"
+                    {course.title}
+                  </motion.h1>
+                  <motion.div 
+                    className="flex space-x-2"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3, duration: 0.5 }}
                   >
-                    Leaderboard
-                  </button>
+                    <Link
+                      href={`/test/${titleSlug}`}
+                      className={`px-5 py-2.5 ${isDarkMode ? "bg-purple-700 hover:bg-purple-800 text-white" : "bg-[#FFD700] hover:bg-[#F0C800] text-black border-2 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] hover:-translate-y-1"} rounded-md font-medium transition-all duration-200 flex items-center space-x-1`}
+                      prefetch={true}
+                      data-tooltip-id="test-tooltip"
+                      data-tooltip-content="AI will generate questions for you"
+                    >
+                      <span>Take Test</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </Link>
+                    <LeaderboardButton title={course.title} />
+                  </motion.div>
                 </div>
               </div>
-              <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
-                {course.lessons.map((lesson, index) => (
-                  <button
+              <motion.div 
+                className="space-y-2 max-h-[60vh] overflow-y-auto pr-2"
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+              >
+                {course.lessons.map((lesson: ILesson, index: number) => (
+                  <motion.button
                     key={index}
                     onClick={() => setActiveLesson(index)}
                     className={`w-full p-3 text-left border-2 border-black rounded-md transition-all duration-200 text-sm font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--purple-primary)] ${
@@ -463,58 +524,128 @@ export default function CourseDetailPage() {
                     }`}
                     aria-label={`Select lesson: ${lesson.title}`}
                     tabIndex={0}
+                    variants={itemVariants}
+                    whileHover={activeLesson !== index ? "hover" : {}}
+                    whileTap="tap"
                   >
                     <span className="block truncate">{lesson.title}</span>
                     <span className="text-xs mt-1 block">
                       Points: <span className="text-[#FFD700]">{lesson.points}</span>
                     </span>
-                  </button>
+                  </motion.button>
                 ))}
-              </div>
-            </div>
-          </div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
 
           {/* Middle column: Course details */}
-          <div className="lg:col-span-2" suppressHydrationWarning={true}>
+          <motion.div 
+            className="lg:col-span-2" 
+            suppressHydrationWarning={true}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
             {/* Course Header */}
-            <div className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]" suppressHydrationWarning={true}>
-              <h1 className="text-3xl font-bold text-[var(--purple-primary)] mb-2 font-mono">{course.title}</h1>
-              <div className="flex items-center mb-4">
+            <motion.div 
+              className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]" 
+              suppressHydrationWarning={true}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <motion.h1 
+                className="text-3xl font-bold text-[var(--purple-primary)] mb-2 font-mono"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+              >
+                {course.title}
+              </motion.h1>
+              <motion.div 
+                className="flex items-center mb-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+              >
                 <span className="text-sm bg-[var(--card-bg)] text-[var(--text-color)] px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] mr-3">
                   {course.category}
                 </span>
                 <span className="text-xs text-[var(--text-color)]">
                   {course.user ? `By: ${course.user.firstName || ''} ${course.user.lastName || ''}` : ''}
                 </span>
-              </div>
-              <p className="text-[var(--text-color)] mb-4">{course.description}</p>
-              <div className="flex justify-between items-center">
+              </motion.div>
+              <motion.p 
+                className="text-[var(--text-color)] mb-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5, duration: 0.5 }}
+              >
+                {course.description}
+              </motion.p>
+              <motion.div 
+                className="flex justify-between items-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6, duration: 0.5 }}
+              >
                 <div className="text-xs text-[var(--text-color)]">
                   Created: {new Date(course.createdAt).toISOString().split('T')[0]}
                 </div>
                 <div className="text-sm bg-[#FFD700] text-black px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
                   Lessons: {course.lessons.length}
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
 
             {/* Course Completion Section */}
-            <div className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]">
+            <motion.div 
+              className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+            >
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-bold text-[var(--text-color)] font-mono">Course Progress</h2>
+                  <motion.h2 
+                    className="text-xl font-bold text-[var(--text-color)] font-mono"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4, duration: 0.5 }}
+                  >
+                    Course Progress
+                  </motion.h2>
                   {isCompleted ? (
-                    <p className="text-[#5CDB95] mt-2">You have completed this course!</p>
+                    <motion.p 
+                      className="text-[#5CDB95] mt-2"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.5, duration: 0.5 }}
+                    >
+                      You have completed this course!
+                    </motion.p>
                   ) : (
-                    <p className="text-[var(--text-color)] mt-2">Complete this course to earn points</p>
+                    <motion.p 
+                      className="text-[var(--text-color)] mt-2"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.5, duration: 0.5 }}
+                    >
+                      Complete this course to earn points
+                    </motion.p>
                   )}
                   {completionMessage && (
-                    <p className={`mt-2 ${isCompleted ? 'text-[#FFD700]' : 'text-[#FF6B6B]'}`}>
+                    <motion.p 
+                      className={`mt-2 ${isCompleted ? 'text-[#FFD700]' : 'text-[#FF6B6B]'}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.5 }}
+                    >
                       {completionMessage}
-                    </p>
+                    </motion.p>
                   )}
                 </div>
-                <button
+                <motion.button
                   onClick={handleCompleteCourse}
                   disabled={isCompleted || isCompleting}
                   className={`px-4 py-2 border-2 border-black rounded-md shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 font-bold ${
@@ -524,24 +655,45 @@ export default function CourseDetailPage() {
                       ? 'bg-[#8892B0] text-[var(--text-color)] cursor-wait'
                       : 'bg-[#FFD700] text-black hover:bg-[#FFC000] hover:shadow-[6px_6px_0px_0px_#000000]'
                   }`}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.6, duration: 0.5 }}
+                  whileHover={!isCompleted && !isCompleting ? { scale: 1.05 } : {}}
+                  whileTap={!isCompleted && !isCompleting ? { scale: 0.95 } : {}}
                 >
                   {isCompleted ? 'Completed' : isCompleting ? 'Processing...' : 'Complete Course'}
-                </button>
+                </motion.button>
               </div>
-              <div className="mt-4">
+              <motion.div 
+                className="mt-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.7, duration: 0.5 }}
+              >
                 <h3 className="text-sm font-bold text-[var(--purple-primary)]">Total Points Available:</h3>
                 <p className="text-[#FFD700] font-bold">
-                  {course.lessons.reduce((sum, lesson) => sum + lesson.points, 0)} Points
+                  {course.lessons.reduce((sum: number, lesson: ILesson) => sum + lesson.points, 0)} Points
                 </p>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
 
             {/* Course Content */}
-            <div className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]">
-              <h2 className="text-2xl font-bold text-[var(--text-color)] mb-4 font-mono">
+            <motion.div 
+              className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+            >
+              <motion.h2 
+                className="text-2xl font-bold text-[var(--text-color)] mb-4 font-mono"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5, duration: 0.5 }}
+                key={activeLesson} // Add key to force re-animation when lesson changes
+              >
                 {course.lessons[activeLesson]?.title || "Lesson Content"}
-              </h2>
-              <div 
+              </motion.h2>
+              <motion.div 
                 ref={contentRef}
                 className="prose prose-invert max-w-none 
                   prose-pre:bg-[#282c34] 
@@ -566,11 +718,21 @@ export default function CourseDetailPage() {
                   p-[10px]"
                 suppressHydrationWarning={true}
                 dangerouslySetInnerHTML={{ __html: course.lessons[activeLesson]?.content || "" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6, duration: 0.5 }}
+                key={`content-${activeLesson}`} // Add key to force re-animation when lesson changes
               />
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
+      {/* Add the tooltip component at the bottom of the return statement */}
+      {isClient && (
+        <Tooltip id="test-tooltip" className={`z-10 ${isDarkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900 border border-gray-200 shadow-md"} max-w-xs`} place="top">
+          AI will generate personalized questions based on this course
+        </Tooltip>
+      )}
     </div>
   );
 }

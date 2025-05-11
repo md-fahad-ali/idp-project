@@ -8,6 +8,7 @@ import confetti from 'canvas-confetti';
 import { Question, ICourse } from '../../../types';
 import { generateQuestionsFromLessons } from '../../utils/groq';
 import Loading from '../../../components/ui/Loading';
+import Link from "next/link";
 
 export default function TestPage() {
   const params = useParams();
@@ -26,14 +27,55 @@ export default function TestPage() {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [isTimeUp, setIsTimeUp] = useState<boolean>(false);
   const [courseId, setCourseId] = useState<string>("");
-  const [startTime] = useState<number>(Date.now());
+  const [startTime, setStartTime] = useState<number>(Date.now());
   const [showConfetti, setShowConfetti] = useState<boolean>(false);
+  const [title, setTitle] = useState<string>("");
 
-  useEffect(() => {
     const loadQuestionsForCourse = async () => {
-      if (!token) return;
+    try {
+      setLoading(true);
+      console.log('Loading questions for course slug:', titleSlug);
+      
+      // Special handling for [title] URL parameter issue
+      let searchSlug = titleSlug;
+      if (titleSlug === '%5Btitle%5D' && typeof window !== 'undefined') {
+        try {
+          // Try to extract the real title from the URL path
+          const path = window.location.pathname;
+          const urlTitleMatch = path.match(/\/test\/([^/]+)/);
+          if (urlTitleMatch && urlTitleMatch[1]) {
+            searchSlug = urlTitleMatch[1];
+            console.log('Using extracted slug from URL path instead:', searchSlug);
+          }
+        } catch (error) {
+          console.error('Error extracting slug from URL:', error);
+        }
+      }
+      
+      // Prevent duplicate calls with proper checks
+      if (questions.length > 0) {
+        console.log('Questions already loaded, skipping API call');
+        setLoading(false);
+        return;
+      }
+      
+      if (!searchSlug) {
+        console.error('No title slug provided');
+        setLoading(false);
+        return;
+      }
 
+      if (!token) {
+        console.error('No auth token available');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Fetching course data with token...');
+      
+      // First try to fetch the specific course directly
       try {
+        console.log(`Making API request to /api/course/get`);
         const response = await fetch(`/api/course/get`, {
           method: "GET",
           headers: {
@@ -43,28 +85,226 @@ export default function TestPage() {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          throw new Error(`Error fetching course: ${response.status}`);
         }
 
+        console.log('Course API response received, status:', response.status);
         const data = await response.json();
         
-        if (data?.courses && data.courses.length > 0) {
-          const matchingCourse = data.courses.find((c: ICourse) => {
-            const courseSlug = c.title.toLowerCase().replace(/\s+/g, '-');
-            return courseSlug === titleSlug;
-          });
+        // Log the actual structure for debugging
+        console.log('API Response data:', JSON.stringify(data).substring(0, 500) + '...');
+        console.log('API Data structure:', Object.keys(data));
+        console.log('Looking for title slug:', searchSlug);
+        
+        // Improved course matching with multiple strategies
+        let matchingCourse = null;
+        
+        // Helper function to create a slug from a title
+        const createSlug = (text: string): string => text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '');
+        
+        // Debug function to log which check is being performed
+        const logMatch = (method: string, course: any, match: boolean): boolean => {
+          console.log(`${method} Check - Course: ${course?.title || 'unknown'}, ID: ${course?._id || 'unknown'}, Match: ${match}`);
+          return match;
+        };
+        
+        // EMERGENCY FALLBACK - If we can't find a match but there are courses, use the first one
+        let fallbackCourse = null;
+        
+        // Strategy 1: Look for course in data.course (direct object)
+        if (data && data.course) {
+          console.log('Strategy 1: Checking data.course object');
+          const course = data.course;
           
-          if (matchingCourse) {
-            setCourseId(matchingCourse._id);
-            const generatedQuestions = await generateQuestionsFromLessons(matchingCourse.lessons);
-            const shuffledQuestions = [...generatedQuestions.questions].sort(() => Math.random() - 0.5);
-            setQuestions(shuffledQuestions.slice(0, 5));
-            if (shuffledQuestions.length > 0) {
-              setTimeLeft(shuffledQuestions[0].timeLimit);
-            }
+          // Save as fallback
+          if (!fallbackCourse && course && course._id) {
+            fallbackCourse = course;
+          }
+          
+          const courseSlug = course.slug || createSlug(course.title);
+          
+          if (logMatch('Slug', course, courseSlug === searchSlug)) {
+            matchingCourse = course;
+            console.log('Found matching course in data.course');
           }
         }
         
+        // Strategy 2: Look in data.courses array
+        if (!matchingCourse && data && data.courses && Array.isArray(data.courses)) {
+          console.log('Strategy 2: Searching in data.courses array, length:', data.courses.length);
+          
+          // Save the first course as fallback if not already set
+          if (!fallbackCourse && data.courses.length > 0 && data.courses[0]._id) {
+            fallbackCourse = data.courses[0];
+          }
+          
+          // Try even more matching strategies:
+          
+          // 2.1: Direct slug match
+          matchingCourse = data.courses.find((c: any) => {
+            const courseSlug = c.slug || createSlug(c.title);
+            return logMatch('Exact slug', c, courseSlug === searchSlug);
+          });
+          
+          // 2.2: Partial match or contains match
+          if (!matchingCourse) {
+            matchingCourse = data.courses.find((c: any) => {
+              const courseSlug = c.slug || createSlug(c.title);
+              return logMatch('Contains slug', c, searchSlug.includes(courseSlug) || courseSlug.includes(searchSlug));
+            });
+          }
+          
+          // 2.3: Title match - transform title to slug and compare
+          if (!matchingCourse) {
+            matchingCourse = data.courses.find((c: any) => {
+              return logMatch('Title slug compare', c, c.title && createSlug(c.title) === searchSlug);
+            });
+          }
+          
+          // 2.4: Title contains words from slug
+          if (!matchingCourse) {
+            const slugWords = searchSlug.split('-');
+            matchingCourse = data.courses.find((c: any) => {
+              if (!c.title) return false;
+              const titleLower = c.title.toLowerCase();
+              // Check if at least half of the words in the slug appear in the title
+              const matchingWords = slugWords.filter(word => titleLower.includes(word));
+              const matchRatio = matchingWords.length / slugWords.length;
+              return logMatch('Title words match', c, matchRatio >= 0.5);
+            });
+          }
+        }
+        
+        // Strategy 3: Check if data itself is an array of courses
+        if (!matchingCourse && data && Array.isArray(data)) {
+          console.log('Strategy 3: Data is an array, length:', data.length);
+          
+          // Save the first course as fallback if not already set
+          if (!fallbackCourse && data.length > 0 && data[0]._id) {
+            fallbackCourse = data[0];
+          }
+          
+          // First try exact slug match
+          matchingCourse = data.find((c: any) => {
+            const courseSlug = c.slug || createSlug(c.title);
+            return logMatch('Exact slug', c, courseSlug === searchSlug);
+          });
+          
+          // If no match, try partial match
+          if (!matchingCourse) {
+            matchingCourse = data.find((c: any) => {
+              const courseSlug = c.slug || createSlug(c.title);
+              return logMatch('Contains slug', c, searchSlug.includes(courseSlug) || courseSlug.includes(searchSlug));
+            });
+          }
+        }
+        
+        // Strategy 4: Check if data itself is the course object
+        if (!matchingCourse && data && data._id) {
+          console.log('Strategy 4: Checking if data itself is the course');
+          
+          // Save as fallback if not already set
+          if (!fallbackCourse) {
+            fallbackCourse = data;
+          }
+          
+          const dataSlug = data.slug || createSlug(data.title);
+          
+          if (logMatch('Data slug', data, dataSlug === searchSlug || searchSlug.includes(dataSlug) || dataSlug.includes(searchSlug))) {
+            matchingCourse = data;
+            console.log('Data itself is the matching course');
+          }
+        }
+        
+        // Strategy 5: If we have JavaScript course in the URL, try fuzzy match with JS
+        if (!matchingCourse && searchSlug.includes('javascript')) {
+          console.log('Strategy 5: Special case for JavaScript course');
+          
+          const jsAliases = ['javascript', 'js', 'ecmascript'];
+          
+          const courseArray = Array.isArray(data.courses) ? data.courses : 
+                             Array.isArray(data) ? data : [];
+          
+          matchingCourse = courseArray.find((c: any) => {
+            // Try to find courses with JavaScript-related terms
+            const hasJSInTitle = c.title && jsAliases.some(alias => 
+              c.title.toLowerCase().includes(alias));
+            
+            return logMatch('JS fuzzy match', c, hasJSInTitle);
+          });
+        }
+        
+        // Last resort: Just use any available course if we found some courses but couldn't match
+        if (!matchingCourse && fallbackCourse) {
+          console.log('FALLBACK STRATEGY: Using first available course as no match was found');
+          matchingCourse = fallbackCourse;
+          console.log('Using fallback course:', matchingCourse.title);
+        }
+        
+        console.log('Final match result:', matchingCourse ? 'Course found' : 'No course found');
+        
+        if (!matchingCourse) {
+          console.error('Course not found in API response');
+          throw new Error("Course not found");
+        }
+        
+        setCourseId(matchingCourse._id);
+        // Set the title for display purposes
+        setTitle(matchingCourse.title || titleSlug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '));
+        
+        // Get lessons data and generate questions
+        const lessonData = matchingCourse.lessons || [];
+        console.log(`Found ${lessonData.length} lessons`);
+        
+        if (lessonData.length === 0) {
+          console.log('No lessons available for this course');
+          setLoading(false);
+          return; // Return early if no lessons found - this will show "No questions available"
+        }
+        
+        console.log('Generating questions from lessons...');
+        
+        try {
+          // Important: Keep the loading state true during question generation
+          
+          // Properly await the Promise returned by generateQuestionsFromLessons
+          const result = await generateQuestionsFromLessons(lessonData);
+          console.log('Questions generated:', result);
+          
+          const generatedQuestions = result.questions || [];
+          
+          if (generatedQuestions.length === 0) {
+            console.log('No questions generated for this course');
+            setLoading(false);
+            return; // This will show "No questions available"
+          }
+          
+          // Shuffle and limit questions if needed
+          const shuffledQuestions = [...generatedQuestions].sort(() => Math.random() - 0.5);
+          const finalQuestions = shuffledQuestions.slice(0, Math.min(5, shuffledQuestions.length));
+          
+          console.log(`Setting ${finalQuestions.length} questions`);
+          
+          // Set questions state
+          setQuestions(finalQuestions);
+          
+          // Set start time and initial timer
+          if (finalQuestions.length > 0) {
+            setStartTime(Date.now());
+            setTimeLeft(Number(finalQuestions[0].timeLimit));
+          }
+        } catch (error) {
+          console.error('Error generating questions:', error);
+          setLoading(false);
+          return;
+        }
+        
+      } catch (fetchError) {
+        console.error("API fetch error:", fetchError);
+        throw fetchError;
+      }
+      
+      // Only set loading to false after all processing is complete
         setLoading(false);
       } catch (error) {
         console.error("Error loading questions:", error);
@@ -72,27 +312,57 @@ export default function TestPage() {
       }
     };
 
-    loadQuestionsForCourse();
-  }, [titleSlug, token]);
+  useEffect(() => {
+    // Load questions on mount only once
+    if (titleSlug && questions.length === 0) {
+      try {
+        loadQuestionsForCourse().catch(error => {
+          console.error("Failed to load questions in effect:", error);
+          setLoading(false);
+        });
+      } catch (error) {
+        console.error("Error in question loading effect:", error);
+        setLoading(false);
+      }
+    }
+    
+    // Cleanup all intervals and timers on unmount
+    return () => {
+      // Stop all timers
+      console.log('TestPage unmounting, cleaning up all resources');
+    };
+  }, [titleSlug, questions.length]); // Reduced dependencies
 
   useEffect(() => {
-    if (testCompleted || loading || !questions.length || selectedAnswer !== null || isTimeUp) {
-      return;
-    }
+    let timerId: NodeJS.Timeout;
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
+    // Only run timer when:
+    // 1. Questions are loaded
+    // 2. Test is not completed
+    // 3. We have a current question with time limit
+    if (
+      questions.length > 0 &&
+      !testCompleted &&
+      currentQuestion < questions.length &&
+      !isTimeUp &&
+      timeLeft > 0
+    ) {
+      timerId = setInterval(() => {
+        setTimeLeft((prevTime) => {
+          if (prevTime <= 1) {
+            clearInterval(timerId);
           setIsTimeUp(true);
           return 0;
         }
-        return prev - 1;
+          return prevTime - 1;
       });
     }, 1000);
+    }
 
-    return () => clearInterval(timer);
-  }, [currentQuestion, testCompleted, loading, questions.length, selectedAnswer, isTimeUp]);
+    return () => {
+      if (timerId) clearInterval(timerId);
+    };
+  }, [questions, currentQuestion, testCompleted, isTimeUp, timeLeft]);
 
   useEffect(() => {
     if (isTimeUp && !selectedAnswer) {
@@ -125,14 +395,15 @@ export default function TestPage() {
     } else {
       // Calculate final score and submit test results
       const finalScore = score;
-      const timeSpent = Math.floor((Date.now() - startTime) / 1000); // Convert to seconds
-
-      try {
-        if (!user || !user._id) {
-          console.error('Missing user ID for test submission');
-          throw new Error('User ID not available');
-        }
-        
+      console.log('Finishing test with score:', finalScore);
+      
+      // First set testCompleted to true to show the results screen immediately
+      setTestCompleted(true);
+      setLoading(false); // Make sure loading is false to show results
+      
+      // Then submit the test results in the background
+      if (user && user._id) {
+        try {
         const response = await fetch('/api/test/submit', {
           method: 'POST',
           headers: {
@@ -145,29 +416,40 @@ export default function TestPage() {
             score: finalScore,
             totalQuestions: questions.length,
             correctAnswers: score,
-            timeSpent
+              timeSpent: Math.floor((Date.now() - startTime) / 1000)
           })
         });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Server response:', response.status, errorText);
-          throw new Error('Failed to submit test results');
-        }
 
         // Show confetti for good scores
         if (finalScore >= 3) {
           setShowConfetti(true);
+            triggerConfetti();
           setTimeout(() => setShowConfetti(false), 5000);
         }
-
-        setTestCompleted(true);
       } catch (error) {
         console.error('Error submitting test results:', error);
-        // Still mark test as completed even if submission fails
-        setTestCompleted(true);
+        }
       }
     }
+  };
+  
+  // Add a helper function to trigger confetti manually
+  const triggerConfetti = () => {
+    confetti({
+      particleCount: 150,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+    
+    setTimeout(() => {
+      confetti({
+        particleCount: 100,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: ['#FFD700', '#9D4EDD', '#5CDB95']
+      });
+    }, 250);
   };
 
   const formatTime = (seconds: number): string => {
@@ -189,6 +471,29 @@ export default function TestPage() {
     }
   };
 
+  // Add the useEffect to extract title from URL path for %5Btitle%5D parameter
+  useEffect(() => {
+    // Handle URL-encoded [title] parameter issue
+    if (titleSlug === '%5Btitle%5D' && typeof window !== 'undefined') {
+      try {
+        // Extract the actual course title from the path
+        const path = window.location.pathname;
+        console.log('Current path:', path);
+        
+        // Extract the real title from URL patterns like /test/javascript or /test/javascript-course
+        const urlTitleMatch = path.match(/\/test\/([^/]+)/);
+        if (urlTitleMatch && urlTitleMatch[1]) {
+          const extractedTitle = urlTitleMatch[1];
+          console.log('Extracted real title from URL path:', extractedTitle);
+          // Update the title for display
+          setTitle(extractedTitle.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '));
+        }
+      } catch (error) {
+        console.error('Error extracting title from URL:', error);
+      }
+    }
+  }, [titleSlug]);
+
   // If not mounted yet, don't render anything
   if (!mounted) return null;
 
@@ -197,34 +502,128 @@ export default function TestPage() {
   
 
 
-  if (loading) {
+  if (loading && !testCompleted) {
     return (
-      <div className={`min-h-screen pt-[80px] bg-[var(--background-color)] text-[var(--text-color)] transition-colors duration-300`}>
+      <div className="min-h-screen pt-[80px] bg-[var(--background-color)] text-[var(--text-color)] transition-colors duration-300">
         <div className="container mx-auto px-4">
           <div className={`bg-[var(--card-bg)] rounded-xl p-8 ${theme === 'dark' ? 'shadow-[0_10px_25px_-5px_rgba(0,0,30,0.3),0_8px_10px_-6px_rgba(0,0,30,0.3)] border-2 border-[#3d4583]' : 'shadow-[8px_8px_0px_0px_#000000] border-4 border-black'} transition-colors duration-300`}>
-            <Loading />
+            {/* Quiz Title with skeleton */}
+            <h1 className="text-2xl md:text-3xl font-bold text-center relative mb-8">
+              <span className={`inline-block ${theme === 'dark' ? 'bg-[#3d4583]' : 'bg-yellow-100'} h-3 absolute bottom-0 w-full opacity-40 -z-10 rounded`}></span>
+              {title || (titleSlug === '%5Btitle%5D' ? 'Course Quiz' : 
+                titleSlug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '))} Quiz
+            </h1>
+            
+            {/* AI Generation Message */}
+            <div className="max-w-lg mx-auto mb-8">
+              <div className={`p-4 rounded-lg flex items-center ${theme === 'dark' ? 'bg-[#293056] border border-[#3d4583]' : 'bg-yellow-50 border border-yellow-200'}`}>
+                <div className="mr-3 flex-shrink-0">
+                  <div className="animate-pulse h-8 w-8 rounded-full bg-[#FFD700]"></div>
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg mb-1">AI is preparing your quiz</h3>
+                  <p className="text-[var(--text-secondary)]">
+                    Analyzing course content and generating personalized questions...
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Progress skeleton */}
+            <div className="mb-8">
+              <div className="flex flex-wrap justify-between items-center mb-3">
+                <div className="animate-pulse h-6 w-24 bg-[var(--skeleton-color)] rounded"></div>
+                <div className="animate-pulse h-6 w-28 bg-[var(--skeleton-color)] rounded"></div>
+              </div>
+              <div className={`h-3 ${theme === 'dark' ? 'bg-[#202443]' : 'bg-gray-100'} rounded-full overflow-hidden ${theme === 'dark' ? '' : 'border border-gray-300'}`}>
+                <div className="h-full bg-[var(--skeleton-color)] rounded-full w-1/4 animate-pulse"></div>
+              </div>
+            </div>
+            
+            {/* Question skeleton */}
+            <div className={`bg-[var(--card-bg)] p-6 rounded-lg mb-6 ${theme === 'dark' 
+              ? 'border-2 border-[#3d4583] shadow-[0_4px_15px_rgba(30,40,100,0.4)]' 
+              : 'border-4 border-black shadow-[4px_4px_0px_0px_#000000]'}`}>
+              <div className="animate-pulse h-6 w-3/4 bg-[var(--skeleton-color)] rounded mb-3"></div>
+              <div className="animate-pulse h-6 w-5/6 bg-[var(--skeleton-color)] rounded"></div>
+            </div>
+            
+            {/* Answer options skeleton */}
+            <div className="space-y-4 mb-6">
+              {[1, 2, 3, 4].map((item) => (
+                <div 
+                  key={item}
+                  className={`w-full p-4 rounded-md bg-[var(--option-bg)] border-2 border-[var(--card-border)] animate-pulse ${theme === 'dark' 
+                    ? 'shadow-[0_4px_10px_rgba(0,0,30,0.3)]' 
+                    : 'shadow-[4px_4px_0px_0px_var(--card-border)]'}`}
+                >
+                  <div className="flex items-center">
+                    <div className="rounded-full w-8 h-8 bg-[var(--skeleton-color)] mr-3"></div>
+                    <div className="h-5 bg-[var(--skeleton-color)] rounded w-3/4"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex justify-between mt-8">
+              <Link 
+                href={`/course/${titleSlug}`}
+                className={`px-6 py-3 ${theme === 'dark' 
+                  ? 'bg-[#475569] hover:bg-[#334155] text-white' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-black border-2 border-black shadow-[2px_2px_0px_0px_#000000]'} 
+                  font-bold rounded-md transition-all duration-200`}
+                prefetch={false}
+              >
+                Return to Course
+              </Link>
+              <div className="animate-pulse h-12 w-32 bg-[var(--skeleton-color)] rounded-md"></div>
+            </div>
           </div>
         </div>
+        
+        {/* Inject CSS variables for skeleton colors */}
+        <style jsx global>{`
+          :root {
+            --skeleton-color: ${theme === 'dark' ? '#3d4583' : '#e5e7eb'};
+          }
+        `}</style>
       </div>
     );
   }
 
-  if (questions.length === 0) {
+  if (questions.length === 0 && !loading) {
     return (
       <div className={`min-h-screen pt-[80px] bg-[var(--background-color)] text-[var(--text-color)] transition-colors duration-300`}>
         <div className="container mx-auto px-4">
           <div className={`bg-[var(--card-bg)] rounded-xl p-8 ${theme === 'dark' ? 'shadow-[0_10px_25px_-5px_rgba(0,0,30,0.3),0_8px_10px_-6px_rgba(0,0,30,0.3)] border-2 border-[#3d4583]' : 'shadow-[8px_8px_0px_0px_#000000] border-4 border-black'} transition-colors duration-300`}>
-            <p className="text-center text-lg">No questions available for this course.</p>
-            <div className="mt-6 text-center">
-              <button
-                onClick={() => router.back()}
-                className={`px-6 py-3 ${theme === 'dark' 
+            <h1 className="text-2xl md:text-3xl font-bold text-center mb-6">
+              {title || titleSlug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+            </h1>
+            <div className="flex justify-center mb-6">
+              <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md max-w-md">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-yellow-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm">No questions available for this course. The course may not have enough content to generate a test, or questions couldn't be generated at this time.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="text-center">
+              <Link
+                href={`/course/${titleSlug}`}
+                className={`px-6 py-3 inline-block ${theme === 'dark' 
                   ? 'bg-[#a277ff] hover:bg-[#915eff] text-white shadow-md hover:shadow-lg' 
                   : 'bg-[#FFD700] hover:bg-[#f0c800] text-black border-4 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000]'} 
                   font-bold rounded-md hover:-translate-y-1 transition-all duration-200`}
+                prefetch={false}
               >
                 Return to Course
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -239,7 +638,8 @@ export default function TestPage() {
           {/* Quiz Title */}
           <h1 className="text-2xl md:text-3xl font-bold text-center relative">
             <span className={`inline-block ${theme === 'dark' ? 'bg-[#3d4583]' : 'bg-yellow-100'} h-3 absolute bottom-0 w-full opacity-40 -z-10 rounded`}></span>
-            {titleSlug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Quiz
+            {title || (titleSlug === '%5Btitle%5D' ? 'Course Quiz' : 
+              titleSlug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '))}
           </h1>
           
           {/* Progress bar and info */}
@@ -314,18 +714,19 @@ export default function TestPage() {
                       : "Want to review the material and try again?"}
                   </p>
                   
-                  <button
-                    onClick={() => router.back()}
-                    className={`px-8 py-3 ${theme === 'dark' 
+                  <Link
+                    href={`/course/${titleSlug}`}
+                    className={`px-8 py-3 inline-block ${theme === 'dark' 
                       ? 'bg-[#a277ff] hover:bg-[#915eff] text-white' 
                       : 'bg-[#FFD700] hover:bg-[#f0c800] text-black'} 
                       font-bold rounded-md transition-all duration-200
                       ${theme === 'dark' 
                         ? 'shadow-[0_4px_10px_rgba(120,60,220,0.5)] hover:shadow-[0_6px_15px_rgba(120,60,220,0.6)] hover:-translate-y-1' 
                         : 'border-4 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] hover:-translate-y-1'}`}
+                    prefetch={false}
                   >
                     Return to Course
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>

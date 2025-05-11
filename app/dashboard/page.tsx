@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useDashboard } from '../provider';
 import Loading from "../../components/ui/Loading";
 import { useRouter } from "next/navigation";
-import { Menu, X } from 'lucide-react';
 
 // Import components
 import WelcomeCard from './components/WelcomeCard';
@@ -46,11 +45,19 @@ export default function DashboardPage() {
     lastName: string;
     email: string;
     role: string;
+    points?: number;
+    testsCompleted?: number;
+    averageScore?: number;
+    badges?: {
+      brained?: number;
+      warrior?: number;
+      unbeatable?: number;
+    };
   }
   const [user, setUser] = useState<IUser | null>(null);
   const [loading, setLoading] = useState(true);
   // Track login activity for weekly streaks
-  const [loginActivity, setLoginActivity] = useState<string[]>([]); // Array of dates when user logged in
+  
 
   // Check if user is admin
   const isAdmin = user?.role === 'admin';
