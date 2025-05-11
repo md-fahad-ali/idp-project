@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useDashboard } from '../provider';
 
 // Create context
@@ -9,53 +9,70 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
   const { user } = useDashboard();
   const [activeUsers, setActiveUsers] = useState<string[]>([]);
   const [lastFetch, setLastFetch] = useState<number>(0);
-  const FETCH_INTERVAL = 10000; // 10 seconds
+  const [lastUpdate, setLastUpdate] = useState<number>(0);
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isUpdatingRef = useRef<boolean>(false);
+  
+  // Increase intervals significantly to reduce API load
+  const FETCH_INTERVAL = 60000; // 1 minute (was 10 seconds)
+  const UPDATE_INTERVAL = 120000; // 2 minutes (was 30 seconds)
+  const UPDATE_DEBOUNCE = 5000; // 5 second debounce for rapid navigation
 
-  // Function to update user activity
+  // Function to update user activity with debouncing
   const updateActivity = async () => {
     try {
+      // Don't update if another update is in progress
+      if (isUpdatingRef.current) {
+        return;
+      }
+      
+      const now = Date.now();
+      // Only update if enough time has passed since last update
+      if (now - lastUpdate < UPDATE_DEBOUNCE) {
+        // Schedule a delayed update instead of immediate
+        if (updateTimeoutRef.current) {
+          clearTimeout(updateTimeoutRef.current);
+        }
+        
+        updateTimeoutRef.current = setTimeout(() => {
+          updateActivity();
+        }, UPDATE_DEBOUNCE);
+        
+        return;
+      }
+      
       if (!user || !user._id) {
         console.log('No user data available for activity update');
         return;
       }
 
+      // Set updating flag
+      isUpdatingRef.current = true;
+      setLastUpdate(now);
+      
       // Get user ID directly from JWT payload or user object
       const userId = user._id.toString();
       
-      console.log('Attempting to update activity with userId:', userId);
+      // Use fetch with proper error handling
+      const response = await fetch('/api/activity/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ userId }),
+      });
       
-      // Create the request body as a simple object
-      const bodyData = { userId: userId };
+      if (!response.ok) {
+        throw new Error(`Activity update failed: ${response.status}`);
+      }
       
-      // Convert to JSON string
-      const bodyContent = JSON.stringify(bodyData);
-      
-      console.log('Request body content:', bodyContent);
-      console.log('Content length:', bodyContent.length);
-
-      // Use XMLHttpRequest instead of fetch to rule out any fetch-related issues
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/activity/update', true);
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.setRequestHeader('Accept', 'application/json');
-      xhr.withCredentials = true;
-      
-      xhr.onload = function() {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          console.log('Activity update successful:', xhr.responseText);
-        } else {
-          console.error('Activity update failed:', xhr.status, xhr.responseText);
-        }
-      };
-      
-      xhr.onerror = function() {
-        console.error('Activity update request failed');
-      };
-      
-      // Send the request with the JSON body
-      xhr.send(bodyContent);
+      console.log('Activity updated successfully');
     } catch (error) {
       console.error('Error in updateActivity:', error);
+    } finally {
+      // Clear updating flag
+      isUpdatingRef.current = false;
     }
   };
 
@@ -83,6 +100,7 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Setup activity tracking on page load/user change
   useEffect(() => {
     if (!user?._id) {
       console.log('No user available for activity tracking');
@@ -91,20 +109,41 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
 
     console.log('Setting up activity tracking for user:', user._id);
 
-    // Initial update
+    // Initial update - only if user just logged in
     updateActivity();
 
-    // Set up intervals for periodic updates
-    const activityInterval = setInterval(updateActivity, 30000); // Update every 30 seconds
+    // Set up intervals for periodic updates with longer times
+    const activityInterval = setInterval(updateActivity, UPDATE_INTERVAL);
 
     return () => {
+      // Clear all resources
       clearInterval(activityInterval);
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
     };
-  }, [user]);
+  }, [user?._id]); // Only re-run when user ID changes
+
+  // Add listener for visibility changes to reduce background updates
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Update when tab becomes visible again
+        updateActivity();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const value = {
     activeUsers,
-    isUserActive: (userId: string) => activeUsers.includes(userId)
+    isUserActive: (userId: string) => activeUsers.includes(userId),
+    fetchActiveUsers // Expose this method so it can be called manually when needed
   };
 
   return (

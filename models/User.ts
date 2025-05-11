@@ -11,6 +11,11 @@ export interface IUser extends Document {
   points: number;
   testsCompleted?: number;
   averageScore?: number;
+  badges?: {
+    brained?: number;    // For challenge winners
+    warrior?: number;    // For tiebreaker winners who completed faster
+    unbeatable?: number; // For users with best score in a course
+  };
 }
 
 const UserSchema: Schema = new Schema({
@@ -22,7 +27,12 @@ const UserSchema: Schema = new Schema({
   role: { type: String, enum: ['user', 'admin'], required: true },
   points: { type: Number, default: 0 },
   testsCompleted: { type: Number, default: 0 },
-  averageScore: { type: Number, default: 0 }
+  averageScore: { type: Number, default: 0 },
+  badges: {
+    brained: { type: Number, default: 0 },    // For challenge winners
+    warrior: { type: Number, default: 0 },    // For tiebreaker winners who completed faster
+    unbeatable: { type: Number, default: 0 }  // For users with best score in a course
+  }
 });
 
 const User = mongoose.model<IUser>('User', UserSchema);

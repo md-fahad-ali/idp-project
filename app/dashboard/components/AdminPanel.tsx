@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, BookOpen, BarChart, PlusCircle, Crown, Eye } from 'lucide-react';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 interface AdminPanelProps {
   token: string;
@@ -16,10 +17,87 @@ export default function AdminPanel({ token }: AdminPanelProps) {
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('Creating course:', { title: courseTitle, category: courseCategory });
-    setCourseTitle('');
-    setCourseCategory('');
-    setShowPopup(false);
-    router.push(`/dashboard/create?title=${courseTitle}&category=${courseCategory}`);
+    
+    try {
+      // Show loading toast
+      const loadingToast = toast.loading('Creating your course...');
+      
+      const courseData = {
+        title: courseTitle,
+        category: courseCategory,
+        description: `This is a course about ${courseTitle}`,
+        lessons: [{ title: "Introduction", content: "<p>Welcome to the course!</p>", points: 10 }],
+      };
+
+      console.log('Course data being sent:', courseData);
+      console.log('Token being used:', token ? 'Valid token exists' : 'No token');
+
+      // const response = await fetch("/api/course/add", {
+      //   method: "POST",
+      //   headers: {
+      //     "Content-Type": "application/json",
+      //     Authorization: `Bearer ${token}`,
+      //   },
+      //   body: JSON.stringify(courseData),
+      //   credentials: 'include'
+      // });
+
+      // console.log('Response status:', response.status);
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+      router.push(`/dashboard/create?title=${encodeURIComponent(courseTitle)}&category=${encodeURIComponent(courseCategory)}`);
+      // if (response.ok) {
+      //   const result = await response.json();
+      //   console.log('[AdminPanel] Course created successfully via API:', result);
+      //   setCourseTitle('');
+      //   setCourseCategory('');
+      //   setShowPopup(false);
+      //   toast.success('Course created successfully!', {
+      //     style: {
+      //       border: '2px solid #4CAF50',
+      //       padding: '16px',
+      //       color: '#4CAF50',
+      //       fontWeight: 'bold',
+      //     },
+      //     duration: 3000,
+      //   });
+        
+      //   console.log("[AdminPanel] Intending to redirect to /dashboard using window.location.href");
+      //   // Force reload the dashboard to see the new course
+      //   window.location.href = '/dashboard';
+      // } else {
+      //   const errorText = await response.text();
+      //   let errorMessage = 'Failed to create course';
+        
+      //   try {
+      //     const error = JSON.parse(errorText);
+      //     errorMessage = error.error || errorMessage;
+      //     console.error('Failed to create course:', error);
+      //   } catch (e) {
+      //     console.error('Failed to create course, response was not JSON:', errorText);
+      //   }
+        
+      //   toast.error(`Failed to create course: ${errorMessage}`, {
+      //     style: {
+      //       border: '2px solid #F44336',
+      //       padding: '16px',
+      //       color: '#F44336',
+      //     },
+      //     duration: 4000,
+      //   });
+      // }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      toast.error("An unexpected error occurred while creating the course.", {
+        style: {
+          border: '2px solid #F44336',
+          padding: '16px',
+          color: '#F44336',
+        },
+        duration: 4000,
+      });
+    }
   };
 
   // Array of admin cards with exact design to match the course cards

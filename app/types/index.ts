@@ -73,4 +73,9 @@ export interface LeaderboardEntry {
   averageTimeSpent?: number;
   rank?: number;
   activityDates?: string[];
+  badges?: {
+    brained?: number;    // For challenge winners
+    warrior?: number;    // For tiebreaker winners who completed faster
+    unbeatable?: number; // For users with best score in a course
+  };
 } 

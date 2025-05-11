@@ -2,9 +2,17 @@ import { Router } from 'express';
 import { authenticateJWT } from '../lib/authMiddleware';
 import User from '../models/User';
 import UserActivity from '../models/UserActivity';
-import mongoose from 'mongoose';
 
 const router = Router();
+
+// Simple memory cache implementation
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+}
+
+const leaderboardCache = new Map<string, CacheEntry>();
+const CACHE_TTL = 2 * 60 * 1000; // 2 minutes cache lifetime
 
 // Helper function to get the last 7 days of dates
 const getLast7Days = () => {
@@ -19,8 +27,19 @@ const getLast7Days = () => {
 };
 
 // Get global leaderboard
-router.get('/', authenticateJWT, async (req, res) => {
+router.get('/', authenticateJWT, async (req, res): Promise<void> => {
   try {
+    // Check cache first
+    const cacheKey = 'global_leaderboard';
+    const cachedData = leaderboardCache.get(cacheKey);
+    
+    if (cachedData && (Date.now() - cachedData.timestamp < CACHE_TTL)) {
+      console.log('Serving global leaderboard from cache');
+      res.set('Cache-Control', 'private, max-age=120');
+      res.json(cachedData.data);
+      return;
+    }
+    
     const users = await User.aggregate([
       {
         $lookup: {
@@ -110,11 +129,21 @@ router.get('/', authenticateJWT, async (req, res) => {
       activityDates: userActivityDates[user._id.toString()] || [] as string[]
     }));
 
-    res.json({
+    const responseData = {
       users: usersWithActivity,
       hasPassedUsers: usersWithActivity.length > 0,
       hasMultipleUsers: usersWithActivity.length > 1,
+    };
+    
+    // Store in cache
+    leaderboardCache.set(cacheKey, {
+      data: responseData,
+      timestamp: Date.now()
     });
+    
+    // Set cache header
+    res.set('Cache-Control', 'private, max-age=120');
+    res.json(responseData);
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
     res.status(500).json({ message: 'Error fetching leaderboard' });
@@ -122,9 +151,20 @@ router.get('/', authenticateJWT, async (req, res) => {
 });
 
 // Get course-specific leaderboard
-router.get('/course/:courseId', authenticateJWT, async (req, res) => {
+router.get('/course/:courseId', authenticateJWT, async (req, res): Promise<void> => {
   try {
     const { courseId } = req.params;
+    
+    // Check cache first
+    const cacheKey = `course_leaderboard_${courseId}`;
+    const cachedData = leaderboardCache.get(cacheKey);
+    
+    if (cachedData && (Date.now() - cachedData.timestamp < CACHE_TTL)) {
+      console.log(`Serving course leaderboard from cache for course ${courseId}`);
+      res.set('Cache-Control', 'private, max-age=120');
+      res.json(cachedData.data);
+      return;
+    }
 
     const users = await User.aggregate([
       {
@@ -230,15 +270,31 @@ router.get('/course/:courseId', authenticateJWT, async (req, res) => {
       activityDates: userActivityDates[user._id.toString()] || []
     }));
 
-    res.json({
+    const responseData = {
       users: usersWithActivity,
       hasPassedUsers: usersWithActivity.length > 0,
       hasMultipleUsers: usersWithActivity.length > 1,
+    };
+    
+    // Store in cache
+    leaderboardCache.set(cacheKey, {
+      data: responseData,
+      timestamp: Date.now()
     });
+    
+    // Set cache header
+    res.set('Cache-Control', 'private, max-age=120');
+    res.json(responseData);
   } catch (error) {
     console.error('Error fetching course leaderboard:', error);
     res.status(500).json({ message: 'Error fetching course leaderboard' });
   }
 });
+
+// Helper function to clear leaderboard cache - to be used when test results are added
+export const clearLeaderboardCache = () => {
+  leaderboardCache.clear();
+  console.log('Leaderboard cache cleared');
+};
 
 export default router; 

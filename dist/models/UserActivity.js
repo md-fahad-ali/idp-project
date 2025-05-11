@@ -48,7 +48,21 @@ const UserActivitySchema = new mongoose_1.Schema({
     lastActive: {
         type: Date,
         default: Date.now
-    }
+    },
+    activities: [{
+            date: {
+                type: String,
+                required: true
+            },
+            timestamp: {
+                type: Date,
+                default: Date.now
+            },
+            action: {
+                type: String,
+                required: true
+            }
+        }]
 }, { timestamps: true });
 // Auto-expire inactive users after 10 minutes
 UserActivitySchema.index({ lastActive: 1 }, {

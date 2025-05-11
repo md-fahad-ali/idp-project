@@ -34,21 +34,24 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-const UserSchema = new mongoose_1.Schema({
-    firstName: { type: String, required: true },
-    lastName: { type: String, required: true },
-    username: { type: String, required: true, unique: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    role: { type: String, enum: ['user', 'admin'], required: true },
-    points: { type: Number, default: 0 },
-    testsCompleted: { type: Number, default: 0 },
-    averageScore: { type: Number, default: 0 },
-    badges: {
-        brained: { type: Number, default: 0 }, // For challenge winners
-        warrior: { type: Number, default: 0 }, // For tiebreaker winners who completed faster
-        unbeatable: { type: Number, default: 0 } // For users with best score in a course
-    }
+// Define the schema for challenge room
+const ChallengeRoomSchema = new mongoose_1.Schema({
+    roomId: { type: String, required: true, unique: true },
+    challengerId: { type: String, required: true },
+    challengerName: { type: String, required: true },
+    challengedId: { type: String, required: true },
+    challengedName: { type: String, required: true },
+    courseId: { type: String, required: true },
+    courseName: { type: String, required: true },
+    questions: { type: Array, required: true },
+    currentQuestionIndex: { type: Number, default: 0 },
+    userScores: { type: mongoose_1.Schema.Types.Mixed, required: true },
+    status: {
+        type: String,
+        enum: ['pending', 'active', 'completed'],
+        default: 'pending'
+    },
+    createdAt: { type: Number, default: () => Date.now() }
 });
-const User = mongoose_1.default.model('User', UserSchema);
-exports.default = User;
+// Check if model already exists to prevent overwriting
+exports.default = mongoose_1.default.models.ChallengeRoom || mongoose_1.default.model('ChallengeRoom', ChallengeRoomSchema);

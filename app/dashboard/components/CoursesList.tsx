@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { X, Clock, BookOpen, Award, ChevronDown, ChevronUp, Check, CheckCircle, Trash2 } from 'lucide-react';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import ViewCourseButton from './ViewCourseButton';
+import { toast } from 'react-hot-toast';
 
 interface ICourse {
   _id: string;
@@ -110,65 +111,35 @@ export default function CoursesList({
     setShowDeleteConfirm(true);
   };
 
-  // Handle marking a course as completed
-  const handleCompleteCourse = async (courseId: string) => {
-    try {
-      // Call API to mark course as completed
-      const response = await fetch(`/api/course/complete/${courseId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        // Update local state
-        setCourseStatuses(prev => {
-          const updated = { 
-            ...prev, 
-            [courseId]: { status: 'completed' as const, progress: 100 } 
-          };
-          localStorage.setItem('course_statuses', JSON.stringify(updated));
-          return updated;
-        });
-      } else {
-        const errorData = await response.json();
-        if (errorData.error === "Course already completed") {
-          // Course is already completed, just update UI
-          setCourseStatuses(prev => {
-            const updated = { 
-              ...prev, 
-              [courseId]: { status: 'completed' as const, progress: 100 } 
-            };
-            localStorage.setItem('course_statuses', JSON.stringify(updated));
-            return updated;
-          });
-        } else {
-          alert('Failed to complete course: ' + errorData.error);
-        }
-      }
-    } catch (error) {
-      console.error('Error completing course:', error);
-      alert('Failed to mark course as completed');
-    }
-  };
-
   // Mark a course as in-progress
   const handleMarkInProgress = (courseId: string) => {
-    setCourseStatuses(prev => {
-      const updated = { 
-        ...prev, 
-        [courseId]: { status: 'in-progress' as const, progress: 30 } 
-      };
-      localStorage.setItem('course_statuses', JSON.stringify(updated));
-      return updated;
-    });
+    // Skip complex state updates and just do a simple localStorage update
+    // This will be much faster and won't delay navigation
+    try {
+      // Get existing statuses
+      const existingData = localStorage.getItem('course_statuses');
+      const statuses = existingData ? JSON.parse(existingData) : {};
+      
+      // Only update if not already completed
+      if (!statuses[courseId] || statuses[courseId].status !== 'completed') {
+        statuses[courseId] = { status: 'in-progress', progress: 30 };
+        localStorage.setItem('course_statuses', JSON.stringify(statuses));
+      }
+    } catch (err) {
+      // Ignore any errors - don't let this block navigation
+      console.log("Error updating course status:", err);
+    }
   };
 
   // Handle actual course deletion
   const handleDeleteCourse = async () => {
-    if (!courseToDelete) return;
+    if (!courseToDelete) {
+      console.error("[DeleteCourse] No course selected for deletion.");
+      return;
+    }
+    
+    console.log(`[DeleteCourse] Attempting to delete course ID: ${courseToDelete._id}, Title: ${courseToDelete.title}`);
+    console.log(`[DeleteCourse] Using token: ${token ? 'Token Present' : 'Token MISSING'}`);
     
     try {
       const response = await fetch(`/api/course/delete/${courseToDelete._id}`, {
@@ -177,27 +148,48 @@ export default function CoursesList({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include' // Keep this if you're relying on cookies for auth elsewhere or CORS needs it
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      console.log(`[DeleteCourse] Response status: ${response.status}`);
+      const responseText = await response.text(); // Get response text for logging
 
-      // Notify parent component about the deleted course
-      onCourseDeleted(courseToDelete._id);
+      if (response.ok) {
+        console.log("[DeleteCourse] Course deleted successfully from server. Response:", responseText);
+        
+        // Notify parent component about the deleted course
+        onCourseDeleted(courseToDelete._id);
+        
+        // Also remove from local storage and component state
+        setCourseStatuses(prev => {
+          const updated = { ...prev };
+          delete updated[courseToDelete._id!]; // Add non-null assertion if _id is guaranteed
+          localStorage.setItem('course_statuses', JSON.stringify(updated));
+          console.log("[DeleteCourse] Course status removed from local storage and state.");
+          return updated;
+        });
+
+        setShowDeleteConfirm(false);
+        setCourseToDelete(null);
+        toast.success('Course deleted successfully!');
+
+      } else {
+        console.error(`[DeleteCourse] Failed to delete course. Status: ${response.status}. Response:`, responseText);
+        let errorMessage = 'Failed to delete course.';
+        try {
+          const errorJson = JSON.parse(responseText);
+          errorMessage = errorJson.error || errorJson.message || errorMessage;
+        } catch (e) {
+          // Response was not JSON or failed to parse
+        }
+        toast.error(errorMessage);
+      }
+    } catch (error) {
+      console.error('[DeleteCourse] Exception during course deletion:', error);
+      toast.error('An unexpected error occurred while deleting the course.');
+      // Ensure states are reset even on exception
       setShowDeleteConfirm(false);
       setCourseToDelete(null);
-      
-      // Also remove from local storage
-      setCourseStatuses(prev => {
-        const updated = { ...prev };
-        delete updated[courseToDelete._id];
-        localStorage.setItem('course_statuses', JSON.stringify(updated));
-        return updated;
-      });
-    } catch (error) {
-      console.error('Error deleting course:', error);
-      alert('Failed to delete course. Please try again.');
     }
   };
 

@@ -26,12 +26,22 @@ import User from './models/User';
 import TestResult from './models/TestResult';
 import Course from './models/Course';
 import UserActivity from './models/UserActivity';
-import { generateQuestionsForCourse } from './ai-quiz-generator';
+import { generateQuestionsForCourse } from './ai-quiz-generator.simple';
 
 
 const dev = process.env.NODE_ENV !== 'production';
 const nextApp = next.default({ dev });
 const handle = nextApp.getRequestHandler();
+
+// User Answer interface
+interface UserAnswer {
+  questionId: string;
+  answer: string;
+  correct: boolean;
+  timeSpent: number;
+  pointsEarned?: number;
+  answerLetter?: string;
+}
 
 // Challenge rooms storage
 interface ChallengeRoom {
@@ -48,17 +58,15 @@ interface ChallengeRoom {
     [userId: string]: {
       score: number;
       timeSpent: number;
-      answers: {
-        questionId: string;
-        answer: string;
-        correct: boolean;
-        timeSpent: number;
-        pointsEarned?: number;
-      }[];
+      answers: UserAnswer[]; // Now uses the proper interface
     };
   };
-  status: 'pending' | 'active' | 'completed';
+  status: 'pending' | 'active' | 'completed' | 'pending_cleanup';
   createdAt: number;
+  isRecovered?: boolean;
+  disconnectedUser?: string;
+  disconnectTime?: number;
+  cleanupTime?: number;
 }
 
 // Define interface for CourseContent
@@ -175,7 +183,7 @@ nextApp
       socket.on = function(event: string, callback: Function) {
         console.log(`[DEBUG] Registering handler for event: ${event}`);
         return originalOn.call(this, event, (...args: any[]) => {
-          console.log(`[DEBUG] Event received: ${event}`, args);
+          // console.log(`[DEBUG] Event received: ${event}`, args);
           return callback.apply(this, args);
         });
       };
@@ -352,13 +360,11 @@ nextApp
               });
             }
             
-            socket.emit('challenge_room_created', roomId);
+            socket.emit('room_created', { roomId });
             return;
           }
           
-          // For real courses, we'll defer question generation until accept_challenge
-          // This ensures we have both users ready before spending time on generation
-          
+          // For real courses, defer question generation until accept_challenge
           // Create room with unique ID
           const roomId = uuidv4();
           
@@ -398,9 +404,207 @@ nextApp
             });
           }
           
-          socket.emit('challenge_room_created', roomId);
+          socket.emit('room_created', { roomId });
         } catch (error) {
-          console.error('Error creating challenge room:', error);
+          console.error('Error in create_challenge handler:', error);
+          socket.emit('challenge_room_error', 'Server error');
+        }
+      });
+
+      // Add handler for challenge_request event
+      socket.on('challenge_request', (data) => {
+        console.log('challenge_request event received:', data);
+        try {
+          const { challengerId, challengerName, challengedId, challengedName, courseId, courseName, roomId } = data;
+          
+          // Make sure we have the minimum required data
+          if (!challengerId || !challengedId || !roomId) {
+            console.error('Missing required data for challenge_request');
+            return;
+          }
+          
+          // Find the socket for the challenged user
+          const challengedSocketId = userSocketMap[challengedId];
+          if (challengedSocketId) {
+            // Forward the challenge notification to the challenged user
+            console.log(`Forwarding challenge request to user ${challengedId}`);
+            io.to(challengedSocketId).emit('challenge_received', {
+              challengeId: roomId,
+              challengerId,
+              challengerName,
+              challengedId,
+              challengedName,
+              courseId,
+              courseName,
+              timestamp: Date.now()
+            });
+          } else {
+            console.warn(`No socket found for challenged user ${challengedId}`);
+            socket.emit('challenge_room_error', 'Challenged user is not online');
+          }
+        } catch (error) {
+          console.error('Error in challenge_request handler:', error);
+        }
+      });
+      
+      // Add handler for create_challenge_room that maps to create_challenge
+      socket.on('create_challenge_room', async (data) => {
+        console.log('create_challenge_room event received, redirecting to create_challenge handler:', data);
+        try {
+          // Instead of emitting an event, we need to duplicate the create_challenge logic
+          const { challengerId, challengedId, courseId } = data;
+          
+          // Check if a pending challenge with the same challengerId and challengedId already exists
+          const existingChallenge = Object.values(challengeRooms).find(room => 
+            room.challengerId === challengerId && 
+            room.challengedId === challengedId && 
+            room.status === 'pending'
+          );
+          
+          if (existingChallenge) {
+            console.log(`Duplicate challenge detected: User ${challengerId} already has a pending challenge with ${challengedId}`, existingChallenge);
+            socket.emit('duplicate_challenge', { 
+              message: 'You already have a pending challenge with this user', 
+              existingChallengeId: existingChallenge.roomId 
+            });
+            return;
+          }
+          
+          // Find relevant data
+          const [challenger, challenged, course] = await Promise.all([
+            User.findById(challengerId),
+            User.findById(challengedId),
+            Course.findById(courseId).populate('lessons')
+          ]);
+          
+          if (!challenger || !challenged || !course) {
+            console.warn('Creating challenge with missing data', { challenger, challenged, course });
+            
+            // For development, create mock data if needed
+            const mockChallenger = challenger || { 
+              _id: challengerId,
+              firstName: 'Challenger',
+              lastName: 'User'
+            };
+            
+            const mockChallenged = challenged || {
+              _id: challengedId,
+              firstName: 'Challenged',
+              lastName: 'User'
+            };
+            
+            const mockCourse = course || {
+              _id: courseId,
+              title: 'Mock Course',
+              lessons: [
+                { title: 'Introduction', content: 'This is an introduction to the course.', keyPoints: ['Learn basics'] },
+                { title: 'Basic Concepts', content: 'These are the basic concepts of the course.', keyPoints: ['Understand fundamentals'] },
+                { title: 'Advanced Topics', content: 'These are advanced topics for the course.', keyPoints: ['Master advanced techniques'] }
+              ]
+            };
+            
+            // Generate questions using lesson content from mock course
+            const mockCourseContent = {
+              title: mockCourse.title,
+              lessons: mockCourse.lessons.map((lesson: any) => ({
+                title: lesson.title,
+                content: lesson.content || '',
+                keyPoints: lesson.keyPoints || []
+              }))
+            };
+            const generatedQuestions = await generateQuestionsForCourse(mockCourseContent);
+            
+            if (generatedQuestions.length === 0) {
+              socket.emit('challenge_room_error', 'Failed to generate questions');
+              return;
+            }
+            
+            // Create room with unique ID
+            const roomId = uuidv4();
+            
+            // Create challenge room
+            challengeRooms[roomId] = {
+              roomId,
+              challengerId: mockChallenger._id.toString(),
+              challengerName: `${mockChallenger.firstName} ${mockChallenger.lastName}`,
+              challengedId: mockChallenged._id.toString(),
+              challengedName: `${mockChallenged.firstName} ${mockChallenged.lastName}`,
+              courseId: mockCourse._id.toString(),
+              courseName: mockCourse.title,
+              questions: generatedQuestions,
+              currentQuestionIndex: 0,
+              userScores: {
+                [challengerId]: { score: 0, timeSpent: 0, answers: [] },
+                [challengedId]: { score: 0, timeSpent: 0, answers: [] }
+              },
+              status: 'pending',
+              createdAt: Date.now()
+            };
+            
+            console.log(`Challenge room ${roomId} created with mock data`);
+            
+            // Notify the challenged user
+            const challengedSocketId = userSocketMap[challengedId];
+            if (challengedSocketId) {
+              io.to(challengedSocketId).emit('challenge_received', {
+                challengeId: roomId,
+                challengerId: mockChallenger._id.toString(),
+                challengerName: `${mockChallenger.firstName} ${mockChallenger.lastName}`,
+                challengedId: mockChallenged._id.toString(),
+                challengedName: `${mockChallenged.firstName} ${mockChallenged.lastName}`,
+                courseId: mockCourse._id.toString(),
+                courseName: mockCourse.title,
+                timestamp: Date.now()
+              });
+            }
+            
+            socket.emit('room_created', { roomId });
+            return;
+          }
+          
+          // For real courses, defer question generation until accept_challenge
+          // Create room with unique ID
+          const roomId = uuidv4();
+          
+          // Create challenge room (without questions for now)
+          challengeRooms[roomId] = {
+            roomId,
+            challengerId: challenger._id.toString(),
+            challengerName: `${challenger.firstName} ${challenger.lastName}`,
+            challengedId: challenged._id.toString(),
+            challengedName: `${challenged.firstName} ${challenged.lastName}`,
+            courseId: String(course._id),
+            courseName: course.title,
+            questions: [],  // We'll generate these when the challenge is accepted
+            currentQuestionIndex: 0,
+            userScores: {
+              [challengerId]: { score: 0, timeSpent: 0, answers: [] },
+              [challengedId]: { score: 0, timeSpent: 0, answers: [] }
+            },
+            status: 'pending',
+            createdAt: Date.now()
+          };
+          
+          console.log(`Challenge room ${roomId} created (questions will be generated on accept)`);
+          
+          // Notify the challenged user
+          const challengedSocketId = userSocketMap[challengedId];
+          if (challengedSocketId) {
+            io.to(challengedSocketId).emit('challenge_received', {
+              challengeId: roomId,
+              challengerId: challenger._id.toString(),
+              challengerName: `${challenger.firstName} ${challenger.lastName}`,
+              challengedId: challenged._id.toString(),
+              challengedName: `${challenged.firstName} ${challenged.lastName}`,
+              courseId: String(course._id),
+              courseName: course.title,
+              timestamp: Date.now()
+            });
+          }
+          
+          socket.emit('room_created', { roomId });
+        } catch (error) {
+          console.error('Error in create_challenge_room handler:', error);
           socket.emit('challenge_room_error', 'Server error');
         }
       });
@@ -419,25 +623,64 @@ nextApp
           return;
         }
         
-        // Handle room joining logic
-        socket.join(challengeId);
+        console.log(`User ${userId} accepted challenge ${challengeId}`);
         
+        // Handle room joining logic for the challenged user (current socket)
+        socket.join(challengeId);
+        console.log(`Challenged user ${userId} joined socket room ${challengeId}`);
+        
+        // Handle room joining for the challenger
         const challengerSocketId = userSocketMap[room.challengerId];
         if (challengerSocketId) {
+          console.log(`Attempting to add challenger ${room.challengerId} (socket ${challengerSocketId}) to room ${challengeId}`);
+          
+          // Notify challenger that challenge was accepted
           io.to(challengerSocketId).emit('challenge_accepted', { roomId: challengeId });
-          io.sockets.sockets.get(challengerSocketId)?.join(challengeId);
+          
+          // Get challenger's socket and join them to the room
+          const challengerSocket = io.sockets.sockets.get(challengerSocketId);
+          if (challengerSocket) {
+            challengerSocket.join(challengeId);
+            console.log(`Challenger ${room.challengerId} joined socket room ${challengeId}`);
+          } else {
+            console.warn(`Could not find socket for challenger ${room.challengerId}`);
+          }
+        } else {
+          console.warn(`No socket found for challenger ${room.challengerId}`);
         }
         
-        // If we don't have questions yet, generate them now that both users are ready
+        // Update the room status to active
+        room.status = 'active';
+        
+        // IMPORTANT: Immediately start the challenge with a "preparing questions" state
+        // This allows users to enter the room immediately
+        io.to(challengeId).emit('challenge_started', {
+          roomId: challengeId,
+          challengerId: room.challengerId,
+          challengerName: room.challengerName,
+          challengedId: room.challengedId,
+          challengedName: room.challengedName,
+          courseId: room.courseId,
+          courseName: room.courseName,
+          preparingQuestions: true // Signal that questions are being prepared
+        });
+        
+        // If we don't have questions yet, generate them in the background
         if (!room.questions || room.questions.length === 0) {
-          console.log('No questions found, generating from course content...');
+          console.log('No questions found, generating from course content in background...');
           
-          // Fetch the latest course data to ensure we have current content
+          // Emit a waiting message to the room
+          io.to(challengeId).emit('system_message', { 
+            type: 'preparing_questions',
+            message: 'Preparing questions...'
+          });
+          
+          // Fetch the latest course data in the background
           Course.findById(room.courseId)
             .then(async (course) => {
               if (!course) {
                 console.error('Course not found for question generation');
-                socket.emit('challenge_error', 'Failed to load course content for questions');
+                io.to(challengeId).emit('challenge_error', 'Failed to load course content for questions');
                 return;
               }
               
@@ -451,32 +694,46 @@ nextApp
                 }))
               };
               
-              // Generate questions from the actual course content
-              const generatedQuestions = await generateQuestionsForCourse(courseContent as CourseContent);
-              
-              if (generatedQuestions.length === 0) {
-                socket.emit('challenge_error', 'Failed to generate questions from course content');
-                return;
+              try {
+                // Generate questions from the actual course content
+                const generatedQuestions = await generateQuestionsForCourse(courseContent as CourseContent);
+                
+                if (generatedQuestions.length === 0) {
+                  io.to(challengeId).emit('challenge_error', 'Failed to generate questions from course content');
+                  return;
+                }
+                
+                // Log the generated questions for debugging
+                console.log('Successfully generated AI questions:');
+                generatedQuestions.forEach((q, i) => {
+                  console.log(`Question ${i+1}: ${q.difficulty || 'UNKNOWN'} - Topic: ${q.topic || 'General'} - Has code: ${q.hasCodeExample || false}`);
+                  // Log a preview of each question
+                  console.log(`  Text: ${q.text.substring(0, 100)}${q.text.length > 100 ? '...' : ''}`);
+                });
+                
+                // Update the room with the generated questions
+                room.questions = generatedQuestions.map(q => ({
+                  ...q
+                  // Keep the original ID from the generator and don't override with a new UUID
+                  // The generator already assigns proper UUIDs
+                }));
+                
+                console.log(`Generated ${room.questions.length} questions from course content`);
+                
+                // Now that questions are ready, send the first question to start the actual quiz
+                sendNextQuestion(challengeId);
+              } catch (error) {
+                console.error('Error generating questions:', error);
+                io.to(challengeId).emit('challenge_error', 'Failed to generate questions');
               }
-              
-              // Update the room with the generated questions
-              room.questions = generatedQuestions.map(q => ({
-                ...q,
-                id: uuidv4() // Assign unique ID to each question
-              }));
-              
-              console.log(`Generated ${room.questions.length} questions from course content`);
-              
-              // Start the challenge with the new questions
-              startChallenge(challengeId);
             })
             .catch(error => {
-              console.error('Error generating questions from course:', error);
-              socket.emit('challenge_error', 'Failed to prepare questions');
+              console.error('Error loading course for question generation:', error);
+              io.to(challengeId).emit('challenge_error', 'Failed to prepare questions');
             });
         } else {
           // Start the challenge with existing questions
-          startChallenge(challengeId);
+          sendNextQuestion(challengeId);
         }
       });
       
@@ -517,7 +774,7 @@ nextApp
       });
       
       // Handle socket.io submit_answer event
-      socket.on('submit_answer', ({ roomId, userId, questionId, answer, timeSpent }) => {
+      socket.on('submit_answer', ({ roomId, userId, questionId, answer, timeSpent, answerLetter }) => {
         try {
           const room = challengeRooms[roomId];
           if (!room) {
@@ -536,8 +793,27 @@ nextApp
             room.userScores[userId].answers = [];
           }
           
-          // Check if the answer is correct
-          const isCorrect = currentQuestion.correctAnswer === answer;
+          // Check if the answer is correct - compare both formats
+          // First, check if answer text matches exactly
+          let isCorrect = currentQuestion.correctAnswer === answer;
+          
+          // If not, check if the answer letter (A, B, C, D) matches
+          if (!isCorrect && answerLetter) {
+            isCorrect = currentQuestion.correctAnswer === answerLetter;
+          }
+          
+          // Also check if the answer text contains the correct answer (for flexibility)
+          if (!isCorrect && typeof currentQuestion.correctAnswer === 'string') {
+            const correctAnswerText = currentQuestion.options.find(
+              (option: string, index: number) => String.fromCharCode(65 + index) === currentQuestion.correctAnswer
+            );
+            
+            if (correctAnswerText && answer === correctAnswerText) {
+              isCorrect = true;
+            }
+          }
+          
+          console.log(`[DEBUG] Answer submission: userId=${userId}, answer=${answer}, answerLetter=${answerLetter}, correctAnswer=${currentQuestion.correctAnswer}, isCorrect=${isCorrect}`);
           
           // Award points: 10 for correct answer, 0 for incorrect
           // Can adjust scoring algorithm as needed
@@ -549,18 +825,30 @@ nextApp
             answer,
             correct: isCorrect,
             timeSpent,
-            pointsEarned
-          });
+            pointsEarned,
+            answerLetter
+          } as UserAnswer); // Type assertion to bypass type check
           
           // Update total score and time spent
           room.userScores[userId].score += pointsEarned;
           room.userScores[userId].timeSpent += timeSpent;
           
+          // Get user name based on userId
+          const userName = userId === room.challengerId ? room.challengerName : room.challengedName;
+          
+          // Broadcast answer to all users in the room
+          io.to(roomId).emit('user_answer', {
+            userId,
+            userName,
+            answer,
+            isCorrect
+          });
+          
           // Broadcast score update to all users in the room
           io.to(roomId).emit('score_broadcast', {
             roomId, 
             userId, 
-            userName: userId === room.challengerId ? room.challengerName : room.challengedName,
+            userName,
             score: room.userScores[userId].score,
             isCorrect,
             correctAnswer: isCorrect ? null : currentQuestion.correctAnswer
@@ -573,24 +861,36 @@ nextApp
           });
           
           if (allUsersAnswered) {
+            // Get all user answers for this question
+            const userAnswers = [room.challengerId, room.challengedId].map(uid => {
+              const answer = room.userScores[uid].answers.find(a => a.questionId === questionId);
+              return {
+                userId: uid,
+                userName: uid === room.challengerId ? room.challengerName : room.challengedName,
+                answer: answer?.answer === 'timeout' ? 'Time Out' : answer?.answer || 'No answer',
+                isCorrect: answer?.correct
+              };
+            });
+            
             // Include current scores in the both_answered event
             const scores = {
               [room.challengerId]: room.userScores[room.challengerId].score,
               [room.challengedId]: room.userScores[room.challengedId].score
             };
             
-            // Notify both users that both have answered
+            // Notify both users that both have answered with all answers
             io.to(roomId).emit('both_answered', { 
               scores, 
-              correctAnswer: currentQuestion.correctAnswer 
+              correctAnswer: currentQuestion.correctAnswer,
+              userAnswers 
             });
             
             // Move to the next question or end the challenge
             room.currentQuestionIndex++;
             
             if (room.currentQuestionIndex < room.questions.length) {
-              // Send the next question after a short delay
-              setTimeout(() => sendNextQuestion(roomId), 2000);
+              // Send the next question after a longer delay (5 seconds) to give users time to see answers
+              setTimeout(() => sendNextQuestion(roomId), 5000);
             } else {
               // Challenge is complete, calculate final results
               endChallenge(roomId);
@@ -643,114 +943,95 @@ nextApp
         }
       });
       
-      // Handle user leaving the room
-      socket.on('leave_room', async (data) => {
-        console.log("🔴 LEAVE_ROOM EVENT RECEIVED with data:", data);
-        
+      // Handle leave room event - triggered when user manually leaves
+      socket.on('leave_room', async ({ roomId, userId, isChallenger, customMessage }) => {
         try {
-          // Extract parameters, using defaults if missing
-          const roomId = data?.roomId;
-          const userId = data?.userId;
-          const isChallenger = data?.isChallenger;
-          const customMessage = data?.customMessage || "Player has left the game.";
+          console.log(`🔴 LEAVE_ROOM EVENT RECEIVED with data:`, {
+            roomId, userId, isChallenger, customMessage
+          });
           
-          console.log("🔴 Processed leave_room parameters:", { roomId, userId, isChallenger, customMessage });
+          console.log(`🔴 Processed leave_room parameters:`, {
+            roomId, userId, isChallenger, customMessage
+          });
           
-          // Continue only if we have userId
-          if (!userId) {
-            console.error("🔴 Missing userId in leave_room event");
+          // First, check if the user is actually in the specified room
+          const room = challengeRooms[roomId];
+          
+          // If no room with ID exists, log it but don't take action
+          if (!room) {
+            console.log(`🔴 Found room for user: No room found with ID ${roomId}`);
+            
+            // Inform the client that the room doesn't exist anymore
+            socket.emit('room_not_found', { 
+              roomId, 
+              message: 'The challenge room no longer exists.' 
+            });
+            
             return;
           }
           
-          // Find the room where this user is participating
-          const room = Object.values(challengeRooms).find(room => 
-            (room.challengerId === userId || room.challengedId === userId) &&
-            (room.status === 'pending' || room.status === 'active')
-          );
-
-          console.log("🔴 Found room for user:", room ? room.roomId : "No room found");
-
-          if (room) {
-            // Get both user IDs
-            const challengerId = room.challengerId;
-            const challengedId = room.challengedId;
-            
-            // Determine which user is leaving and which is the opponent
-            const isUserChallenger = userId === challengerId;
-            const opponentId = isUserChallenger ? challengedId : challengerId;
-            const leavingUserName = isUserChallenger ? room.challengerName : room.challengedName;
-            const opponentSocketId = userSocketMap[opponentId];
-            
-            console.log(`🔴 User ${userId} (${leavingUserName}) is leaving, opponent is ${opponentId}`);
-            console.log(`🔴 Opponent socket ID: ${opponentSocketId}`);
-
-            // Store room ID before deletion for cleanup
-            const roomToDelete = room.roomId;
-            
-            // Get socket IDs for both users (needed for notifications)
-            const challengerSocketId = userSocketMap[challengerId];
-            const challengedSocketId = userSocketMap[challengedId];
-
-            // Send a single notification to the opponent
-            if (opponentSocketId) {
-              console.log(`🔴 Sending opponent_left notification to ${opponentId}`);
-              io.to(opponentSocketId).emit('opponent_left', {
-                roomId: room.roomId,
-                userId,
-                userName: leavingUserName,
-                customMessage
-              });
-            }
-
-            // First, update database to ensure users are marked as not in challenge
-            await UserActivity.updateMany(
-              { userId: { $in: [challengerId, challengedId] } },
-              { 
-                $set: { 
-                  isInChallenge: false, 
-                  challengeId: null, 
-                  opponentId: null,
-                  lastActive: new Date()
-                }
-              }
-            );
-
-            // Then handle socket cleanup and notifications
-            if (challengerSocketId) {
-              const challengerSocket = io.sockets.sockets.get(challengerSocketId);
-              if (challengerSocket) {
-                challengerSocket.leave(roomToDelete);
-              }
-              
-              io.to(challengerSocketId).emit('challenge_status_update', {
-                isInChallenge: false,
-                challengeId: null,
-                opponentId: null
-              });
-            }
-
-            if (challengedSocketId) {
-              const challengedSocket = io.sockets.sockets.get(challengedSocketId);
-              if (challengedSocket) {
-                challengedSocket.leave(roomToDelete);
-              }
-              
-              io.to(challengedSocketId).emit('challenge_status_update', {
-                isInChallenge: false,
-                challengeId: null,
-                opponentId: null
-              });
-            }
-
-            // Mark the room as completed and remove it
-            room.status = 'completed';
-            delete challengeRooms[roomToDelete];
-
-            console.log(`🔴 Successfully cleaned up room ${roomToDelete}`);
+          // Check if user actually belongs to this room
+          const isUserInRoom = room.challengerId === userId || room.challengedId === userId;
+          
+          if (!isUserInRoom) {
+            console.log(`🔴 User ${userId} is not in room ${roomId}`);
+            socket.emit('leave_room_error', { 
+              message: 'You are not a member of this room.'
+            });
+            return;
           }
+          
+          // Get the opponent's ID and socket
+          const opponentId = room.challengerId === userId ? room.challengedId : room.challengerId;
+          const opponentSocketId = userSocketMap[opponentId];
+          
+          // Get the user's name
+          const userName = room.challengerId === userId ? room.challengerName : room.challengedName;
+          
+          console.log(`🔴 User ${userName} (${userId}) is leaving room ${roomId}`);
+          
+          // Make user leave the socket.io room
+          socket.leave(roomId);
+          
+          // Notify everyone in the room (just the opponent now) that this user left
+          io.to(roomId).emit('opponent_left', {
+            roomId,
+            userId,
+            userName,
+            customMessage: customMessage || `${userName} has left the challenge.`
+          });
+          
+          // Also emit a leave_room event for backward compatibility
+          io.to(roomId).emit('leave_room', {
+            roomId,
+            userId,
+            userName
+          });
+          
+          // Don't immediately delete the room - mark it for cleanup in 1 minute
+          // This gives clients time to process the leave event
+          room.status = 'pending_cleanup';
+          room.cleanupTime = Date.now();
+          
+          console.log(`🔴 Room ${roomId} marked for cleanup in 1 minute`);
+          
+          // Schedule room cleanup
+          setTimeout(() => {
+            // Only delete the room if it's still marked for cleanup
+            if (challengeRooms[roomId] && challengeRooms[roomId].status === 'pending_cleanup') {
+              console.log(`🔴 Cleaning up room ${roomId} after leave`);
+              delete challengeRooms[roomId];
+            }
+          }, 60000); // 1 minute delay
+          
+          // Acknowledge to the client that they've left
+          socket.emit('leave_confirmed', { 
+            roomId,
+            success: true
+          });
         } catch (error) {
           console.error('Error in leave_room handler:', error);
-          socket.emit('challenge_room_error', 'Failed to leave room properly');
+          socket.emit('leave_room_error', { message: 'Failed to leave room properly' });
         }
       });
 
@@ -760,7 +1041,56 @@ nextApp
         
         const userId = socketUserMap[socket.id];
         if (userId) {
-          // Only clean up the mappings, don't mark user as inactive immediately
+          // Find any active room that this user is part of
+          const userRoom = Object.values(challengeRooms).find(room => 
+            (room.challengerId === userId || room.challengedId === userId) &&
+            (room.status === 'active')
+          );
+          
+          if (userRoom) {
+            console.log(`User ${userId} disconnected while in active room ${userRoom.roomId}. NOT auto-leaving room - waiting for reconnect.`);
+            
+            // Don't auto-leave the room on disconnect - only mark the user as potentially disconnected
+            // This allows time for reconnection
+            
+            // Mark the room as having a temporarily disconnected user
+            userRoom.disconnectedUser = userId;
+            userRoom.disconnectTime = Date.now();
+            
+            // Check back in 2 minutes to see if the user returned
+            setTimeout(() => {
+              // Only if the user is still marked as disconnected after 2 minutes
+              if (userRoom.disconnectedUser === userId && 
+                  userRoom.disconnectTime && 
+                  (Date.now() - userRoom.disconnectTime > 120000)) {
+                
+                // Then consider them truly gone and handle as if they left
+                console.log(`User ${userId} did not reconnect to room ${userRoom.roomId} within 2 minutes. Now handling as a leave.`);
+                
+                // Get user name and opponent ID
+                const isChallenger = userRoom.challengerId === userId;
+                const userName = isChallenger ? userRoom.challengerName : userRoom.challengedName;
+                const opponentId = isChallenger ? userRoom.challengedId : userRoom.challengerId;
+                const opponentSocketId = userSocketMap[opponentId];
+                
+                // Notify opponent if they're still connected
+                if (opponentSocketId) {
+                  io.to(opponentSocketId).emit('opponent_left', {
+                    roomId: userRoom.roomId,
+                    userId,
+                    userName,
+                    message: `${userName} disconnected and didn't return.`
+                  });
+                }
+                
+                // Only mark room as completed if 2 minutes passed with no reconnect
+                userRoom.status = 'completed';
+              }
+            }, 120000); // 2 minutes
+          }
+          
+          // Only remove the mapping on disconnect, don't mark user as inactive yet
+          // Users might reconnect if it's a temporary disconnection
           delete userSocketMap[userId];
           delete socketUserMap[socket.id];
         }
@@ -789,27 +1119,79 @@ nextApp
         }
       });
 
-      // Join challenge room (used by challenger and challenged)
+      // Join a challenge room
       socket.on('join_challenge', ({ roomId, userId }) => {
         try {
-          console.log(`User ${userId} joining challenge room ${roomId}`);
+          console.log(`User ${userId} requesting to join challenge room ${roomId}`);
           
-          const room = challengeRooms[roomId];
+          // Validate the room exists
+          let room = challengeRooms[roomId];
           if (!room) {
-            socket.emit('challenge_error', 'Challenge room not found');
-            return;
+            console.error(`Room ${roomId} not found - attempting to restore from storage`);
+            
+            // Get the existing room info from any client-side data
+            const clientRoomInfo = {
+              roomId: roomId,
+              userId: userId,
+              timestamp: Date.now()
+            };
+            
+            // Create a placeholder room to allow joining
+            challengeRooms[roomId] = {
+              roomId,
+              challengerId: userId, // We don't know if this is the challenger or challenged
+              challengerName: 'Player 1',
+              challengedId: 'unknown',
+              challengedName: 'Player 2',
+              courseId: 'javascript', // Default course
+              courseName: 'JavaScript',
+              questions: [],  // We'll generate these when the challenge is started
+              currentQuestionIndex: 0,
+              userScores: {
+                [userId]: { score: 0, timeSpent: 0, answers: [] }
+              },
+              status: 'pending',
+              createdAt: Date.now(),
+              isRecovered: true // Mark this as a recovered room
+            };
+            
+            room = challengeRooms[roomId];
+            
+            console.log(`Created recovery room ${roomId} for user ${userId}`);
+            
+            // Emit a message to the user
+            socket.emit('system_message', { 
+              type: 'room_recovery',
+              message: 'Room was not found. A new session has been created.'
+            });
           }
           
-          // Check if user is authorized to join this room
-          if (room.challengerId !== userId && room.challengedId !== userId) {
-            socket.emit('challenge_error', 'Not authorized to join this challenge');
-            return;
-          }
-          
-          // Join the socket room
+          // Join the socket.io room
           socket.join(roomId);
+          console.log(`User ${userId} joined socket room ${roomId}`);
           
-          // Send room data to the user
+          // Send confirmation back to client
+          socket.emit('join_challenge_confirm', { success: true });
+          
+          // If this is a recovered room, update user info
+          if (room.isRecovered) {
+            // If this is a second user joining, update the room data
+            if (room.challengerId === userId) {
+              // This is the same user who created the recovery room
+            } else if (room.challengedId === 'unknown') {
+              // This is a new user, update as challenged
+              room.challengedId = userId;
+              room.challengedName = 'Player 2';
+              
+              // Add the second user's score tracking
+              room.userScores[userId] = { score: 0, timeSpent: 0, answers: [] };
+            }
+          }
+          
+          // Keep track of this user's connection in the room
+          const userRole = userId === room.challengerId ? 'challenger' : 'challenged';
+          
+          // Send room data to the user who just joined
           socket.emit('room_data', {
             challenger: {
               id: room.challengerId,
@@ -821,36 +1203,159 @@ nextApp
             }
           });
           
-          console.log(`User ${userId} joined challenge room ${roomId}`);
-          
-          // If the room is already active, send the current question
-          if (room.status === 'active' && room.currentQuestionIndex < room.questions.length) {
-            const currentQuestion = room.questions[room.currentQuestionIndex];
-            socket.emit('new_question', {
-              question: {
-                id: currentQuestion.id,
-                text: currentQuestion.text,
-                options: currentQuestion.options,
-                topic: currentQuestion.topic || room.courseName
-              },
-              timeLimit: 30,
-              questionNumber: room.currentQuestionIndex + 1,
-              totalQuestions: room.questions.length,
-              courseName: room.courseName
-            });
-          }
+          console.log(`Sent room data to user ${userId}`);
         } catch (error) {
           console.error('Error joining challenge room:', error);
-          socket.emit('challenge_error', 'Server error joining challenge room');
+          socket.emit('join_challenge_confirm', { success: false, error: 'Server error' });
+        }
+      });
+
+      // Add handler for starting a challenge
+      socket.on('start_challenge', ({ roomId }) => {
+        try {
+          console.log(`Received start_challenge event for room ${roomId}`);
+          
+          // Validate the room exists
+          const room = challengeRooms[roomId];
+          if (!room) {
+            console.error(`Room ${roomId} not found for start_challenge`);
+            socket.emit('challenge_error', 'Room not found');
+            return;
+          }
+          
+          // Call the startChallenge function
+          console.log(`Starting challenge for room ${roomId}`);
+          startChallenge(roomId);
+        } catch (error) {
+          console.error('Error in start_challenge handler:', error);
+          socket.emit('challenge_error', 'Failed to start challenge');
+        }
+      });
+
+      // Handle request for challenge results
+      socket.on('request_challenge_results', ({ roomId }) => {
+        // Find the room data (active or completed)
+        const room = challengeRooms[roomId];
+        
+        if (!room) {
+          console.log(`No room data found for roomId: ${roomId}`);
+          socket.emit('challenge_error', 'Room not found');
+          return;
+        }
+        
+        // If the room is still active, return current scores
+        if (room.status === 'active') {
+          const challengerScore = room.userScores[room.challengerId].score;
+          const challengedScore = room.userScores[room.challengedId].score;
+          
+          let winnerId, winnerName;
+          
+          // Determine current leader
+          if (challengerScore > challengedScore) {
+            winnerId = room.challengerId;
+            winnerName = room.challengerName;
+          } else if (challengedScore > challengerScore) {
+            winnerId = room.challengedId;
+            winnerName = room.challengedName;
+          } else {
+            winnerId = 'tie';
+            winnerName = 'Tie';
+          }
+          
+          // Send current results
+          socket.emit('challenge_results', {
+            roomId,
+            challengerId: room.challengerId,
+            challengerName: room.challengerName,
+            challengerScore,
+            challengerTimeSpent: room.userScores[room.challengerId].timeSpent,
+            challengedId: room.challengedId,
+            challengedName: room.challengedName,
+            challengedScore,
+            challengedTimeSpent: room.userScores[room.challengedId].timeSpent,
+            winnerId,
+            winnerName
+          });
+        } else if (room.status === 'completed') {
+          // Room is already completed, send final results
+          const challengerScore = room.userScores[room.challengerId].score;
+          const challengedScore = room.userScores[room.challengedId].score;
+          
+          let winnerId, winnerName;
+          
+          if (challengerScore > challengedScore) {
+            winnerId = room.challengerId;
+            winnerName = room.challengerName;
+          } else if (challengedScore > challengerScore) {
+            winnerId = room.challengedId;
+            winnerName = room.challengedName;
+          } else {
+            // If tied on score, compare completion time
+            const challengerTime = room.userScores[room.challengerId].timeSpent;
+            const challengedTime = room.userScores[room.challengedId].timeSpent;
+            
+            if (challengerTime < challengedTime) {
+              winnerId = room.challengerId;
+              winnerName = room.challengerName;
+            } else {
+              winnerId = room.challengedId;
+              winnerName = room.challengedName;
+            }
+          }
+          
+          socket.emit('challenge_results', {
+            roomId,
+            challengerId: room.challengerId,
+            challengerName: room.challengerName,
+            challengerScore,
+            challengerTimeSpent: room.userScores[room.challengerId].timeSpent,
+            challengedId: room.challengedId,
+            challengedName: room.challengedName,
+            challengedScore,
+            challengedTimeSpent: room.userScores[room.challengedId].timeSpent,
+            winnerId,
+            winnerName
+          });
+        } else {
+          socket.emit('challenge_error', 'Room status is invalid');
         }
       });
     });
     
-    // Helper function to start a challenge
+    // Start a challenge: update status to active and send the first question
     const startChallenge = (roomId: string) => {
       const room = challengeRooms[roomId];
-      if (!room) return;
+      if (!room) {
+        console.error(`Room ${roomId} not found`);
+        return;
+      }
       
+      console.log(`Starting challenge in room ${roomId}`);
+      
+      // Verify both players are actually in the socket room before starting
+      const getSocketsInRoom = async () => {
+        try {
+          // Get all sockets in this room
+          const sockets = await io.in(roomId).fetchSockets();
+          console.log(`Found ${sockets.length} sockets in room ${roomId}`);
+          
+          // If we don't have exactly 2 users, wait and retry
+          if (sockets.length < 2) {
+            console.log(`Not enough players (${sockets.length}/2) in room, waiting for players to join...`);
+            
+            // Emit a waiting message to the room
+            io.to(roomId).emit('system_message', { 
+              type: 'waiting_for_players',
+              message: 'Waiting for both players to join...'
+            });
+            
+            // Wait 3 seconds and try again
+            setTimeout(() => startChallenge(roomId), 3000);
+            return;
+          }
+          
+          // At this point, we have both players connected
+          // Update room status and notify users
       room.status = 'active';
       
       // Notify both users that challenge has started
@@ -866,34 +1371,187 @@ nextApp
         totalQuestions: room.questions.length
       });
       
-      // Send first question
+          // Send first question only after confirming both players are connected
       sendNextQuestion(roomId);
+        } catch (error) {
+          console.error('Error checking room participants:', error);
+          
+          // Try again after delay
+          setTimeout(() => startChallenge(roomId), 3000);
+        }
+      };
+      
+      // Start the process of checking for players
+      getSocketsInRoom();
     };
     
-    // Helper function to send the next question
+    // Function to send the next question to all users in a room
     const sendNextQuestion = (roomId: string) => {
-      const room = challengeRooms[roomId];
-      if (!room || room.currentQuestionIndex >= room.questions.length) return;
+      try {
+        const room = challengeRooms[roomId];
+        if (!room) {
+          console.error(`Room ${roomId} not found`);
+          return;
+        }
+        
+        // Check if questions are available
+        if (!room.questions || room.questions.length === 0) {
+          console.log(`No questions available for room ${roomId} yet. Will retry when questions are ready.`);
+          
+          // Notify users of the delay
+          io.to(roomId).emit('system_message', { 
+            type: 'preparing_questions',
+            message: 'Still preparing your questions...'
+          });
+          
+          // Try again in 2 seconds
+          setTimeout(() => sendNextQuestion(roomId), 2000);
+          return;
+        }
+        
+        // Get the next question
+        const nextQuestion = room.questions[room.currentQuestionIndex];
+        
+        // Validate question has all required fields
+        if (!nextQuestion || !nextQuestion.text || !Array.isArray(nextQuestion.options) || !nextQuestion.correctAnswer) {
+          console.error(`Invalid question at index ${room.currentQuestionIndex}:`, nextQuestion);
+          
+          // Handle the invalid question situation
+          // If this is the first question, generate a simple fallback question
+          const fallbackQuestion = {
+            id: uuidv4(),
+            text: `What is the main topic of the "${room.courseName}" course?`,
+            options: [
+              `Understanding ${room.courseName} fundamentals`,
+              `Advanced ${room.courseName} applications`,
+              `${room.courseName} history and development`,
+              `${room.courseName} in practice`
+            ],
+            correctAnswer: `Understanding ${room.courseName} fundamentals`,
+            topic: 'General'
+          };
+          
+          // Replace the invalid question with fallback
+          room.questions[room.currentQuestionIndex] = fallbackQuestion;
+          
+          // Use the fallback question
+          console.log(`Using fallback question at index ${room.currentQuestionIndex}`);
+        }
+        
+        // Get the question (either original or fallback)
+        const questionToSend = room.questions[room.currentQuestionIndex];
+        
+        // Calculate the question number and total
+        const questionNumber = room.currentQuestionIndex + 1;
+        const totalQuestions = Math.min(room.questions.length, 5);
+        
+        // Log the question being sent with details
+        console.log(`[DEBUG] Sending question ${questionNumber}/${totalQuestions} to room ${roomId}`);
+        
+        // Send the new question to all users in the room
+        // Include total questions count and current question number
+        const timeLimit = 15; // Reduced time limit to 15 seconds for better experience
+        io.to(roomId).emit('new_question', {
+          question: questionToSend,
+          timeLimit,
+          questionNumber,
+          totalQuestions,
+          courseName: room.courseName
+        });
       
-      const currentQuestion = room.questions[room.currentQuestionIndex];
-      
-      // Emit the question without the correct answer
-      io.to(roomId).emit('new_question', {
-        question: {
-          id: currentQuestion.id,
-          text: currentQuestion.text,
-          options: currentQuestion.options,
-          topic: currentQuestion.topic || room.courseName, // Include topic if available
-        },
-        timeLimit: 30, // 30 seconds per question
-        questionNumber: room.currentQuestionIndex + 1,
-        totalQuestions: room.questions.length,
-        // Include course context to remind users what content this is from
-        courseName: room.courseName
-      });
-      
-      // Log question sending to verify it's working
-      console.log(`Sending question ${room.currentQuestionIndex + 1} of ${room.questions.length} to room ${roomId}`);
+        // Set up timer synchronization
+        let remainingTime = timeLimit;
+        const timerInterval = setInterval(() => {
+          remainingTime--;
+          
+          // Send time sync every second to ensure consistent countdown
+          io.to(roomId).emit('time_sync', { 
+            timeLeft: remainingTime,
+            questionNumber,
+            totalQuestions
+          });
+          
+          // When time is up, check if all users answered
+          if (remainingTime <= 0) {
+            clearInterval(timerInterval);
+            
+            // Check if all users answered this question
+            const allAnswered = [room.challengerId, room.challengedId].every(uid => {
+              return room.userScores[uid]?.answers && 
+                     room.userScores[uid].answers.some(a => a.questionId === questionToSend.id);
+            });
+            
+            // If not all users answered, handle timeout
+            if (!allAnswered) {
+              // For each user that didn't answer, record a timeout answer
+              [room.challengerId, room.challengedId].forEach(uid => {
+                const hasAnswered = room.userScores[uid]?.answers && 
+                                   room.userScores[uid].answers.some(a => a.questionId === questionToSend.id);
+                
+                if (!hasAnswered) {
+                  // Record timeout answer
+                  if (!room.userScores[uid].answers) {
+                    room.userScores[uid].answers = [];
+                  }
+                  
+                  room.userScores[uid].answers.push({
+                    questionId: questionToSend.id,
+                    answer: 'timeout',
+                    correct: false,
+                    timeSpent: timeLimit,
+                    pointsEarned: 0,
+                    answerLetter: ''
+                  } as UserAnswer); // Type assertion to bypass type check
+                  
+                  // Emit user answer for timeout
+                  io.to(roomId).emit('user_answer', {
+                    userId: uid,
+                    userName: uid === room.challengerId ? room.challengerName : room.challengedName,
+                    answer: 'Time Out',
+                    isCorrect: false
+                  });
+                }
+              });
+              
+              // Get all user answers for this question
+              const userAnswers = [room.challengerId, room.challengedId].map(uid => {
+                const answer = room.userScores[uid].answers.find(a => a.questionId === questionToSend.id);
+                return {
+                  userId: uid,
+                  userName: uid === room.challengerId ? room.challengerName : room.challengedName,
+                  answer: answer?.answer === 'timeout' ? 'Time Out' : answer?.answer || 'No answer',
+                  isCorrect: answer?.correct
+                };
+              });
+              
+              // Notify both users of answers and include question details
+              io.to(roomId).emit('both_answered', { 
+                scores: {
+                  [room.challengerId]: room.userScores[room.challengerId].score,
+                  [room.challengedId]: room.userScores[room.challengedId].score
+                }, 
+                correctAnswer: questionToSend.correctAnswer,
+                userAnswers,
+                questionNumber, // Send the current question number
+                totalQuestions
+              });
+              
+              // Move to the next question
+              room.currentQuestionIndex++;
+              
+              if (room.currentQuestionIndex < Math.min(room.questions.length, 5)) {
+                // Send the next question after a delay (reduce to 3 seconds)
+                setTimeout(() => sendNextQuestion(roomId), 3000);
+              } else {
+                // Challenge is complete, calculate final results
+                endChallenge(roomId);
+              }
+            }
+          }
+        }, 1000);
+      } catch (error) {
+        console.error('Error sending next question:', error);
+      }
     };
     
     // Helper function to end a challenge
@@ -909,29 +1567,97 @@ nextApp
       
       let winnerId: string;
       let winnerName: string;
+      let tiebreakerId: string | null = null; // ID of the user who won by completing faster in a tie
+      let badgeAwarded: string | null = null; // Track which badge was awarded
+      let isTie = false;
       
       if (challengerScore > challengedScore) {
         winnerId = room.challengerId;
         winnerName = room.challengerName;
+        badgeAwarded = 'brained'; // Winner by score gets the brained badge
       } else if (challengedScore > challengerScore) {
         winnerId = room.challengedId;
         winnerName = room.challengedName;
+        badgeAwarded = 'brained'; // Winner by score gets the brained badge
       } else {
         // In case of a tie, winner is the one who completed faster
         const challengerTime = room.userScores[room.challengerId].timeSpent;
         const challengedTime = room.userScores[room.challengedId].timeSpent;
         
+        isTie = true;
+        
         if (challengerTime < challengedTime) {
           winnerId = room.challengerId;
           winnerName = room.challengerName;
+          tiebreakerId = room.challengerId; // Challenger won by time in a tie
         } else {
           winnerId = room.challengedId;
           winnerName = room.challengedName;
+          tiebreakerId = room.challengedId; // Challenged won by time in a tie
         }
+        
+        badgeAwarded = 'warrior'; // Tiebreaker winner gets the warrior badge
       }
       
-      // Send results to both users
-      io.to(roomId).emit('challenge_results', {
+      // Try to award badges to winner and update badge counts
+      try {
+        // Get user document to update badges
+        const winnerUser = await User.findById(winnerId);
+        
+        if (winnerUser) {
+          // Initialize badges object if it doesn't exist
+          if (!winnerUser.badges) {
+            winnerUser.badges = {};
+          }
+          
+          // Award appropriate badge and increment count
+          if (badgeAwarded === 'brained') {
+            // Award brained badge (for winning by score)
+            winnerUser.badges.brained = (winnerUser.badges.brained || 0) + 1;
+            console.log(`Awarded brained badge to ${winnerName}`);
+          } else if (badgeAwarded === 'warrior' && tiebreakerId) {
+            // Award warrior badge (for winning by time in a tie)
+            winnerUser.badges.warrior = (winnerUser.badges.warrior || 0) + 1;
+            console.log(`Awarded warrior badge to ${winnerName} for winning by time in a tie`);
+          }
+          
+          // Save the updated user document
+          await winnerUser.save();
+        }
+        
+        // Check for all-time best score in this course to award unbeatable badge
+        const highestScoreUser = await User.findOne({
+          _id: { $in: [room.challengerId, room.challengedId] }
+        }).sort({ [`courseProgress.${room.courseId}.highestScore`]: -1 }).limit(1);
+        
+        if (highestScoreUser) {
+          // Get the current highest course score for comparison
+          const currentCourseHighScore = await TestResult.findOne({
+            courseId: room.courseId
+          }).sort({ score: -1 }).limit(1);
+          
+          const winnerScore = winnerId === room.challengerId ? challengerScore : challengedScore;
+          
+          // Check if this score is the new all-time best for the course
+          if (currentCourseHighScore && winnerScore > currentCourseHighScore.score) {
+            if (!highestScoreUser.badges) {
+              highestScoreUser.badges = {};
+            }
+            
+            // Award unbeatable badge for best score in the course
+            highestScoreUser.badges.unbeatable = (highestScoreUser.badges.unbeatable || 0) + 1;
+            console.log(`Awarded unbeatable badge to ${highestScoreUser.firstName} ${highestScoreUser.lastName} for new course high score`);
+            
+            await highestScoreUser.save();
+          }
+        }
+      } catch (error) {
+        console.error("Error awarding badges:", error);
+        // Continue with challenge end despite badge error
+      }
+      
+      // Prepare results data
+      const resultsData = {
         roomId,
         challengerId: room.challengerId,
         challengerName: room.challengerName,
@@ -942,15 +1668,36 @@ nextApp
         challengedScore,
         challengedTimeSpent: room.userScores[room.challengedId].timeSpent,
         winnerId,
-        winnerName
+        winnerName,
+        courseTitle: room.courseName, // Adding course title for constructing the results URL
+        isTie, // Indicate if it was a tie
+        tiebreakerId, // Who won by time in a tie
+        badgeAwarded, // Which badge was awarded
+      };
+      
+      // Send results to both users
+      io.to(roomId).emit('challenge_results', resultsData);
+      
+      // Send a message to store results in localStorage for persistence
+      io.to(roomId).emit('store_challenge_results', resultsData);
+      
+      // NEW: Send a force redirect event to both users
+      io.to(roomId).emit('force_redirect_to_results', {
+        url: `/course/${room.courseName}/challenge-result?roomId=${roomId}`,
+        roomId: roomId
       });
       
+      console.log(`🎯 Sending forced redirect to results page for room ${roomId} with course ${room.courseName}`);
+      
+      // Add a delay before sending the status update to ensure the results are processed first
+      setTimeout(() => {
       // Enhanced to force client-side cleanup
       io.to(roomId).emit('challenge_status_update', {
         isInChallenge: false, 
         challengeId: null,
         opponentId: null
       });
+      }, 2000); // 2 second delay
       
       // Store results in database for both users
       try {
@@ -1003,3 +1750,6 @@ nextApp
   .catch((err: Error) => {
     console.error("Error during app preparation:", err);
   });
+
+// This is just to trigger a TypeScript rebuild - remove if not needed
+export {};

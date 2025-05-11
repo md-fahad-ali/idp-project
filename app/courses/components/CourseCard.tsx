@@ -60,6 +60,7 @@ export default function CourseCard({ course }: CourseCardProps) {
         <Link 
           href={`/course/${encodeURIComponent(course.title.toLowerCase().replace(/\s+/g, '-'))}`}
           className="block w-full text-center py-3 px-4 bg-[var(--purple-primary)] text-white font-bold rounded-md border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[2px_2px_0px_0px_var(--card-border)] hover:translate-y-1 transition-all"
+          prefetch={false}
         >
           View Course
         </Link>

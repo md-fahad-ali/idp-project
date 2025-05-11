@@ -3,7 +3,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { User } from './types';
 import { useRouter } from 'next/navigation';
-import { initSocket, forceIdentify } from './services/socketService';
+import initSocket from './services/socketService';
+import { forceIdentify } from './services/socketService';
 
 interface DashboardContextType {
   token?: string;
@@ -113,6 +114,52 @@ export function DashboardProvider({
     }
   }, [token, refreshUserData]);
 
+  // Initialize socket and identify user whenever user changes
+  useEffect(() => {
+    if (user && user._id) {
+      // Store user in localStorage for auto-reconnection
+      try {
+        localStorage.setItem('user', JSON.stringify(user));
+        console.log('User data stored in localStorage for socket reconnection');
+      } catch (err) {
+        console.error('Error storing user data in localStorage:', err);
+      }
+      
+      // Initialize socket connection and identify user
+      const socket = initSocket();
+      if (socket) {
+        // Force identify with retries
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        const identifyWithRetry = () => {
+          console.log(`Identifying user to socket server (attempt ${retryCount + 1}/${maxRetries})`);
+          forceIdentify(user._id);
+          
+          // Schedule a check to verify identification
+          setTimeout(() => {
+            if (socket.connected) {
+              console.log('Socket is connected, sending identify event');
+              socket.emit('identify', { userId: user._id });
+            } else {
+              console.warn('Socket is not connected, attempting to reconnect');
+              socket.connect();
+              
+              // Retry identification if we haven't reached max retries
+              if (retryCount < maxRetries - 1) {
+                retryCount++;
+                identifyWithRetry();
+              }
+            }
+          }, 1000);
+        };
+        
+        // Start the identification process
+        identifyWithRetry();
+      }
+    }
+  }, [user]);
+
   const logout = useCallback(async () => {
     try {
       // Call logout API
@@ -132,6 +179,7 @@ export function DashboardProvider({
       
       // Clear localStorage
       localStorage.removeItem('auth_timestamp');
+      localStorage.removeItem('user'); // Clear stored user data
       
       // Force clear cookies in the browser
       const clearCookie = (name: string) => {
@@ -146,14 +194,6 @@ export function DashboardProvider({
       console.error('Logout error:', error);
     }
   }, [router]);
-
-  useEffect(() => {
-    if (user?._id) {
-      // Initialize socket connection and identify user
-      const socket = initSocket();
-      socket.emit('identify', { userId: user._id });
-    }
-  }, [user?._id]);
 
   return (
     <DashboardContext.Provider value={{ 
