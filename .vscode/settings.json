@@ -1,5 +1,16 @@
 {
     "cSpell.words": [
         "lowlight"
+    ],
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "server": "151.106.125.216",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "kormikoi",
+            "database": "kormikoi",
+            "username": "postgres"
+        }
     ]
 }
