@@ -16,7 +16,7 @@ const router = express.Router();
 // Simple memory cache implementation
 const courseCache = new Map<string, { data: any, timestamp: number }>();
 const progressCache = new Map<string, { data: any, timestamp: number }>();
-const CACHE_TTL = 60 * 1000; // 1 minute cache lifetime
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache lifetime (increased from 1 minute)
 
 // Route to save course data
 router.post("/add", authenticateJWT, async (req, res): Promise<void> => {
@@ -104,8 +104,8 @@ router.get("/get", authenticateJWT, async (req, res): Promise<void> => {
     if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
       console.log("Serving course data from cache for:", cacheKey);
       
-      // Set cache headers
-      res.set('Cache-Control', 'private, max-age=60');
+      // Set cache headers for client-side caching
+      res.set('Cache-Control', 'private, max-age=300');
       res.status(200).json(cachedData.data);
       return;
     }
@@ -119,11 +119,16 @@ router.get("/get", authenticateJWT, async (req, res): Promise<void> => {
     let responseData;
     
     if(title === undefined || category === undefined) {
-      // For regular users (role === 'user'), return only their own courses
-      // For admins, return all courses
-      const query = freshUserRole === 'user' ? { user: userId } : {};
+      // Show all courses for both regular users and admins
+      // This modification allows users to see all available courses on their dashboard
+      const query = {}; // Remove the user restriction
       console.log("Query for all courses:", query);
-      courses = await Course.find(query).populate("user", "firstName lastName email");
+      
+      // Optimize by selecting only needed fields (exclude lesson content initially)
+      courses = await Course.find(query, {
+        'lessons.content': 0 // Exclude lesson content to reduce response size
+      }).populate("user", "firstName lastName email");
+      
       responseData = { 
         courses: courses, 
         user: req.user,
@@ -131,7 +136,7 @@ router.get("/get", authenticateJWT, async (req, res): Promise<void> => {
       };
       
     } else {
-      // Find courses by title and category
+      // For filtered searches, keep the role-specific behavior
       // For regular users (role === 'user'), return only their own matching courses
       // For admins, return any matching course
       const query = {
@@ -141,7 +146,10 @@ router.get("/get", authenticateJWT, async (req, res): Promise<void> => {
       };
       
       console.log("Query for filtered courses:", query);
-      courses = await Course.find(query).populate("user", "firstName lastName email");
+      courses = await Course.find(query, {
+        'lessons.content': 0 // Exclude lesson content to reduce response size
+      }).populate("user", "firstName lastName email");
+      
       responseData = { 
         courses: courses, 
         user: req.user,
@@ -155,8 +163,8 @@ router.get("/get", authenticateJWT, async (req, res): Promise<void> => {
       timestamp: Date.now()
     });
     
-    // Set cache headers
-    res.set('Cache-Control', 'private, max-age=60');
+    // Set cache headers for client-side caching
+    res.set('Cache-Control', 'private, max-age=300');
     res.status(200).json(responseData);
   } catch (error) {
     console.error("Error fetching courses:", error);
@@ -437,6 +445,58 @@ router.get("/get-progress", authenticateJWT, async (req, res): Promise<void> => 
     res.status(200).json(responseData);
   } catch (error) {
     console.error("Error fetching user progress:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// New route to get a single course by ID with full content
+router.get("/get/:id", authenticateJWT, async (req, res): Promise<void> => {
+  const courseId = req.params.id;
+  const userId = (req.user as AuthenticatedUser)?._id;
+  
+  try {
+    // Make sure we have a valid user before proceeding
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized: User ID is missing" });
+      return;
+    }
+    
+    // Create cache key for this specific course
+    const cacheKey = `course_${courseId}_${userId}`;
+    
+    // Check cache first
+    const cachedData = courseCache.get(cacheKey);
+    if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
+      console.log("Serving single course data from cache for:", cacheKey);
+      
+      // Set cache headers for client-side caching
+      res.set('Cache-Control', 'private, max-age=300');
+      res.status(200).json(cachedData.data);
+      return;
+    }
+    
+    // Find the specific course with all content
+    const course = await Course.findById(courseId)
+      .populate("user", "firstName lastName email");
+    
+    if (!course) {
+      res.status(404).json({ error: "Course not found" });
+      return;
+    }
+    
+    const responseData = { course };
+    
+    // Save in cache
+    courseCache.set(cacheKey, {
+      data: responseData,
+      timestamp: Date.now()
+    });
+    
+    // Set cache headers for client-side caching
+    res.set('Cache-Control', 'private, max-age=300');
+    res.status(200).json(responseData);
+  } catch (error) {
+    console.error("Error fetching single course:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

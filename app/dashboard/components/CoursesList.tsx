@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Clock, BookOpen, Award, ChevronDown, ChevronUp, Check, CheckCircle, Trash2 } from 'lucide-react';
+import { X, Clock, BookOpen, Award, ChevronDown, ChevronUp, Check, CheckCircle, Trash2, Loader2 } from 'lucide-react';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import ViewCourseButton from './ViewCourseButton';
 import { toast } from 'react-hot-toast';
+import Link from 'next/link';
 
 interface ICourse {
   _id: string;
@@ -50,6 +51,7 @@ export default function CoursesList({
     status: 'completed' | 'in-progress' | null, 
     progress: number 
   }>>({});
+  const [isBrowseCatalogLoading, setIsBrowseCatalogLoading] = useState(false);
 
   // Get user progress from localStorage or API on component mount
   useEffect(() => {
@@ -236,6 +238,12 @@ export default function CoursesList({
     }
   };
 
+  const handleBrowseCatalogClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsBrowseCatalogLoading(true);
+    router.push('/courses');
+  };
+
   return (
     <div className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-4 md:p-6 mb-8 shadow-[var(--card-shadow)] card w-full">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6">
@@ -367,12 +375,20 @@ export default function CoursesList({
             <div className="text-5xl mb-3">📚</div>
             <p className="text-lg text-[var(--text-color)] font-medium mb-2">No courses available</p>
             <p className="text-sm text-[var(--text-color)] mb-4">Start your learning journey by exploring available courses</p>
-            <button 
-              onClick={() => router.push('/courses')}
-              className="inline-flex items-center text-sm font-medium bg-[var(--purple-primary)] text-white py-2 px-4 rounded-md border-2 border-[var(--card-border)] shadow-[2px_2px_0px_0px_var(--card-border)] hover:shadow-[3px_3px_0px_0px_var(--card-border)] hover:-translate-y-0.5 transition-all"
-            >
-              Browse Catalog
-            </button>
+            <Link href="/courses" onClick={handleBrowseCatalogClick}>
+              <span
+                className={`inline-flex items-center text-sm font-medium bg-[var(--purple-primary)] text-white py-2 px-4 rounded-md border-2 border-[var(--card-border)] shadow-[2px_2px_0px_0px_var(--card-border)] hover:shadow-[3px_3px_0px_0px_var(--card-border)] hover:-translate-y-0.5 transition-all cursor-pointer ${isBrowseCatalogLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                {isBrowseCatalogLoading ? (
+                  <>
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  'Browse Catalog'
+                )}
+              </span>
+            </Link>
           </div>
         )}
       </div>

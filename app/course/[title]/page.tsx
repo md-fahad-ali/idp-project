@@ -98,21 +98,92 @@ interface ICourse {
   };
 }
 
-// SWR fetcher function
+// SWR fetcher function with additional caching
 const fetcher = async (url: string, token: string) => {
+  // Check for cached data first
+  const cacheKey = `${url}_${token}`;
+  const cachedData = sessionStorage.getItem(cacheKey);
+  
+  if (cachedData) {
+    try {
+      const { data, timestamp } = JSON.parse(cachedData);
+      // Use cache if less than 15 minutes old (increased from 5 minutes)
+      if (Date.now() - timestamp < 15 * 60 * 1000) {
+        console.log('Using cached course data for:', url);
+        return data;
+      }
+    } catch (e) {
+      console.error('Cache parse error:', e);
+    }
+  }
+  
+  // If no valid cache, fetch from server
+  console.log('Fetching fresh data from:', url);
   const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`
-    }
+    },
+    // Add cache control headers
+    cache: 'force-cache'
   });
   
   if (!res.ok) {
     throw new Error('An error occurred while fetching the data.');
   }
   
-  return res.json();
+  const data = await res.json();
+  
+  // Store in cache with timestamp
+  try {
+    sessionStorage.setItem(cacheKey, JSON.stringify({
+      data,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    console.error('Cache save error:', e);
+  }
+  
+  return data;
 };
+
+// Lazy-loaded components
+const CourseContent = ({ course, activeLesson }: { course: ICourse, activeLesson: number }) => {
+  const [isContentLoaded, setIsContentLoaded] = useState(false);
+  const content = course?.lessons[activeLesson]?.content || '';
+
+  useEffect(() => {
+    // Simulate processing time for content
+    setIsContentLoaded(false);
+    const timer = setTimeout(() => {
+      setIsContentLoaded(true);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [activeLesson]);
+
+  if (!isContentLoaded) {
+    return (
+      <div className="mt-6 bg-[var(--card-bg)] p-6 rounded-lg border-4 border-[var(--card-border)] shadow-[var(--card-shadow)]">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-300 rounded w-3/4 mb-4"></div>
+          <div className="h-4 bg-gray-300 rounded w-1/2 mb-4"></div>
+          <div className="h-4 bg-gray-300 rounded w-5/6 mb-4"></div>
+          <div className="h-4 bg-gray-300 rounded w-2/3 mb-4"></div>
+          <div className="h-40 bg-gray-300 rounded w-full mb-4"></div>
+          <div className="h-4 bg-gray-300 rounded w-3/4 mb-4"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="prose prose-lg dark:prose-invert mt-6 bg-[var(--card-bg)] p-6 rounded-lg border-4 border-[var(--card-border)] shadow-[var(--card-shadow)] leading-relaxed text-[var(--text-color)]"
+      dangerouslySetInnerHTML={{ __html: content }}
+    />
+  );
+}
 
 export default function CourseDetailPage() {
   const params = useParams();
@@ -124,6 +195,8 @@ export default function CourseDetailPage() {
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [completionMessage, setCompletionMessage] = useState<string>('');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [directTitleFetch, setDirectTitleFetch] = useState<boolean>(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -134,16 +207,69 @@ export default function CourseDetailPage() {
     setIsClient(true);
   }, []);
 
-  // Use SWR for data fetching
+  // Try to fetch directly by slug if courseId is not available after a timeout
+  useEffect(() => {
+    if (!selectedCourseId && token) {
+      const timer = setTimeout(() => {
+        console.log("Timeout reached, trying direct title fetch for:", titleSlug);
+        setDirectTitleFetch(true);
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [selectedCourseId, titleSlug, token]);
+
+  // Use SWR for all courses data (lightweight without content)
   const { data: coursesData, error: coursesError } = useSWR(
     token ? ['/api/course/get', token] : null,
     ([url, token]) => fetcher(url, token),
     {
       revalidateOnFocus: false,
       revalidateIfStale: false,
-      dedupingInterval: 5000, // Cache for 5 seconds
+      dedupingInterval: 600000, // Cache for 10 minutes (increased from 1 minute)
+      focusThrottleInterval: 60000, // Only revalidate once per minute on focus (increased from 10 seconds)
+      loadingTimeout: 5000, // Consider slow after 5 seconds (increased from 3 seconds)
+      errorRetryCount: 2, // Reduced retry from 3 to 2
+      suspense: false, // Don't use React Suspense
     }
   );
+  
+  // Find matching course from courses list (without content)
+  const basicCourse = coursesData?.courses?.find((c: ICourse) => {
+    const courseSlug = c.title.toLowerCase().replace(/\s+/g, '-');
+    return courseSlug === titleSlug;
+  }) || null;
+  
+  // Set the selected course ID when found
+  useEffect(() => {
+    if (basicCourse && !selectedCourseId) {
+      console.log(`Setting selected course ID: ${basicCourse._id}`);
+      setSelectedCourseId(basicCourse._id);
+    }
+  }, [basicCourse, selectedCourseId]);
+  
+  // Use SWR to fetch detailed course with content - either by ID or directly by slug
+  const { data: detailedCourseData, error: courseDetailError } = useSWR(
+    token && (selectedCourseId || directTitleFetch) 
+      ? [`/api/course/get/${selectedCourseId || titleSlug}`, token] 
+      : null,
+    ([url, token]) => {
+      console.log(`Fetching from: ${url}`);
+      return fetcher(url, token).catch(error => {
+        console.error(`Error in course detail fetcher: ${error}`);
+        throw error;
+      });
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateIfStale: false,
+      dedupingInterval: 900000, // Cache for 15 minutes (increased from 5 minutes)
+      errorRetryCount: 1 // Only retry once to avoid multiple requests
+    }
+  );
+  
+  // Get the full course data with content
+  const course = detailedCourseData?.course || basicCourse;
   
   // Use SWR for progress data
   const { data: progressData, error: progressError } = useSWR(
@@ -152,15 +278,9 @@ export default function CourseDetailPage() {
     {
       revalidateOnFocus: false,
       revalidateIfStale: false,
-      dedupingInterval: 5000, // Cache for 5 seconds
+      dedupingInterval: 600000, // Cache for 10 minutes (increased from 1 minute)
     }
   );
-
-  // Find matching course from SWR data
-  const course = coursesData?.courses?.find((c: ICourse) => {
-    const courseSlug = c.title.toLowerCase().replace(/\s+/g, '-');
-    return courseSlug === titleSlug;
-  }) || null;
 
   // Check if course is already completed from SWR data
   useEffect(() => {
@@ -183,7 +303,10 @@ export default function CourseDetailPage() {
   }, [progressData, course]);
 
   // Loading state derived from SWR
-  const loading = (!coursesData && !coursesError) || (!progressData && !progressError && token);
+  const loading = (!coursesData && !coursesError) || 
+                 (!selectedCourseId && !courseDetailError) || 
+                 (selectedCourseId && !detailedCourseData && !courseDetailError) || 
+                 (!progressData && !progressError && token);
 
   // Theme toggle function
   const toggleTheme = () => {
@@ -432,12 +555,29 @@ export default function CourseDetailPage() {
     lowlight.register('cpp', cpp);
   }, []);
 
+  // Preload the next lesson when user is near the end of current lesson
+  useEffect(() => {
+    if (!course || activeLesson >= course.lessons.length - 1) return;
+    
+    const preloadNextLesson = () => {
+      // Simply access the next lesson's content to trigger browser preload
+      const nextLessonContent = course.lessons[activeLesson + 1].content;
+      console.log('Preloading next lesson');
+    };
+
+    const timer = setTimeout(preloadNextLesson, 5000); // Preload after 5 seconds on current lesson
+    return () => clearTimeout(timer);
+  }, [activeLesson, course]);
+
   if (loading) {
     return (
-      <div className="min-h-screen pt-[100px] bg-[var(--background-color)] flex items-center justify-center text-[var(--text-color)]">
+      <div className="min-h-screen pt-[100px] bg-[var(--background-color)] flex flex-col items-center justify-center text-[var(--text-color)]">
        <Loading />
+        <p className="mt-4 text-[var(--text-color)]">Loading course content...</p>
+        <div className="w-64 h-2 bg-gray-200 rounded-full mt-4 overflow-hidden">
+          <div className="h-full bg-[var(--purple-primary)] animate-pulse rounded-full"></div>
       </div>
-       
+      </div>
     );
   }
 

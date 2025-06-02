@@ -13,7 +13,7 @@ const router = express_1.default.Router();
 // Simple memory cache implementation
 const courseCache = new Map();
 const progressCache = new Map();
-const CACHE_TTL = 60 * 1000; // 1 minute cache lifetime
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache lifetime (increased from 1 minute)
 // Route to save course data
 router.post("/add", authMiddleware_1.authenticateJWT, async (req, res) => {
     const userId = req.user?._id;
@@ -87,8 +87,8 @@ router.get("/get", authMiddleware_1.authenticateJWT, async (req, res) => {
         const cachedData = courseCache.get(cacheKey);
         if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
             console.log("Serving course data from cache for:", cacheKey);
-            // Set cache headers
-            res.set('Cache-Control', 'private, max-age=60');
+            // Set cache headers for client-side caching
+            res.set('Cache-Control', 'private, max-age=300');
             res.status(200).json(cachedData.data);
             return;
         }
@@ -99,11 +99,14 @@ router.get("/get", authMiddleware_1.authenticateJWT, async (req, res) => {
         let courses;
         let responseData;
         if (title === undefined || category === undefined) {
-            // For regular users (role === 'user'), return only their own courses
-            // For admins, return all courses
-            const query = freshUserRole === 'user' ? { user: userId } : {};
+            // Show all courses for both regular users and admins
+            // This modification allows users to see all available courses on their dashboard
+            const query = {}; // Remove the user restriction
             console.log("Query for all courses:", query);
-            courses = await Course_1.default.find(query).populate("user", "firstName lastName email");
+            // Optimize by selecting only needed fields (exclude lesson content initially)
+            courses = await Course_1.default.find(query, {
+                'lessons.content': 0 // Exclude lesson content to reduce response size
+            }).populate("user", "firstName lastName email");
             responseData = {
                 courses: courses,
                 user: req.user,
@@ -111,7 +114,7 @@ router.get("/get", authMiddleware_1.authenticateJWT, async (req, res) => {
             };
         }
         else {
-            // Find courses by title and category
+            // For filtered searches, keep the role-specific behavior
             // For regular users (role === 'user'), return only their own matching courses
             // For admins, return any matching course
             const query = {
@@ -120,7 +123,9 @@ router.get("/get", authMiddleware_1.authenticateJWT, async (req, res) => {
                 ...(freshUserRole === 'user' ? { user: userId } : {})
             };
             console.log("Query for filtered courses:", query);
-            courses = await Course_1.default.find(query).populate("user", "firstName lastName email");
+            courses = await Course_1.default.find(query, {
+                'lessons.content': 0 // Exclude lesson content to reduce response size
+            }).populate("user", "firstName lastName email");
             responseData = {
                 courses: courses,
                 user: req.user,
@@ -132,8 +137,8 @@ router.get("/get", authMiddleware_1.authenticateJWT, async (req, res) => {
             data: responseData,
             timestamp: Date.now()
         });
-        // Set cache headers
-        res.set('Cache-Control', 'private, max-age=60');
+        // Set cache headers for client-side caching
+        res.set('Cache-Control', 'private, max-age=300');
         res.status(200).json(responseData);
     }
     catch (error) {
@@ -364,6 +369,49 @@ router.get("/get-progress", authMiddleware_1.authenticateJWT, async (req, res) =
     }
     catch (error) {
         console.error("Error fetching user progress:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+// New route to get a single course by ID with full content
+router.get("/get/:id", authMiddleware_1.authenticateJWT, async (req, res) => {
+    const courseId = req.params.id;
+    const userId = req.user?._id;
+    try {
+        // Make sure we have a valid user before proceeding
+        if (!userId) {
+            res.status(401).json({ error: "Unauthorized: User ID is missing" });
+            return;
+        }
+        // Create cache key for this specific course
+        const cacheKey = `course_${courseId}_${userId}`;
+        // Check cache first
+        const cachedData = courseCache.get(cacheKey);
+        if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
+            console.log("Serving single course data from cache for:", cacheKey);
+            // Set cache headers for client-side caching
+            res.set('Cache-Control', 'private, max-age=300');
+            res.status(200).json(cachedData.data);
+            return;
+        }
+        // Find the specific course with all content
+        const course = await Course_1.default.findById(courseId)
+            .populate("user", "firstName lastName email");
+        if (!course) {
+            res.status(404).json({ error: "Course not found" });
+            return;
+        }
+        const responseData = { course };
+        // Save in cache
+        courseCache.set(cacheKey, {
+            data: responseData,
+            timestamp: Date.now()
+        });
+        // Set cache headers for client-side caching
+        res.set('Cache-Control', 'private, max-age=300');
+        res.status(200).json(responseData);
+    }
+    catch (error) {
+        console.error("Error fetching single course:", error);
         res.status(500).json({ error: "Internal server error" });
     }
 });

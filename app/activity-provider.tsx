@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { useDashboard } from './provider';
+import { debounce } from 'lodash';
 
 interface ActivityContextType {
   activeUsers: string[];
@@ -18,11 +19,25 @@ export const useActivity = () => useContext(ActivityContext);
 export const ActivityProvider = ({ children }: { children: ReactNode }) => {
   const { token, user } = useDashboard();
   const [activeUsers, setActiveUsers] = useState<string[]>([]);
+  const lastUpdateRef = useRef<number>(0);
+  const lastFetchRef = useRef<number>(0);
+  
+  // Increase intervals to reduce API calls
+  const UPDATE_INTERVAL = 60000; // 1 minute (was 5 seconds)
+  const FETCH_INTERVAL = 60000; // 1 minute (was 5 seconds)
+  const USER_ACTIVITY_DEBOUNCE = 3000; // 3 seconds
 
-  // Send a ping to update user activity
+  // Send a ping to update user activity - with timestamp check to avoid too frequent calls
   const updateActivity = async () => {
     if (!token || !user) return;
-
+    
+    const now = Date.now();
+    if (now - lastUpdateRef.current < USER_ACTIVITY_DEBOUNCE) {
+      return; // Skip if called too frequently
+    }
+    
+    lastUpdateRef.current = now;
+    
     try {
       await fetch('/api/activity/update', {
         method: 'POST',
@@ -32,16 +47,26 @@ export const ActivityProvider = ({ children }: { children: ReactNode }) => {
         },
         body: JSON.stringify({ userId: user._id })
       });
-
-      // console.log("send pring")
     } catch (error) {
       console.error('Error updating activity status:', error);
     }
   };
 
-  // Fetch active users
+  // Create a debounced version of updateActivity
+  const debouncedUpdateActivity = useRef(
+    debounce(updateActivity, USER_ACTIVITY_DEBOUNCE, { leading: true, trailing: true })
+  ).current;
+
+  // Fetch active users - with timestamp check
   const fetchActiveUsers = async () => {
     if (!token) return;
+    
+    const now = Date.now();
+    if (now - lastFetchRef.current < FETCH_INTERVAL) {
+      return; // Skip if called too frequently
+    }
+    
+    lastFetchRef.current = now;
 
     try {
       const response = await fetch('/api/activity/active', {
@@ -51,7 +76,6 @@ export const ActivityProvider = ({ children }: { children: ReactNode }) => {
         }
       });
 
-      // console.log("send active")
       if (response.ok) {
         const data = await response.json();
         setActiveUsers(data.activeUsers || []);
@@ -78,29 +102,20 @@ export const ActivityProvider = ({ children }: { children: ReactNode }) => {
     let fetchInterval: NodeJS.Timeout | null = null;
 
     if (user && user.role !== 'admin') {
-      activityInterval = setInterval(() => {
-        if (token && user) { // Inner check still useful
-          updateActivity();
-        }
-      }, 5000); // Send ping every 5 seconds
+      activityInterval = setInterval(updateActivity, UPDATE_INTERVAL);
+      fetchInterval = setInterval(fetchActiveUsers, FETCH_INTERVAL);
 
-      fetchInterval = setInterval(() => {
-        if (token) { // Inner check for token is sufficient here
-           fetchActiveUsers();
-        }
-      }, 5000); // Fetch active users every 5 seconds
-
-      // Set up event listeners for user activity
+      // Set up event listeners for user activity - using debounced function
       const handleActivity = () => {
         if (token && user) {
-          updateActivity();
+          debouncedUpdateActivity();
         }
       };
 
-      window.addEventListener('mousemove', handleActivity);
-      window.addEventListener('keydown', handleActivity);
-      window.addEventListener('click', handleActivity);
-      window.addEventListener('scroll', handleActivity);
+      window.addEventListener('mousemove', handleActivity, { passive: true });
+      window.addEventListener('keydown', handleActivity, { passive: true });
+      window.addEventListener('click', handleActivity, { passive: true });
+      window.addEventListener('scroll', handleActivity, { passive: true });
       window.addEventListener('focus', handleActivity);
 
       // Clean up event listeners and intervals
@@ -112,24 +127,18 @@ export const ActivityProvider = ({ children }: { children: ReactNode }) => {
         window.removeEventListener('click', handleActivity);
         window.removeEventListener('scroll', handleActivity);
         window.removeEventListener('focus', handleActivity);
+        debouncedUpdateActivity.cancel();
       };
-    } else {
-      // For admin users, or if user data is not yet available,
-      // still fetch active users once to populate the list initially if needed elsewhere.
-      // But do not set up intervals or event listeners for activity updates.
-      if (token) {
-        fetchActiveUsers();
-      }
     }
-  }, [token, user]);
-
-  // Fetch active users initially (this might be redundant now due to the above block, but kept for safety)
-  // Consider removing if the logic in the main useEffect is sufficient.
-  useEffect(() => {
-    if (token && user) { // No role check here, let admins also fetch initial list if needed
+    
+    // For admin users, or if user data is not yet available,
+    // just fetch active users once initially
+    if (token) {
       fetchActiveUsers();
     }
-  }, [token, user]);
+    
+    return () => {};
+  }, [token, user, debouncedUpdateActivity]);
 
   return (
     <ActivityContext.Provider value={{ activeUsers, isUserActive }}>
