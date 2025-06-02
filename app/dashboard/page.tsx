@@ -34,11 +34,23 @@ export default function DashboardPage() {
       _id: string;
     };
   }
+  
+  interface PaginationData {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  }
 
   const router = useRouter();
 
   // State management
   const [courses, setCourses] = useState<ICourse[]>([]);
+  const [pagination, setPagination] = useState<PaginationData | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  
   interface IUser {
     _id: string;
     firstName: string;
@@ -67,55 +79,83 @@ export default function DashboardPage() {
     setCourses(courses.filter(course => course._id !== deletedCourseId));
   };
 
-  console.log(user);
-  // Fetch courses and user data from the API
-  useEffect(() => {
+  // Fetch courses with pagination
+  const fetchCourses = async (page = 1) => {
     // Early return and redirect if no token
     if (!token) {
       setLoading(false);
       router.push('/auth/login');
       return;
     }
+    
+    try {
+      setLoading(true);
+      
+      // Build query parameters for pagination
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('limit', '9'); // Set courses per page
+      
+      const response = await fetch(`/api/course/get?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
-    const fetchCourses = async () => {
-      try {
-        const response = await fetch('/api/course/get', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          console.log(`HTTP error! status: ${response.status}`);
-          // Redirect to login for unauthorized access
-          if (response.status === 401 || response.status === 403) {
-            router.push('/auth/login');
-            return;
-          }
-          setCourses([]);
-          setLoading(false);
-          return;
-        }
-
-        const data = await response.json();
-        setCourses(data.courses || []);
-        setUser(data.user);
-      } catch (error) {
-        console.error('Error fetching courses:', error);
-        setCourses([]);
-        // Redirect to login if there's an authentication error
-        if (error instanceof Error && error.message.includes('unauthorized')) {
+      if (!response.ok) {
+        console.log(`HTTP error! status: ${response.status}`);
+        // Redirect to login for unauthorized access
+        if (response.status === 401 || response.status === 403) {
           router.push('/auth/login');
           return;
         }
-      } finally {
+        setCourses([]);
         setLoading(false);
+        return;
       }
-    };
 
-    fetchCourses();
+      const data = await response.json();
+      setCourses(data.courses || []);
+      setPagination(data.pagination || null);
+      
+      // Only set user info on first load to avoid unnecessary re-renders
+      if (page === 1 || !user) {
+        setUser(data.user);
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      setCourses([]);
+      // Redirect to login if there's an authentication error
+      if (error instanceof Error && error.message.includes('unauthorized')) {
+        router.push('/auth/login');
+        return;
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (!pagination) return;
+    if (newPage < 1 || newPage > pagination.totalPages) return;
+    
+    setCurrentPage(newPage);
+    fetchCourses(newPage);
+    
+    // Scroll to the courses section
+    const coursesElement = document.getElementById('courses-section');
+    if (coursesElement) {
+      coursesElement.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  console.log(user);
+  // Fetch courses and user data from the API on initial load
+  useEffect(() => {
+    fetchCourses(1);
   }, [token, router]);
 
   // Prevent flash of content when redirecting
@@ -123,7 +163,7 @@ export default function DashboardPage() {
     return null;
   }
 
-  if (loading) {
+  if (loading && !user) {
     return <div className="flex items-center justify-center min-h-screen bg-[var(--background-color)] text-[var(--text-color)]"><Loading /></div>;
   }
 
@@ -188,13 +228,16 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Courses List Component - Now with full width */}
+          {/* Courses List Component - Now with pagination */}
           <CoursesList 
             courses={courses} 
             token={token || ''} 
             onCourseDeleted={handleCourseDeleted}
             isAdmin={isAdmin}
             currentUserId={user?._id}
+            pagination={pagination}
+            onPageChange={handlePageChange}
+            currentPage={currentPage}
           />
         </div>
       </div>

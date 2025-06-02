@@ -1,10 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Clock, BookOpen, Award, ChevronDown, ChevronUp, Check, CheckCircle, Trash2, Loader2 } from 'lucide-react';
+import { X, Clock, BookOpen, Award, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Check, CheckCircle, Trash2, Loader2 } from 'lucide-react';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import ViewCourseButton from './ViewCourseButton';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
+
+interface PaginationData {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
 
 interface ICourse {
   _id: string;
@@ -33,6 +42,9 @@ interface CoursesListProps {
   onCourseDeleted: (deletedCourseId: string) => void;
   isAdmin: boolean;
   currentUserId?: string;
+  pagination?: PaginationData | null;
+  onPageChange?: (page: number) => void;
+  currentPage?: number;
 }
 
 export default function CoursesList({ 
@@ -40,7 +52,10 @@ export default function CoursesList({
   token, 
   onCourseDeleted, 
   isAdmin,
-  currentUserId
+  currentUserId,
+  pagination = null,
+  onPageChange,
+  currentPage = 1
 }: CoursesListProps) {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -105,6 +120,81 @@ export default function CoursesList({
     } catch (error) {
       console.error('Error fetching course progress:', error);
     }
+  };
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    if (!pagination) return [];
+    
+    const totalPages = pagination.totalPages;
+    const current = pagination.currentPage;
+    
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    
+    if (current <= 3) {
+      return [1, 2, 3, 4, 5, '...', totalPages];
+    }
+    
+    if (current >= totalPages - 2) {
+      return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    
+    return [1, '...', current - 1, current, current + 1, '...', totalPages];
+  };
+  
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (!pagination) return;
+    if (newPage < 1 || newPage > pagination.totalPages) return;
+    if (onPageChange) {
+      onPageChange(newPage);
+    }
+  };
+
+  // Filter courses based on active filter
+  const filteredCourses = courses.filter(course => {
+    const courseStatus = courseStatuses[course._id]?.status;
+    
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'completed') return courseStatus === 'completed';
+    if (activeFilter === 'in-progress') return courseStatus === 'in-progress';
+    
+    return true;
+  });
+
+  // Limit courses shown based on showMore state
+  const displayedCourses = showMore ? filteredCourses : filteredCourses.slice(0, 3);
+
+  // Get category color based on category name
+  const getCategoryColor = (category: string) => {
+    const colors: Record<string, string> = {
+      'Development': 'rgba(96, 165, 250, 0.3)', // blue
+      'Design': 'rgba(248, 113, 113, 0.3)', // red
+      'Business': 'rgba(251, 191, 36, 0.3)', // yellow
+      'Marketing': 'rgba(74, 222, 128, 0.3)', // green
+      'Photography': 'rgba(192, 132, 252, 0.3)', // purple
+      'Music': 'rgba(244, 114, 182, 0.3)', // pink
+      'Academic': 'rgba(156, 163, 175, 0.3)', // gray
+      'Personal Development': 'rgba(45, 212, 191, 0.3)', // teal
+      'database': 'rgba(96, 165, 250, 0.3)', // blue for database
+    };
+    
+    return colors[category] || 'rgba(209, 213, 219, 0.3)'; // Default gray
+  };
+
+  // Function to handle starting a course (setting its status to "in-progress")
+  const handleStartCourse = (courseId: string) => {
+    if (courseStatuses[courseId]?.status !== "completed") {
+      handleMarkInProgress(courseId);
+    }
+  };
+
+  const handleBrowseCatalogClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsBrowseCatalogLoading(true);
+    router.push('/courses');
   };
 
   // Handle delete course confirmation
@@ -200,52 +290,8 @@ export default function CoursesList({
     return isAdmin || (currentUserId && course.user && course.user._id === currentUserId);
   };
 
-  // Filter courses based on active filter
-  const filteredCourses = courses.filter(course => {
-    const courseStatus = courseStatuses[course._id]?.status;
-    
-    if (activeFilter === 'all') return true;
-    if (activeFilter === 'completed') return courseStatus === 'completed';
-    if (activeFilter === 'in-progress') return courseStatus === 'in-progress';
-    
-    return true;
-  });
-
-  // Limit courses shown based on showMore state
-  const displayedCourses = showMore ? filteredCourses : filteredCourses.slice(0, 3);
-
-  // Get category color based on category name
-  const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      'Development': 'rgba(96, 165, 250, 0.3)', // blue
-      'Design': 'rgba(248, 113, 113, 0.3)', // red
-      'Business': 'rgba(251, 191, 36, 0.3)', // yellow
-      'Marketing': 'rgba(74, 222, 128, 0.3)', // green
-      'Photography': 'rgba(192, 132, 252, 0.3)', // purple
-      'Music': 'rgba(244, 114, 182, 0.3)', // pink
-      'Academic': 'rgba(156, 163, 175, 0.3)', // gray
-      'Personal Development': 'rgba(45, 212, 191, 0.3)', // teal
-      'database': 'rgba(96, 165, 250, 0.3)', // blue for database
-    };
-    
-    return colors[category] || 'rgba(209, 213, 219, 0.3)'; // Default gray
-  };
-
-  // Function to handle starting a course (setting its status to "in-progress")
-  const handleStartCourse = (courseId: string) => {
-    if (courseStatuses[courseId]?.status !== "completed") {
-      handleMarkInProgress(courseId);
-    }
-  };
-
-  const handleBrowseCatalogClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsBrowseCatalogLoading(true);
-    router.push('/courses');
-  };
-
   return (
-    <div className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-4 md:p-6 mb-8 shadow-[var(--card-shadow)] card w-full">
+    <div id="courses-section" className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-4 md:p-6 mb-8 shadow-[var(--card-shadow)] card w-full">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6">
         <h2 className="text-xl font-bold text-[var(--text-color)] font-mono mb-4 md:mb-0">Your Courses</h2>
         <div className="flex flex-wrap gap-2">
@@ -304,7 +350,7 @@ export default function CoursesList({
                   {course.title.charAt(0)}
                 </div>
                 
-                <div className="pt-2">
+                <div className="pt-2 flex flex-col h-full">
                   <h3 className="text-lg font-bold text-[var(--text-color)] mb-2">{course.title}</h3>
                   <div className="flex justify-between items-center mb-2">
                     <span 
@@ -317,7 +363,7 @@ export default function CoursesList({
                       {course.lessons.length} {course.lessons.length === 1 ? 'Lesson' : 'Lessons'}
                     </span>
                   </div>
-                  <p className="mb-3 text-[var(--text-color)] text-sm">{course.description.length > 100 ? `${course.description.slice(0, 100)}...` : course.description}</p>
+                  <p className="mb-3 text-[var(--text-color)] text-sm line-clamp-2">{course.description}</p>
                   
                   {/* Progress bar */}
                   <div className="mb-3">
@@ -335,7 +381,7 @@ export default function CoursesList({
                     </div>
                   </div>
                   
-                  <div className="flex flex-col mt-1 mb-4 text-xs text-[var(--text-color)]">
+                  <div className="flex flex-col mb-4 text-xs text-[var(--text-color)]">
                     <p>Created: {new Date(course.createdAt).toLocaleDateString('en-US', { 
                       year: 'numeric', 
                       month: 'numeric', 
@@ -348,14 +394,16 @@ export default function CoursesList({
                     )}
                   </div>
                   
-                  {/* View Course button - will now automatically mark as in-progress */}
-                  <ViewCourseButton 
-                    title={course.title}
-                    category={course.category}
-                    isAdmin={isAdmin}
-                    courseId={course._id}
-                    onStartCourse={() => handleStartCourse(course._id)}
-                  />
+                  <div className="mt-auto">
+                    {/* View Course button - will now automatically mark as in-progress */}
+                    <ViewCourseButton 
+                      title={course.title}
+                      category={course.category}
+                      isAdmin={isAdmin}
+                      courseId={course._id}
+                      onStartCourse={() => handleStartCourse(course._id)}
+                    />
+                  </div>
                   
                   {/* Delete button - only show if user can modify the course */}
                   {canModifyCourse(course) && (
@@ -393,24 +441,80 @@ export default function CoursesList({
         )}
       </div>
 
-      {/* Show More/Less Button */}
-      {filteredCourses.length > 3 && (
+      {/* Pagination - only show if pagination data is available */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex justify-center mt-10">
+          <div className="flex items-center bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-lg shadow-[4px_4px_0px_0px_var(--card-border)] p-1">
+            {/* Previous page button */}
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={!pagination.hasPrevPage}
+              className={`p-2 mx-1 rounded-md ${
+                pagination.hasPrevPage 
+                  ? 'text-[var(--text-color)] hover:bg-[var(--purple-light)] transition-all' 
+                  : 'text-gray-400 cursor-not-allowed'
+              }`}
+              aria-label="Previous page"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            
+            {/* Page numbers */}
+            <div className="flex items-center">
+              {getPageNumbers().map((pageNum, idx) => (
+                pageNum === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="px-3 py-1 mx-1 text-[var(--text-color)]">
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={`page-${pageNum}`}
+                    onClick={() => handlePageChange(pageNum as number)}
+                    className={`px-3 py-1 mx-1 rounded-md font-medium ${
+                      currentPage === pageNum 
+                        ? 'bg-[var(--purple-primary)] text-white' 
+                        : 'text-[var(--text-color)] hover:bg-[var(--purple-light)] transition-all'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              ))}
+            </div>
+            
+            {/* Next page button */}
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={!pagination.hasNextPage}
+              className={`p-2 mx-1 rounded-md ${
+                pagination.hasNextPage 
+                  ? 'text-[var(--text-color)] hover:bg-[var(--purple-light)] transition-all' 
+                  : 'text-gray-400 cursor-not-allowed'
+              }`}
+              aria-label="Next page"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Pagination info */}
+      {pagination && pagination.totalPages > 0 && (
+        <div className="text-center mt-4 text-sm text-[var(--text-color)]">
+          Showing {(pagination.currentPage - 1) * pagination.itemsPerPage + 1} to {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems} courses
+        </div>
+      )}
+
+      {/* Show More/Less Button - Now only used for filtered results, not pagination */}
+      {activeFilter !== 'all' && filteredCourses.length > 3 && (
         <div className="flex justify-center mt-6">
           <button
-            onClick={() => setShowMore(!showMore)}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="inline-flex items-center text-sm font-medium bg-[var(--card-bg)] text-[var(--text-color)] py-2 px-4 rounded-md border-2 border-[var(--card-border)] shadow-[2px_2px_0px_0px_var(--card-border)] hover:shadow-[3px_3px_0px_0px_var(--card-border)] hover:-translate-y-0.5 transition-all"
           >
-            {showMore ? (
-              <>
-                <ChevronUp size={16} className="mr-1" />
-                Show Less
-              </>
-            ) : (
-              <>
-                <ChevronDown size={16} className="mr-1" />
-                Show More
-              </>
-            )}
+            <ChevronUp size={16} className="mr-1" />
+            Back to Top
           </button>
         </div>
       )}
