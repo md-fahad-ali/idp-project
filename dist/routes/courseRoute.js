@@ -70,9 +70,27 @@ router.post("/add", authMiddleware_1.authenticateJWT, async (req, res) => {
 });
 //get params title and category
 router.get("/get", authMiddleware_1.authenticateJWT, async (req, res) => {
-    const { title, category } = req.query; // Extract title and category from query parameters
+    const { title, category, page = 1, limit = 9 } = req.query; // Extract pagination parameters
     const userId = req.user?._id;
     const userRole = req.user?.role;
+    // Convert pagination parameters to numbers
+    const pageNum = parseInt(String(page), 10);
+    const limitNum = parseInt(String(limit), 10);
+    // Validate pagination parameters
+    if (isNaN(pageNum) || pageNum < 1) {
+        res.status(400).json({
+            error: 'Invalid page number',
+            success: false
+        });
+        return;
+    }
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 50) {
+        res.status(400).json({
+            error: 'Invalid limit (must be between 1 and 50)',
+            success: false
+        });
+        return;
+    }
     console.log("User data:", JSON.stringify(req.user));
     console.log("User role:", userRole, "User ID:", userId);
     try {
@@ -81,8 +99,8 @@ router.get("/get", authMiddleware_1.authenticateJWT, async (req, res) => {
             res.status(401).json({ error: "Unauthorized: User ID is missing" });
             return;
         }
-        // Create cache key based on userId, role, and query params
-        const cacheKey = `${userId}_${userRole}_${title || 'all'}_${category || 'all'}`;
+        // Create cache key based on userId, role, query params, and pagination
+        const cacheKey = `${userId}_${userRole}_${title || 'all'}_${category || 'all'}_p${pageNum}_l${limitNum}`;
         // Check cache first
         const cachedData = courseCache.get(cacheKey);
         if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
@@ -96,42 +114,48 @@ router.get("/get", authMiddleware_1.authenticateJWT, async (req, res) => {
         const user = await User_1.default.findById(userId);
         const freshUserRole = user?.role;
         console.log("Fresh user role from DB:", freshUserRole);
-        let courses;
-        let responseData;
+        // Calculate skip value for pagination
+        const skip = (pageNum - 1) * limitNum;
+        let query = {};
         if (title === undefined || category === undefined) {
             // Show all courses for both regular users and admins
-            // This modification allows users to see all available courses on their dashboard
-            const query = {}; // Remove the user restriction
+            query = {}; // Remove the user restriction
             console.log("Query for all courses:", query);
-            // Optimize by selecting only needed fields (exclude lesson content initially)
-            courses = await Course_1.default.find(query, {
-                'lessons.content': 0 // Exclude lesson content to reduce response size
-            }).populate("user", "firstName lastName email");
-            responseData = {
-                courses: courses,
-                user: req.user,
-                refreshedRole: freshUserRole
-            };
         }
         else {
             // For filtered searches, keep the role-specific behavior
-            // For regular users (role === 'user'), return only their own matching courses
-            // For admins, return any matching course
-            const query = {
+            query = {
                 title: title,
                 category: category,
                 ...(freshUserRole === 'user' ? { user: userId } : {})
             };
             console.log("Query for filtered courses:", query);
-            courses = await Course_1.default.find(query, {
-                'lessons.content': 0 // Exclude lesson content to reduce response size
-            }).populate("user", "firstName lastName email");
-            responseData = {
-                courses: courses,
-                user: req.user,
-                refreshedRole: freshUserRole
-            };
         }
+        // Get total count for pagination info
+        const totalCourses = await Course_1.default.countDocuments(query);
+        // Find courses with pagination
+        const courses = await Course_1.default.find(query, {
+            'lessons.content': 0 // Exclude lesson content to reduce response size
+        })
+            .populate("user", "firstName lastName email")
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum);
+        // Calculate pagination metadata
+        const totalPages = Math.ceil(totalCourses / limitNum);
+        const responseData = {
+            courses: courses,
+            user: req.user,
+            refreshedRole: freshUserRole,
+            pagination: {
+                currentPage: pageNum,
+                totalPages,
+                totalItems: totalCourses,
+                itemsPerPage: limitNum,
+                hasNextPage: pageNum < totalPages,
+                hasPrevPage: pageNum > 1
+            }
+        };
         // Save in cache
         courseCache.set(cacheKey, {
             data: responseData,
