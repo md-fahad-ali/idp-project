@@ -1,6 +1,6 @@
 import { useRouter } from 'next/navigation';
 import { Eye, Edit, ArrowRight, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 interface ViewCourseButtonProps {
@@ -23,71 +23,79 @@ export default function ViewCourseButton({
   // Generate URL based on user type
   const getUrl = () => {
     if (isAdmin) {
+      
       return `/dashboard/update?title=${encodeURIComponent(title)}&category=${encodeURIComponent(category)}`;
     } else {
       return `/course/${encodeURIComponent(title.toLowerCase().replace(/\s+/g, '-'))}`;
     }
   };
 
+  // Prefetch the course data when component mounts
+  useEffect(() => {
+    // Only prefetch in production to avoid development overhead
+    if (process.env.NODE_ENV === 'production') {
+      // Prefetch the course page - this will help speed up navigation
+      const prefetchUrl = getUrl();
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.href = prefetchUrl;
+      document.head.appendChild(link);
+      
+      // Also prime the router cache
+      router.prefetch(prefetchUrl);
+    }
+  }, [title, category, isAdmin]);
+
   // For admin case, using router
   const handleAdminClick = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Use immediate location change for more reliable navigation
-    const url = getUrl();
-    window.location.href = url;
+    // Use Next.js router.push for client-side navigation
+    router.push(getUrl());
   };
   
-  // For user case - optimize to make navigation faster
-  const handleUserClick = (e: React.MouseEvent) => {
-    if (onStartCourse) {
-      // Use requestIdleCallback if available for better performance
-      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-        // @ts-ignore - TS doesn't recognize requestIdleCallback by default
-        window.requestIdleCallback(() => {
-          onStartCourse();
-        });
-      } else {
-        // Fallback to setTimeout with 0ms
-        setTimeout(() => {
-          onStartCourse();
-        }, 0);
-      }
-    }
-    
-    // Use direct navigation for immediate response
-    window.location.href = getUrl();
-    e.preventDefault();
-  };
+
+
+  // Common class for both button types
+  const buttonClass = "w-full mt-auto p-2 text-white border-2 border-[var(--card-border)] rounded-md shadow-[2px_2px_0px_0px_var(--card-border)] hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_var(--card-border)] transition-all font-medium text-sm flex items-center justify-center group";
 
   // Render either button or link based on user type
   if (isAdmin) {
+    console.log('isAdmin is true',getUrl());
     return (
-      <button
-        onClick={handleAdminClick}
-        disabled={isLoading}
-        className="w-full mt-auto p-2 text-white bg-[#4f46e5] border-2 border-[var(--card-border)] rounded-md shadow-[2px_2px_0px_0px_var(--card-border)] hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_var(--card-border)] transition-all font-medium text-sm flex items-center justify-center group disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0px_0px_var(--card-border)]"
-      >
-        {isLoading ? (
-          <Loader2 size={16} className="mr-2 animate-spin" />
-        ) : (
-          <Edit size={16} className="mr-2" />
-        )}
-        <span>{isLoading ? "Loading..." : "Edit Course"}</span>
-      </button>
+
+      <Link href={getUrl()} passHref prefetch>
+        <button
+          disabled={isLoading}
+          className={`${buttonClass} bg-[#4f46e5] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0px_0px_var(--card-border)]`}
+        >
+          {isLoading ? (
+            <Loader2 size={16} className="mr-2 animate-spin" />
+          ) : (
+            <Edit size={16} className="mr-2" />
+          )}
+          <span>{isLoading ? "Loading..." : "Edit Course"}</span>
+        </button>
+      </Link>
     );
   } else {
     return (
-      <a
-        href={getUrl()}
-        onClick={handleUserClick}
-        className="w-full mt-auto p-2 text-white bg-[var(--purple-primary)] border-2 border-[var(--card-border)] rounded-md shadow-[2px_2px_0px_0px_var(--card-border)] hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_var(--card-border)] transition-all font-medium text-sm flex items-center justify-center group"
-      >
-        <Eye size={16} className="mr-2" />
-        <span>View Course</span>
-        <ArrowRight size={16} className="ml-2 transform transition-transform group-hover:translate-x-1" />
-      </a>
+      <Link href={getUrl()} passHref prefetch>
+        <div
+          className={`${buttonClass} bg-[var(--purple-primary)] ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+        >
+          {isLoading ? (
+            <Loader2 size={16} className="mr-2 animate-spin" />
+          ) : (
+            <Eye size={16} className="mr-2" />
+          )}
+          <span>{isLoading ? "Loading..." : "View Course"}</span>
+          {!isLoading && (
+            <ArrowRight size={16} className="ml-2 transform transition-transform group-hover:translate-x-1" />
+          )}
+        </div>
+      </Link>
     );
   }
 }
@@ -101,6 +109,7 @@ export function LeaderboardButton({
   className?: string
 }) {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
 
   // Generate leaderboard URL
   const getLeaderboardUrl = () => {
@@ -111,6 +120,7 @@ export function LeaderboardButton({
   // Handle navigation using Next.js router for faster navigation
   const handleLeaderboardClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     router.push(getLeaderboardUrl());
   };
 
@@ -118,9 +128,12 @@ export function LeaderboardButton({
     <Link
       href={getLeaderboardUrl()}
       onClick={handleLeaderboardClick}
-      className={`px-3 py-2 bg-[#4CAF50] text-white font-bold rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 text-sm ${className}`}
+      className={`px-3 py-2 bg-[#4CAF50] text-white font-bold rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 text-sm ${className} ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
     >
-      Leaderboard
+      {isLoading ? (
+        <Loader2 size={14} className="inline mr-1 animate-spin" />
+      ) : null}
+      {isLoading ? "Loading..." : "Leaderboard"}
     </Link>
   );
 } 
