@@ -50,16 +50,6 @@ const itemVariants = {
   }
 };
 
-// Helper function to create URL-friendly slugs
-function slugify(text: string): string {
-  return text.toString().toLowerCase()
-    .replace(/\s+/g, '-')           // Replace spaces with -
-    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
-    .replace(/\-\-+/g, '-')         // Replace multiple - with single -
-    .replace(/^-+/, '')             // Trim - from start of text
-    .replace(/-+$/, '');            // Trim - from end of text
-}
-
 // Lowlight imports for syntax highlighting
 import { common, createLowlight } from 'lowlight';
 const lowlight = createLowlight(common);
@@ -107,7 +97,7 @@ const fetcher = async (url: string, token: string) => {
   if (cachedData) {
     try {
       const { data, timestamp } = JSON.parse(cachedData);
-      // Use cache if less than 15 minutes old (increased from 5 minutes)
+      // Use cache if less than 15 minutes old
       if (Date.now() - timestamp < 15 * 60 * 1000) {
         console.log('Using cached course data for:', url);
         return data;
@@ -124,7 +114,6 @@ const fetcher = async (url: string, token: string) => {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`
     },
-    // Add cache control headers
     cache: 'force-cache'
   });
   
@@ -147,47 +136,11 @@ const fetcher = async (url: string, token: string) => {
   return data;
 };
 
-// Lazy-loaded components
-const CourseContent = ({ course, activeLesson }: { course: ICourse, activeLesson: number }) => {
-  const [isContentLoaded, setIsContentLoaded] = useState(false);
-  const content = course?.lessons[activeLesson]?.content || '';
-
-  useEffect(() => {
-    // Simulate processing time for content
-    setIsContentLoaded(false);
-    const timer = setTimeout(() => {
-      setIsContentLoaded(true);
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, [activeLesson]);
-
-  if (!isContentLoaded) {
-    return (
-      <div className="mt-6 bg-[var(--card-bg)] p-6 rounded-lg border-4 border-[var(--card-border)] shadow-[var(--card-shadow)]">
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-300 rounded w-3/4 mb-4"></div>
-          <div className="h-4 bg-gray-300 rounded w-1/2 mb-4"></div>
-          <div className="h-4 bg-gray-300 rounded w-5/6 mb-4"></div>
-          <div className="h-4 bg-gray-300 rounded w-2/3 mb-4"></div>
-          <div className="h-40 bg-gray-300 rounded w-full mb-4"></div>
-          <div className="h-4 bg-gray-300 rounded w-3/4 mb-4"></div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="prose prose-lg dark:prose-invert mt-6 bg-[var(--card-bg)] p-6 rounded-lg border-4 border-[var(--card-border)] shadow-[var(--card-shadow)] leading-relaxed text-[var(--text-color)]"
-      dangerouslySetInnerHTML={{ __html: content }}
-    />
-  );
-}
-
 export default function CourseDetailPage() {
   const params = useParams();
   const titleSlug = params.title as string;
+  const router = useRouter();
+  console.log(`Loading course with slug: ${titleSlug}`);
   
   const { token } = useDashboard();
   const [activeLesson, setActiveLesson] = useState<number>(0);
@@ -195,102 +148,65 @@ export default function CourseDetailPage() {
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [completionMessage, setCompletionMessage] = useState<string>('');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [directTitleFetch, setDirectTitleFetch] = useState<boolean>(false);
   const contentRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
-  // Add state for client-side rendering
+  // Client-side rendering state
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Try to fetch directly by slug if courseId is not available after a timeout
-  useEffect(() => {
-    if (!selectedCourseId && token) {
-      const timer = setTimeout(() => {
-        console.log("Timeout reached, trying direct title fetch for:", titleSlug);
-        setDirectTitleFetch(true);
-      }, 3000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [selectedCourseId, titleSlug, token]);
-
-  // Use SWR for all courses data (lightweight without content)
-  const { data: coursesData, error: coursesError } = useSWR(
-    token ? ['/api/course/get', token] : null,
+  // SIMPLIFIED API CALL: Directly fetch course by slug
+  const { data: courseData, error: courseError } = useSWR(
+    token ? [`/api/course/get-by-slug/${titleSlug}`, token] : null,
     ([url, token]) => fetcher(url, token),
     {
       revalidateOnFocus: false,
       revalidateIfStale: false,
-      dedupingInterval: 600000, // Cache for 10 minutes (increased from 1 minute)
-      focusThrottleInterval: 60000, // Only revalidate once per minute on focus (increased from 10 seconds)
-      loadingTimeout: 5000, // Consider slow after 5 seconds (increased from 3 seconds)
-      errorRetryCount: 2, // Reduced retry from 3 to 2
-      suspense: false, // Don't use React Suspense
+      dedupingInterval: 900000, // Cache for 15 minutes
+      errorRetryCount: 2,
     }
   );
+
+  // Access course directly from response
+  const course = courseData?.course;
   
-  // Find matching course from courses list (without content)
-  const basicCourse = coursesData?.courses?.find((c: ICourse) => {
-    const courseSlug = c.title.toLowerCase().replace(/\s+/g, '-');
-    return courseSlug === titleSlug;
-  }) || null;
-  
-  // Set the selected course ID when found
-  useEffect(() => {
-    if (basicCourse && !selectedCourseId) {
-      console.log(`Setting selected course ID: ${basicCourse._id}`);
-      setSelectedCourseId(basicCourse._id);
+  // Get progress data only if we have a course
+  const { data: progressData } = useSWR(
+    token && course ? ['/api/course/get-progress', token] : null,
+    ([url, token]) => fetcher(url, token),
+    {
+      revalidateOnFocus: false,
+      revalidateIfStale: false,
+      dedupingInterval: 600000, // Cache for 10 minutes
     }
-  }, [basicCourse, selectedCourseId]);
-  
-  // Use SWR to fetch detailed course with content - either by ID or directly by slug
-  const { data: detailedCourseData, error: courseDetailError } = useSWR(
-    token && (selectedCourseId || directTitleFetch) 
-      ? [`/api/course/get/${selectedCourseId || titleSlug}`, token] 
+  );
+
+  // Add SWR fetch for the full lesson content when clicking on a lesson
+  const { data: lessonData } = useSWR(
+    token && course && activeLesson !== null && activeLesson > 0 && 
+    course.lessons[activeLesson] && !course.lessons[activeLesson]._hasFullContent
+      ? [`/api/course/lesson/${course._id}/${activeLesson}`, token]
       : null,
-    ([url, token]) => {
-      console.log(`Fetching from: ${url}`);
-      return fetcher(url, token).catch(error => {
-        console.error(`Error in course detail fetcher: ${error}`);
-        throw error;
-      });
-    },
-    {
-      revalidateOnFocus: false,
-      revalidateIfStale: false,
-      dedupingInterval: 900000, // Cache for 15 minutes (increased from 5 minutes)
-      errorRetryCount: 1 // Only retry once to avoid multiple requests
-    }
-  );
-  
-  // Get the full course data with content
-  const course = detailedCourseData?.course || basicCourse;
-  
-  // Use SWR for progress data
-  const { data: progressData, error: progressError } = useSWR(
-    token ? ['/api/course/get-progress', token] : null,
     ([url, token]) => fetcher(url, token),
     {
       revalidateOnFocus: false,
       revalidateIfStale: false,
-      dedupingInterval: 600000, // Cache for 10 minutes (increased from 1 minute)
+      dedupingInterval: 600000, // Cache for 10 minutes
     }
   );
 
-  // Check if course is already completed from SWR data
+  // Get current lesson, prioritize full content from lessonData if available
+  const currentLesson = course?.lessons?.[activeLesson];
+  const currentLessonContent = lessonData?.lesson?.content || currentLesson?.content;
+
+  // Check if course is already completed
   useEffect(() => {
     if (progressData?.progress?.completedCourses && course) {
       const isAlreadyCompleted = progressData.progress.completedCourses.some(
         (completedCourse: any) => {
-          // Handle null/undefined cases
           if (!completedCourse || !completedCourse.course) return false;
-          
-          // Compare course ID strings, handling both object and string cases
           const completedCourseId = typeof completedCourse.course === 'object' 
             ? completedCourse.course._id 
             : completedCourse.course;
@@ -302,21 +218,31 @@ export default function CourseDetailPage() {
     }
   }, [progressData, course]);
 
-  // Loading state derived from SWR
-  const loading = (!coursesData && !coursesError) || 
-                 (!selectedCourseId && !courseDetailError) || 
-                 (selectedCourseId && !detailedCourseData && !courseDetailError) || 
-                 (!progressData && !progressError && token);
+  // Simple loading state
+  const loading = (!courseData && !courseError);
+  
+  // Show not found message if needed
+  const [courseNotFound, setCourseNotFound] = useState(false);
+  
+  useEffect(() => {
+    if (courseData && !course) {
+      const timer = setTimeout(() => {
+        setCourseNotFound(true);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+    
+    if (course) {
+      setCourseNotFound(false);
+    }
+  }, [courseData, course]);
 
   // Theme toggle function
   const toggleTheme = () => {
     const newTheme = !isDarkMode;
     setIsDarkMode(newTheme);
-    
-    // Save theme preference to localStorage
     localStorage.setItem('darkMode', newTheme ? 'true' : 'false');
     
-    // Apply theme to document
     if (newTheme) {
       document.documentElement.classList.add('dark-theme');
     } else {
@@ -338,7 +264,7 @@ export default function CourseDetailPage() {
     }
   }, []);
 
-  // Function to handle course completion
+  // Handle course completion
   const handleCompleteCourse = async () => {
     if (!course || !token || !isClient) return;
     
@@ -358,7 +284,6 @@ export default function CourseDetailPage() {
         setIsCompleted(true);
         setCompletionMessage(`Congratulations! You earned ${data.pointsEarned} points. Your total points: ${data.totalPoints}`);
         
-        // Only trigger confetti on client side
         if (isClient) {
           triggerConfetti();
         }
@@ -373,16 +298,14 @@ export default function CourseDetailPage() {
     }
   };
 
-  // Function to trigger confetti animation
+  // Confetti animation function
   const triggerConfetti = () => {
-    // Default confetti
     confetti({
       particleCount: 150,
       spread: 70,
       origin: { y: 0.6 }
     });
 
-    // Confetti with custom colors - delayed slightly
     setTimeout(() => {
       confetti({
         particleCount: 100,
@@ -393,7 +316,6 @@ export default function CourseDetailPage() {
       });
     }, 250);
 
-    // More confetti from the other side - delayed more
     setTimeout(() => {
       confetti({
         particleCount: 100,
@@ -405,46 +327,39 @@ export default function CourseDetailPage() {
     }, 400);
   };
 
-  // Replace Prism code highlighting with lowlight
+  // Code syntax highlighting
   useEffect(() => {
-    // Don't run on server
     if (typeof window === 'undefined') return;
     
     const highlightCodeBlocks = () => {
       if (!contentRef.current) return;
 
       try {
-        // Find all pre elements
         const preElements = contentRef.current?.querySelectorAll('pre');
         
         if (!preElements?.length) return;
         
         preElements.forEach((pre) => {
-          // Prevent duplicate processing
           if (pre.dataset.processed === 'true') return;
           pre.dataset.processed = 'true';
           
-          // Add special class for styling
           pre.classList.add('hljs-line-numbers');
           
-          // Find the code element inside pre
           const codeElement = pre.querySelector('code');
           if (codeElement) {
-            // Remove any inline styles that might interfere
             codeElement.removeAttribute('style');
             
-            // Get the content and detect language
             const content = codeElement.textContent || '';
             let language = '';
             
-            // Try to detect language from class
             const classes = codeElement.className.split(' ');
             const langClass = classes.find(cls => cls.startsWith('language-'));
             
             if (langClass) {
               language = langClass.replace('language-', '');
+              // Set data-language attribute for styling in CSS
+              pre.setAttribute('data-language', language);
             } else {
-              // Improved language detection
               if (content.includes('#include') || content.includes('int main')) {
                 language = 'c';
               } else if (content.includes('function') || content.includes('var ') || content.includes('const ')) {
@@ -454,73 +369,36 @@ export default function CourseDetailPage() {
               } else {
                 language = 'plaintext';
               }
+              // Set the language class and data attribute
+              codeElement.className = `language-${language}`;
+              pre.setAttribute('data-language', language);
             }
             
             try {
-              // Highlight the code using lowlight
-              let result;
-              // Check if the language is registered using the correct API
-              if (lowlight.registered(language)) {
-                result = lowlight.highlight(language, content);
-              } else {
-                // Fallback to plaintext
-                result = lowlight.highlight('plaintext', content);
+              // Apply highlight.js highlighting
+              if (language && lowlight.registered(language)) {
+                const result = lowlight.highlight(language, content);
+                const html = hastToHtml(result);
+                codeElement.innerHTML = html;
               }
-              
-              // Apply the highlighted HTML - convert hast to HTML string
-              const htmlOutput = hastToHtml(result);
-              codeElement.innerHTML = htmlOutput;
-              codeElement.classList.add('hljs');
-              
-              // Add the language class
-              if (!codeElement.classList.contains(`language-${language}`)) {
-                codeElement.classList.add(`language-${language}`);
-              }
-              
-              // Add specific inline CSS to help with consistency
-              pre.style.backgroundColor = '#282c34';
-              pre.style.borderRadius = '8px';
-              pre.style.boxShadow = '8px 8px 0px 0px #000000';
-              pre.style.border = '4px solid #000000';
-              // Ensure no animations
-              pre.style.transition = 'none';
-              codeElement.style.transition = 'none';
             } catch (err) {
-              console.error("Error highlighting code:", err);
+              console.error('Error highlighting code:', err);
             }
           }
         });
       } catch (error) {
-        console.error("Error applying syntax highlighting:", error);
+        console.error('Error processing code blocks:', error);
       }
     };
 
-    // Create a MutationObserver to watch for changes to the DOM
+    // Set up mutation observer to catch dynamically inserted code blocks
     const observer = new MutationObserver((mutations) => {
-      // Check if any of the mutations are relevant to our content
-      const shouldHighlight = mutations.some(mutation => {
-        // If nodes were added
-        if (mutation.addedNodes.length > 0) {
-          // Check if any added node is or contains a pre element
-          return Array.from(mutation.addedNodes).some(node => {
-            if (node.nodeType !== Node.ELEMENT_NODE) return false;
-            const element = node as Element;
-            return element.tagName === 'PRE' || element.querySelector('pre');
-          });
-        }
-        return false;
-      });
-
-      if (shouldHighlight) {
-        highlightCodeBlocks();
-      }
+      highlightCodeBlocks();
     });
 
-    // Whenever the visible lesson changes, we need to re-highlight after a short delay
     const timeoutId = setTimeout(() => {
       highlightCodeBlocks();
       
-      // Start observing the content ref for changes to the DOM
       if (contentRef.current) {
         observer.observe(contentRef.current, {
           childList: true,
@@ -534,11 +412,10 @@ export default function CourseDetailPage() {
       clearTimeout(timeoutId);
       observer.disconnect();
     };
-  }, [course, activeLesson]);
+  }, [course, activeLesson, currentLessonContent]);
 
-  // Move lowlight registration to useEffect
+  // Register languages with lowlight
   useEffect(() => {
-    // Register languages with lowlight only on client side
     lowlight.register('javascript', javascript);
     lowlight.register('typescript', typescript);
     lowlight.register('python', python);
@@ -554,20 +431,6 @@ export default function CourseDetailPage() {
     lowlight.register('c', c);
     lowlight.register('cpp', cpp);
   }, []);
-
-  // Preload the next lesson when user is near the end of current lesson
-  useEffect(() => {
-    if (!course || activeLesson >= course.lessons.length - 1) return;
-    
-    const preloadNextLesson = () => {
-      // Simply access the next lesson's content to trigger browser preload
-      const nextLessonContent = course.lessons[activeLesson + 1].content;
-      console.log('Preloading next lesson');
-    };
-
-    const timer = setTimeout(preloadNextLesson, 5000); // Preload after 5 seconds on current lesson
-    return () => clearTimeout(timer);
-  }, [activeLesson, course]);
 
   if (loading) {
     return (
@@ -587,6 +450,11 @@ export default function CourseDetailPage() {
         <div className="container mx-auto px-4">
           <div className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-6 shadow-[var(--card-shadow)]">
             <p className="text-center">Course not found</p>
+            <div className="flex justify-center mt-4">
+              <Link href="/dashboard" className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                Return to Dashboard
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -606,14 +474,12 @@ export default function CourseDetailPage() {
           {/* Left column: Lessons list */}
           <motion.div 
             className="lg:col-span-1" 
-            suppressHydrationWarning={true}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
           >
             <motion.div 
               className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000] mb-8" 
-              suppressHydrationWarning={true}
             >
               <div className="flex flex-col justify-between items-center mb-4">
                 <div className="flex flex-col space-y-2">
@@ -681,7 +547,6 @@ export default function CourseDetailPage() {
           {/* Middle column: Course details */}
           <motion.div 
             className="lg:col-span-2" 
-            suppressHydrationWarning={true}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
@@ -689,7 +554,6 @@ export default function CourseDetailPage() {
             {/* Course Header */}
             <motion.div 
               className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]" 
-              suppressHydrationWarning={true}
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
@@ -819,63 +683,97 @@ export default function CourseDetailPage() {
 
             {/* Course Content */}
             <motion.div 
-              className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000]"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="w-full max-w-5xl mx-auto"
             >
               <motion.h2 
-                className="text-2xl font-bold text-[var(--text-color)] mb-4 font-mono"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5, duration: 0.5 }}
-                key={activeLesson} // Add key to force re-animation when lesson changes
+                variants={itemVariants}
+                className="text-xl md:text-2xl font-bold mb-4 text-white"
               >
                 {course.lessons[activeLesson]?.title || "Lesson Content"}
               </motion.h2>
+
               <motion.div 
-                ref={contentRef}
-                className="prose prose-invert max-w-none 
-                  prose-pre:bg-[#282c34] 
-                  prose-pre:border-4
-                  prose-pre:border-black
-                  prose-pre:rounded-lg 
-                  prose-pre:my-4
-                  prose-pre:overflow-x-auto
-                  prose-pre:p-5
-                  prose-pre:shadow-[8px_8px_0px_0px_#000000]
-                  prose-code:font-mono
-                  prose-code:text-[0.95em]
-                  prose-code:leading-relaxed
-                  prose-code:p-0
-                  prose-p:my-4 
-                  prose-headings:mt-6 
-                  prose-headings:mb-4
-                  prose-ul:my-4
-                  prose-li:my-2
-                  overflow-y-auto
-                  max-h-[70vh]
-                  p-[10px]"
-                suppressHydrationWarning={true}
-                dangerouslySetInnerHTML={{ __html: course.lessons[activeLesson]?.content || "" }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6, duration: 0.5 }}
-                key={`content-${activeLesson}`} // Add key to force re-animation when lesson changes
-              />
+                variants={itemVariants}
+                className="p-4 sm:p-6 shadow-lg rounded-lg bg-[#1a2333] border-2 border-blue-500 h-full overflow-y-auto"
+                key={`lesson-container-${activeLesson}`}
+              >
+                <div
+                  ref={contentRef}
+                  className="prose prose-invert max-w-none prose-headings:text-blue-300 prose-a:text-blue-400 prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0"
+                  suppressHydrationWarning={true}
+                  dangerouslySetInnerHTML={{ 
+                    __html: currentLessonContent || 
+                      `<div class="text-center text-gray-400">
+                        <p>No content available for this lesson.</p>
+                        ${course && course.lessons && course.lessons[activeLesson] && !course.lessons[activeLesson]._hasFullContent ? 
+                          `<p class="text-sm mt-2">Loading full lesson content...</p>` : ''}
+                      </div>` 
+                  }}
+                />
+                
+                {/* Lesson Navigation Controls */}
+                <div className="flex justify-between items-center mt-8">
+                  <button
+                    onClick={() => setActiveLesson(Math.max(0, activeLesson - 1))}
+                    disabled={activeLesson === 0}
+                    className={`px-4 py-2 rounded-lg ${
+                      activeLesson === 0
+                        ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                        : "bg-blue-600 text-white hover:bg-blue-700"
+                    } transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+                  >
+                    ← Previous
+                  </button>
+                  <div className="text-center">
+                    <span className="text-gray-400 text-sm">
+                      Lesson {activeLesson + 1} of {course?.lessons?.length || 0}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (course?.lessons && activeLesson < course.lessons.length - 1) {
+                        setActiveLesson(activeLesson + 1);
+                      }
+                    }}
+                    disabled={!course?.lessons || activeLesson >= course.lessons.length - 1}
+                    className={`px-4 py-2 rounded-lg ${
+                      !course?.lessons || activeLesson >= course.lessons.length - 1
+                        ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                        : "bg-blue-600 text-white hover:bg-blue-700"
+                    } transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+                  >
+                    Next →
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
           </motion.div>
         </div>
       </div>
-      {/* Add the tooltip component at the bottom of the return statement */}
+      
+      {/* Tooltip component */}
       {isClient && (
         <Tooltip id="test-tooltip" className={`z-10 ${isDarkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900 border border-gray-200 shadow-md"} max-w-xs`} place="top">
           AI will generate personalized questions based on this course
         </Tooltip>
       )}
+      
+      {courseNotFound && (
+        <div className="py-8 text-center">
+          <h2 className="text-xl font-bold text-red-500">Course Not Found</h2>
+          <p className="mt-2">The course "{titleSlug}" could not be found.</p>
+          <Link href="/dashboard" className="mt-4 inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+            Return to Dashboard
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
+
 // Helper function to escape HTML special characters
 function escapeHtml(str: string): string {
   return str

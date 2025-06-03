@@ -261,6 +261,46 @@ export default function CoursesList({
           return updated;
         });
 
+        // Clear ALL course related cache from localStorage and sessionStorage
+        try {
+          // Create slug-format of course title for cache keys
+          const courseSlug = courseToDelete.title.toLowerCase().replace(/\s+/g, '-');
+          
+          // Clear localStorage items
+          const localStorageKeys = Object.keys(localStorage);
+          localStorageKeys.forEach(key => {
+            // Clear course status
+            if (key === 'course_statuses' || key.includes(courseToDelete._id) || key.includes(courseSlug)) {
+              console.log(`[DeleteCourse] Clearing localStorage key: ${key}`);
+              // For course_statuses, we already updated it above, don't remove completely
+              if (key !== 'course_statuses') {
+                localStorage.removeItem(key);
+              }
+            }
+          });
+          
+          // Clear sessionStorage items
+          const sessionStorageKeys = Object.keys(sessionStorage);
+          sessionStorageKeys.forEach(key => {
+            // Match any key related to courses, the specific course ID, or the course slug
+            if (
+              key.startsWith('course_') || 
+              key.includes(courseToDelete._id) || 
+              key.includes(courseSlug) || 
+              key === 'courses' ||
+              key.includes('dashboard_courses')
+            ) {
+              console.log(`[DeleteCourse] Clearing sessionStorage key: ${key}`);
+              sessionStorage.removeItem(key);
+            }
+          });
+          
+          console.log("[DeleteCourse] All course-related cache cleared successfully");
+        } catch (e) {
+          console.error("[DeleteCourse] Error clearing cache:", e);
+          // Continue even if cache clearing fails
+        }
+
         setShowDeleteConfirm(false);
         setCourseToDelete(null);
         toast.success('Course deleted successfully!');
@@ -294,40 +334,44 @@ export default function CoursesList({
     <div id="courses-section" className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-4 md:p-6 mb-8 shadow-[var(--card-shadow)] card w-full">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6">
         <h2 className="text-xl font-bold text-[var(--text-color)] font-mono mb-4 md:mb-0">Your Courses</h2>
-        <div className="flex flex-wrap gap-2">
-          <button 
-            onClick={() => setActiveFilter('all')}
-            className={`inline-flex items-center text-xs font-medium py-1.5 px-3 rounded-full border-2 transition-all ${
-              activeFilter === 'all' 
-                ? 'bg-[var(--purple-primary)] text-white border-[var(--purple-primary)]' 
-                : 'bg-[var(--card-bg)] text-[var(--text-color)] border-[var(--card-border)] hover:bg-[var(--background-color)]'
-            }`}
-          >
-            All
-          </button>
-          <button 
-            onClick={() => setActiveFilter('in-progress')}
-            className={`inline-flex items-center text-xs font-medium py-1.5 px-3 rounded-full border-2 transition-all ${
-              activeFilter === 'in-progress' 
-                ? 'bg-[var(--purple-primary)] text-white border-[var(--purple-primary)]' 
-                : 'bg-[var(--card-bg)] text-[var(--text-color)] border-[var(--card-border)] hover:bg-[var(--background-color)]'
-            }`}
-          >
-            <Clock size={12} className="mr-1" />
-            In Progress
-          </button>
-          <button 
-            onClick={() => setActiveFilter('completed')}
-            className={`inline-flex items-center text-xs font-medium py-1.5 px-3 rounded-full border-2 transition-all ${
-              activeFilter === 'completed' 
-                ? 'bg-[var(--purple-primary)] text-white border-[var(--purple-primary)]' 
-                : 'bg-[var(--card-bg)] text-[var(--text-color)] border-[var(--card-border)] hover:bg-[var(--background-color)]'
-            }`}
-          >
-            <Award size={12} className="mr-1" />
-            Completed
-          </button>
-        </div>
+        
+        {/* Show filter buttons only for regular users, not admins */}
+        {!isAdmin && (
+          <div className="flex flex-wrap gap-2">
+            <button 
+              onClick={() => setActiveFilter('all')}
+              className={`inline-flex items-center text-xs font-medium py-1.5 px-3 rounded-full border-2 transition-all ${
+                activeFilter === 'all' 
+                  ? 'bg-[var(--purple-primary)] text-white border-[var(--purple-primary)]' 
+                  : 'bg-[var(--card-bg)] text-[var(--text-color)] border-[var(--card-border)] hover:bg-[var(--background-color)]'
+              }`}
+            >
+              All
+            </button>
+            <button 
+              onClick={() => setActiveFilter('in-progress')}
+              className={`inline-flex items-center text-xs font-medium py-1.5 px-3 rounded-full border-2 transition-all ${
+                activeFilter === 'in-progress' 
+                  ? 'bg-[var(--purple-primary)] text-white border-[var(--purple-primary)]' 
+                  : 'bg-[var(--card-bg)] text-[var(--text-color)] border-[var(--card-border)] hover:bg-[var(--background-color)]'
+              }`}
+            >
+              <Clock size={12} className="mr-1" />
+              In Progress
+            </button>
+            <button 
+              onClick={() => setActiveFilter('completed')}
+              className={`inline-flex items-center text-xs font-medium py-1.5 px-3 rounded-full border-2 transition-all ${
+                activeFilter === 'completed' 
+                  ? 'bg-[var(--purple-primary)] text-white border-[var(--purple-primary)]' 
+                  : 'bg-[var(--card-bg)] text-[var(--text-color)] border-[var(--card-border)] hover:bg-[var(--background-color)]'
+              }`}
+            >
+              <Award size={12} className="mr-1" />
+              Completed
+            </button>
+          </div>
+        )}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 max-w-6xl mx-auto">
@@ -365,21 +409,23 @@ export default function CoursesList({
                   </div>
                   <p className="mb-3 text-[var(--text-color)] text-sm line-clamp-2">{course.description}</p>
                   
-                  {/* Progress bar */}
-                  <div className="mb-3">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-[var(--text-color)]">Progress</span>
-                      <span className="text-[var(--text-color)]">{progress}%</span>
+                  {/* Only show progress bar for regular users, not admins */}
+                  {!isAdmin && (
+                    <div className="mb-3">
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-[var(--text-color)]">Progress</span>
+                        <span className="text-[var(--text-color)]">{progress}%</span>
+                      </div>
+                      <div className="w-full bg-[#333333] h-2 rounded-full">
+                        <div 
+                          className={`h-full rounded-full ${
+                            isCompleted ? 'bg-green-500' : 'bg-[var(--purple-primary)]'
+                          }`} 
+                          style={{ width: `${progress}%` }}
+                        ></div>
+                      </div>
                     </div>
-                    <div className="w-full bg-[#333333] h-2 rounded-full">
-                      <div 
-                        className={`h-full rounded-full ${
-                          isCompleted ? 'bg-green-500' : 'bg-[var(--purple-primary)]'
-                        }`} 
-                        style={{ width: `${progress}%` }}
-                      ></div>
-                    </div>
-                  </div>
+                  )}
                   
                   <div className="flex flex-col mb-4 text-xs text-[var(--text-color)]">
                     <p>Created: {new Date(course.createdAt).toLocaleDateString('en-US', { 
@@ -395,13 +441,14 @@ export default function CoursesList({
                   </div>
                   
                   <div className="mt-auto">
-                    {/* View Course button - will now automatically mark as in-progress */}
+                    {/* View/Edit Course button based on user role and course creator */}
                     <ViewCourseButton 
                       title={course.title}
                       category={course.category}
                       isAdmin={isAdmin}
                       courseId={course._id}
                       onStartCourse={() => handleStartCourse(course._id)}
+                      isCreatedByCurrentUser={true}
                     />
                   </div>
                   
@@ -418,6 +465,17 @@ export default function CoursesList({
               </div>
             );
           })
+        ) : pagination && pagination.totalItems > 0 ? (
+          <div className="col-span-1 md:col-span-2 lg:col-span-3 text-center bg-[var(--card-bg)] rounded-lg p-8 border border-[var(--card-border)]">
+            <p className="text-lg text-[var(--text-color)] font-medium mb-2">No courses on this page</p>
+            <p className="text-sm text-[var(--text-color)] mb-4">Try going back to a previous page</p>
+            <button
+              onClick={() => handlePageChange(1)}
+              className="inline-flex items-center text-sm font-medium bg-[var(--purple-primary)] text-white py-2 px-4 rounded-md border-2 border-[var(--card-border)] shadow-[2px_2px_0px_0px_var(--card-border)] hover:shadow-[3px_3px_0px_0px_var(--card-border)] hover:-translate-y-0.5 transition-all cursor-pointer"
+            >
+              Go to first page
+            </button>
+          </div>
         ) : (
           <div className="col-span-1 md:col-span-2 lg:col-span-3 text-center bg-[var(--card-bg)] rounded-lg p-8 border border-[var(--card-border)]">
             <div className="text-5xl mb-3">📚</div>
@@ -502,7 +560,7 @@ export default function CoursesList({
       {/* Pagination info */}
       {pagination && pagination.totalPages > 0 && (
         <div className="text-center mt-4 text-sm text-[var(--text-color)]">
-          Showing {(pagination.currentPage - 1) * pagination.itemsPerPage + 1} to {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems} courses
+          Showing {pagination.totalItems > 0 ? (pagination.currentPage - 1) * pagination.itemsPerPage + 1 : 0} to {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems} courses
         </div>
       )}
 

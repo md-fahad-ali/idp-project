@@ -37,7 +37,7 @@ export const ActivityProvider = ({ children }: { children: ReactNode }) => {
     }
     
     lastUpdateRef.current = now;
-    
+
     try {
       await fetch('/api/activity/update', {
         method: 'POST',
@@ -131,7 +131,7 @@ export const ActivityProvider = ({ children }: { children: ReactNode }) => {
       };
     }
     
-    // For admin users, or if user data is not yet available,
+      // For admin users, or if user data is not yet available,
     // just fetch active users once initially
     if (token) {
       fetchActiveUsers();

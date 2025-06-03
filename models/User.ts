@@ -16,6 +16,7 @@ export interface IUser extends Document {
     warrior?: number;    // For tiebreaker winners who completed faster
     unbeatable?: number; // For users with best score in a course
   };
+  lastActive?: Date;     // Track when the user was last active
 }
 
 const UserSchema: Schema = new Schema({
@@ -32,7 +33,8 @@ const UserSchema: Schema = new Schema({
     brained: { type: Number, default: 0 },    // For challenge winners
     warrior: { type: Number, default: 0 },    // For tiebreaker winners who completed faster
     unbeatable: { type: Number, default: 0 }  // For users with best score in a course
-  }
+  },
+  lastActive: { type: Date, default: Date.now }  // Default to creation time
 });
 
 const User = mongoose.model<IUser>('User', UserSchema);

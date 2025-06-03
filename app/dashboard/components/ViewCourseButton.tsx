@@ -9,23 +9,30 @@ interface ViewCourseButtonProps {
   isAdmin: boolean;
   courseId?: string;
   onStartCourse?: () => void;
+  isCreatedByCurrentUser?: boolean;
 }
 
 export default function ViewCourseButton({ 
   title, 
   category, 
   isAdmin, 
-  onStartCourse 
+  onStartCourse,
+  courseId,
+  isCreatedByCurrentUser = false
 }: ViewCourseButtonProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   
-  // Generate URL based on user type
+  // Debug log
+  console.log(`ViewCourseButton for ${title}: isAdmin=${isAdmin}, isCreatedByCurrentUser=${isCreatedByCurrentUser}`);
+  
+  // Generate URL based on user type and whether they created the course
   const getUrl = () => {
+    // If admin, link to edit page - remove dependency on isCreatedByCurrentUser
     if (isAdmin) {
-      
       return `/dashboard/update?title=${encodeURIComponent(title)}&category=${encodeURIComponent(category)}`;
     } else {
+      // For regular users and admins viewing other courses
       return `/course/${encodeURIComponent(title.toLowerCase().replace(/\s+/g, '-'))}`;
     }
   };
@@ -47,57 +54,53 @@ export default function ViewCourseButton({
   }, [title, category, isAdmin]);
 
   // For admin case, using router
-  const handleAdminClick = (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
+    // Call the onStartCourse callback if provided
+    if (onStartCourse && !isAdmin) {
+      onStartCourse();
+    }
     
     // Use Next.js router.push for client-side navigation
     router.push(getUrl());
   };
-  
-
 
   // Common class for both button types
   const buttonClass = "w-full mt-auto p-2 text-white border-2 border-[var(--card-border)] rounded-md shadow-[2px_2px_0px_0px_var(--card-border)] hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_var(--card-border)] transition-all font-medium text-sm flex items-center justify-center group";
 
-  // Render either button or link based on user type
-  if (isAdmin) {
-    console.log('isAdmin is true',getUrl());
-    return (
-
-      <Link href={getUrl()} passHref prefetch>
-        <button
-          disabled={isLoading}
-          className={`${buttonClass} bg-[#4f46e5] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0px_0px_var(--card-border)]`}
-        >
-          {isLoading ? (
-            <Loader2 size={16} className="mr-2 animate-spin" />
-          ) : (
-            <Edit size={16} className="mr-2" />
-          )}
-          <span>{isLoading ? "Loading..." : "Edit Course"}</span>
-        </button>
-      </Link>
-    );
-  } else {
-    return (
-      <Link href={getUrl()} passHref prefetch>
-        <div
-          className={`${buttonClass} bg-[var(--purple-primary)] ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
-        >
-          {isLoading ? (
-            <Loader2 size={16} className="mr-2 animate-spin" />
-          ) : (
-            <Eye size={16} className="mr-2" />
-          )}
-          <span>{isLoading ? "Loading..." : "View Course"}</span>
-          {!isLoading && (
-            <ArrowRight size={16} className="ml-2 transform transition-transform group-hover:translate-x-1" />
-          )}
-        </div>
-      </Link>
-    );
-  }
+  // Determine if we should show admin edit button - now only based on isAdmin
+  const showEditButton = isAdmin;
+  
+  return (
+    <Link href={getUrl()} passHref prefetch>
+      <button
+        onClick={handleClick}
+        disabled={isLoading}
+        className={`${buttonClass} ${
+          showEditButton 
+            ? 'bg-[#4f46e5] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0px_0px_var(--card-border)]' 
+            : 'bg-[var(--purple-primary)]'
+        }`}
+      >
+        {isLoading ? (
+          <Loader2 size={16} className="mr-2 animate-spin" />
+        ) : (
+          showEditButton ? <Edit size={16} className="mr-2" /> : <Eye size={16} className="mr-2" />
+        )}
+        <span>
+          {isLoading 
+            ? "Loading..." 
+            : showEditButton ? "Edit Course" : "View Course"
+          }
+        </span>
+        {!isLoading && !showEditButton && (
+          <ArrowRight size={16} className="ml-2 transform transition-transform group-hover:translate-x-1" />
+        )}
+      </button>
+    </Link>
+  );
 }
 
 // Create a LeaderboardButton for immediate navigation

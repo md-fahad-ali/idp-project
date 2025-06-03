@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useDashboard } from '../provider';
 import Loading from "../../components/ui/Loading";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Layers } from 'lucide-react';
 
 // Import components
 import WelcomeCard from './components/WelcomeCard';
@@ -11,10 +12,26 @@ import AdminPanel from './components/AdminPanel';
 import UserPanel from './components/UserPanel';
 import CoursesList from './components/CoursesList';
 import WeeklyStreakCard from './components/WeeklyStreakCard';
+import AdminWelcomeCard from './components/AdminWelcomeCard';
+import useSWRMutation from 'swr/mutation';
 
 export default function DashboardPage() {
   const { token } = useDashboard();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialPage = parseInt(searchParams.get('page') || '1');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [userData, setUserData] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState<number>(initialPage);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchCategory, setSearchCategory] = useState<string>('');
+  const [userRole, setUserRole] = useState<string>('user');
+  const [showAllCourses, setShowAllCourses] = useState<boolean>(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   interface ICourse{
     _id: string;
@@ -44,12 +61,8 @@ export default function DashboardPage() {
     hasPrevPage: boolean;
   }
 
-  const router = useRouter();
-
   // State management
-  const [courses, setCourses] = useState<ICourse[]>([]);
   const [pagination, setPagination] = useState<PaginationData | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   
   interface IUser {
     _id: string;
@@ -67,16 +80,20 @@ export default function DashboardPage() {
     };
   }
   const [user, setUser] = useState<IUser | null>(null);
-  const [loading, setLoading] = useState(true);
-  // Track login activity for weekly streaks
-  
 
   // Check if user is admin
   const isAdmin = user?.role === 'admin';
 
   // Handle course deletion in parent component
   const handleCourseDeleted = (deletedCourseId: string) => {
+    // First remove the course from the UI immediately
     setCourses(courses.filter(course => course._id !== deletedCourseId));
+    
+    // Then refresh the course list from the server to ensure we have the latest data
+    // Use a small delay to let the server-side cache clearing take effect
+    setTimeout(() => {
+      fetchCourses(currentPage);
+    }, 300);
   };
 
   // Fetch courses with pagination
@@ -94,14 +111,20 @@ export default function DashboardPage() {
       // Build query parameters for pagination
       const params = new URLSearchParams();
       params.append('page', page.toString());
-      params.append('limit', '9'); // Set courses per page
+      params.append('limit', '3'); // Changed from 9 to 3 courses per page
+      // Add cache busting parameter to avoid stale data
+      params.append('_cb', Date.now().toString());
       
       const response = await fetch(`/api/course/get?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          // Add Cache-Control header to prevent browser caching
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
         },
+        // Ensure we don't use cached data
+        cache: 'no-store'
       });
 
       if (!response.ok) {
@@ -117,6 +140,7 @@ export default function DashboardPage() {
       }
 
       const data = await response.json();
+      console.log('Dashboard Data:', data, data.courses, 'API URL:', `/api/course/get?${params.toString()}`);
       setCourses(data.courses || []);
       setPagination(data.pagination || null);
       
@@ -187,6 +211,15 @@ export default function DashboardPage() {
     }
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCurrentPage(1); // Reset to first page on new search
+  };
+
+  const toggleCourseView = () => {
+    setShowAllCourses(!showAllCourses);
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[var(--background-color)] text-[var(--text-color)] font-sans">
       {/* Background decorative elements */}
@@ -194,6 +227,9 @@ export default function DashboardPage() {
       <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-gradient-to-r from-[#f59e0b] to-[#f87171] opacity-10"></div>
       <div className="absolute top-1/4 right-1/4 w-40 h-40 rounded-full bg-[#f59e0b] opacity-5"></div>
       
+      {/* Debug Info */}
+      {/* console.log('Dashboard Current User:', user) */}
+
       {/* Main Content - full width with proper spacing for sidebar */}
       <div className="w-full pt-[100px] p-[10px] sm:p-[60px] bg-[var(--background-color)]">
         <div className="w-full mx-auto">
@@ -208,15 +244,25 @@ export default function DashboardPage() {
           
           {/* Top section - Welcome and Streaks side by side on larger screens */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <div className="lg:col-span-2">
-              {/* Welcome Card Component */}
-              <WelcomeCard user={user} />
-            </div>
-            
-            <div className="lg:col-span-1">
-              {/* Weekly Streaks Section */}
-              <WeeklyStreakCard userId={user?._id} token={token} />
-            </div>
+            {/* Only show welcome card for non-admin users */}
+            {!isAdmin ? (
+              <>
+                <div className="lg:col-span-2">
+                  {/* Welcome Card Component */}
+                  <WelcomeCard user={user} />
+                </div>
+                
+                <div className="lg:col-span-1">
+                  {/* Weekly Streaks Section */}
+                  <WeeklyStreakCard userId={user?._id} token={token} />
+                </div>
+              </>
+            ) : (
+              <div className="lg:col-span-3">
+                {/* Admin Welcome Card */}
+                <AdminWelcomeCard user={user} />
+              </div>
+            )}
           </div>
 
           {/* Conditional Panel Rendering */}

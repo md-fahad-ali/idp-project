@@ -54,8 +54,8 @@ export default function CoursesPage() {
 
   // Function to fetch courses with pagination
   const fetchCourses = async (page = 1) => {
-    try {
-      setLoading(true);
+      try {
+        setLoading(true);
       
       // Build query parameters
       const params = new URLSearchParams();
@@ -71,20 +71,20 @@ export default function CoursesPage() {
       }
       
       const response = await fetch(`/api/public/courses?${params.toString()}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch courses: ${response.status}`);
-      }
+        if (!response.ok) {
+          throw new Error(`Failed to fetch courses: ${response.status}`);
+        }
 
-      const data = await response.json();
-      setCourses(data.courses);
+        const data = await response.json();
+        setCourses(data.courses);
       setPagination(data.pagination);
-      
+        
       // Only extract categories on first load or when they might change
       if (page === 1 && (!categories.length || !selectedCategory)) {
         // Make a separate request to get all categories if we don't have them
@@ -97,18 +97,18 @@ export default function CoursesPage() {
         
         if (allCategoriesResponse.ok) {
           const allData = await allCategoriesResponse.json();
-          const uniqueCategories = Array.from(
+        const uniqueCategories = Array.from(
             new Set(allData.courses.map((course: Course) => course.category))
-          );
-          setCategories(uniqueCategories as string[]);
+        );
+        setCategories(uniqueCategories as string[]);
         }
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      console.error('Error fetching courses:', err);
-    } finally {
-      setLoading(false);
-    }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+        console.error('Error fetching courses:', err);
+      } finally {
+        setLoading(false);
+      }
   };
 
   // Fetch courses on initial load
@@ -212,11 +212,11 @@ export default function CoursesPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {courses.map((course) => (
-                <CourseCard key={course._id} course={course} />
-              ))}
-            </div>
+              <CourseCard key={course._id} course={course} />
+            ))}
+          </div>
             
             {/* Pagination */}
             {pagination.totalPages > 1 && (

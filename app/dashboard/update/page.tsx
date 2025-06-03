@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import Tiptap from "@/components/Tiptap";
 import { useDashboard } from "../../provider";
 import { useRouter } from "next/navigation";
 import Loading from "@/components/ui/Loading";
 import toast from "react-hot-toast";
+
+// Lazy load the Tiptap component as it's heavy
+const Tiptap = lazy(() => import("@/components/Tiptap"));
 
 const GamifiedCourse: React.FC = () => {
   const searchParams = useSearchParams();
@@ -33,6 +35,11 @@ const GamifiedCourse: React.FC = () => {
   const [description, setDescription] = useState("");
   const [lessons, setLessons] = useState([{ title: "", content: "", points: 10 }]);
   const [editingLessonIndex, setEditingLessonIndex] = useState<number | null>(null);
+  const [courseId, setCourseId] = useState<string | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  // Cache key for this particular course
+  const cacheKey = `course_edit_${initialTitle}_${initialCategory}`;
 
   useEffect(() => {
     // Early return and redirect if no token
@@ -45,48 +52,136 @@ const GamifiedCourse: React.FC = () => {
 
     const fetchCourseData = async () => {
       try {
+        // First check if we have cached data
+        if (isInitialLoad) {
+          const cachedData = sessionStorage.getItem(cacheKey);
+          if (cachedData) {
+            try {
+              const { data, timestamp } = JSON.parse(cachedData);
+              // Use cache if less than 5 minutes old
+              if (Date.now() - timestamp < 5 * 60 * 1000) {
+                console.log('Using cached course data');
+                if (data?.courses && data.courses.length > 0) {
+                  const course = data.courses[0];
+                  setTitle(course.title || "");
+                  setCategory(course.category || "");
+                  setDescription(course.description || "");
+                  setCourseId(course._id);
+                  
+                  // Don't set full lesson content on initial load to speed things up
+                  setLessons(
+                    course.lessons?.map((lesson: { title: string; content: string; points: number; }) => ({
+                      title: lesson.title || "",
+                      content: lesson.content || "",
+                      points: lesson.points || 10,
+                    })) || []
+                  );
+                  
+                  setUserData(data?.user);
+                  setLoading(false);
+                  setIsInitialLoad(false);
+                  return data;
+                }
+              }
+            } catch (e) {
+              console.error('Cache parse error:', e);
+            }
+          }
+        }
+        
         setLoading(true);
         console.log("Fetching course data with token:", token);
-        const response = await fetch(
-          `/api/course/get?title=${initialTitle}&category=${initialCategory}`,
+        
+        // First, fetch the course ID using the title and category
+        const listResponse = await fetch(
+          `/api/course/get?title=${encodeURIComponent(initialTitle)}&category=${encodeURIComponent(initialCategory)}`,
           {
             method: "GET",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            cache: 'no-store' // Prevent caching
+            cache: 'no-store'
           }
         );
-        if (!response.ok) {
+        
+        if (!listResponse.ok) {
           console.log("Error fetching request");
-          // Redirect to login for unauthorized access
-          if (response.status === 401 || response.status === 403) {
+          if (listResponse.status === 401 || listResponse.status === 403) {
             router.push('/auth/login');
             return;
           }
           setLoading(false);
           return null;
         }
-        const data = await response.json();
-        console.log("Profile data:", data);
+        
+        const listData = await listResponse.json();
+        console.log("Initial course data:", listData);
         
         // Set user data
-        setUserData(data?.user);
+        setUserData(listData?.user);
         
-        // Set course data if it exists
-        if (data?.courses && data.courses.length !== 0) {
-          const course = data.courses[0];
+        // Set basic course data if it exists
+        if (listData?.courses && listData.courses.length !== 0) {
+          const course = listData.courses[0];
           setTitle(course.title || "");
           setCategory(course.category || "");
           setDescription(course.description || "");
-          setLessons(
-            course.lessons?.map((lesson: { title: string; content: string; points: number; }) => ({
-              title: lesson.title || "",
-              content: lesson.content || "",
-              points: lesson.points || 10,
-            })) || []
+          setCourseId(course._id);
+          
+          // Now fetch the full course data with all lesson content
+          console.log("Fetching full course data for ID:", course._id);
+          
+          const fullResponse = await fetch(
+            `/api/course/get/${course._id}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              cache: 'no-store'
+            }
           );
+          
+          if (fullResponse.ok) {
+            const fullData = await fullResponse.json();
+            console.log("Full course data:", fullData);
+            
+            if (fullData?.course) {
+              // Set lessons with full content
+              setLessons(
+                fullData.course.lessons?.map((lesson: { title: string; content: string; points: number; }) => ({
+                  title: lesson.title || "",
+                  content: lesson.content || "",
+                  points: lesson.points || 10,
+                })) || []
+              );
+              
+              // Cache the full data
+              try {
+                sessionStorage.setItem(cacheKey, JSON.stringify({
+                  data: {
+                    ...listData,
+                    courses: [fullData.course]
+                  },
+                  timestamp: Date.now()
+                }));
+              } catch (e) {
+                console.error('Cache save error:', e);
+              }
+            }
+          } else {
+            console.error("Failed to fetch full course data");
+            // Use the lesson data from the list response as fallback
+            setLessons(
+              course.lessons?.map((lesson: { title: string; content: string; points: number; }) => ({
+                title: lesson.title || "",
+                content: lesson.content || "",
+                points: lesson.points || 10,
+              })) || []
+            );
+          }
         } else {
           // Redirect to 404 if no courses found
           router.push('/404');
@@ -94,7 +189,8 @@ const GamifiedCourse: React.FC = () => {
         }
         
         setLoading(false);
-        return data;
+        setIsInitialLoad(false);
+        return listData;
       } catch (error) {
         console.error("Error fetching profile:", error);
         // Redirect to login if there's an authentication error
@@ -108,7 +204,7 @@ const GamifiedCourse: React.FC = () => {
     };
 
     fetchCourseData();
-  }, [initialCategory, initialTitle, token, router]);
+  }, [initialCategory, initialTitle, token, router, cacheKey, isInitialLoad]);
 
   // Prevent flash of content when redirecting
   if (!token) {
@@ -130,6 +226,10 @@ const GamifiedCourse: React.FC = () => {
 
   const handleRemoveLesson = (index: number) => {
     setLessons(lessons.filter((_, i) => i !== index));
+    // If currently editing this lesson, close the editor
+    if (editingLessonIndex === index) {
+      setEditingLessonIndex(null);
+    }
   };
 
   const handleLessonChange = (
@@ -143,6 +243,37 @@ const GamifiedCourse: React.FC = () => {
   };
 
   const handleOpenEditor = (index: number) => {
+    // Make sure all previews of lesson content render properly after editing
+    const updatedLessons = [...lessons];
+    updatedLessons.forEach((lesson) => {
+      // Ensure code blocks are preserved correctly
+      if (lesson.content && !lesson.content.includes('data-language')) {
+        // This processing ensures code blocks are properly formatted for display
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = lesson.content;
+        
+        // Process all pre elements to add proper attributes
+        const preElements = tempDiv.querySelectorAll('pre');
+        preElements.forEach((pre) => {
+          const codeElement = pre.querySelector('code');
+          if (codeElement) {
+            const classes = codeElement.className.split(' ');
+            const langClass = classes.find(cls => cls.startsWith('language-'));
+            
+            if (langClass) {
+              const language = langClass.replace('language-', '');
+              // Add data-language attribute which helps with rendering
+              pre.setAttribute('data-language', language);
+            }
+          }
+        });
+        
+        // Update the lesson content with properly formatted HTML
+        //lesson.content = tempDiv.innerHTML;
+      }
+    });
+    
+    setLessons(updatedLessons);
     setEditingLessonIndex(index);
   };
 
@@ -150,10 +281,41 @@ const GamifiedCourse: React.FC = () => {
   const handleSaveCourse = async () => {
     // Ensure all lessons have their content properly updated
     const updatedLessons = lessons.map((lesson, index) => {
+      let processedContent = lesson.content || "";
+      
       if (editingLessonIndex === index) {
-        return { ...lesson, content: lesson.content || "" };
+        // Just closed this editor, make sure to get latest content
+        processedContent = lesson.content || "";
       }
-      return lesson;
+      
+      // Process content to ensure code blocks are preserved correctly
+      if (processedContent) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = processedContent;
+        
+        // Process all pre elements to add proper attributes for rendering
+        const preElements = tempDiv.querySelectorAll('pre');
+        preElements.forEach((pre) => {
+          const codeElement = pre.querySelector('code');
+          if (codeElement) {
+            const classes = codeElement.className.split(' ');
+            const langClass = classes.find(cls => cls.startsWith('language-'));
+            
+            if (langClass) {
+              const language = langClass.replace('language-', '');
+              // Ensure data-language attribute is set for proper rendering
+              pre.setAttribute('data-language', language);
+            }
+          }
+        });
+        
+        processedContent = tempDiv.innerHTML;
+      }
+      
+      return { 
+        ...lesson, 
+        content: processedContent 
+      };
     });
 
     const courseData = {
@@ -168,60 +330,64 @@ const GamifiedCourse: React.FC = () => {
       // Show loading toast
       const loadingToast = toast.loading("Updating your course...");
       
-      // Get the course ID from the API response when the course was loaded
-      console.log(`Fetching course with title=${initialTitle}, category=${initialCategory}`);
-      const response = await fetch(`/api/course/get?title=${initialTitle}&category=${initialCategory}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: 'include'
-      });
-      
-      console.log('Get course response status:', response.status);
-      
-      if (!response.ok) {
-        toast.dismiss(loadingToast);
+      // Use the already fetched courseId if available
+      if (!courseId) {
+        // Get the course ID from the API response when the course was loaded
+        console.log(`Fetching course with title=${initialTitle}, category=${initialCategory}`);
+        const response = await fetch(`/api/course/get?title=${encodeURIComponent(initialTitle)}&category=${encodeURIComponent(initialCategory)}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: 'include'
+        });
         
-        let errorMessage = 'Failed to get course information';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-          console.error('Failed to get course:', errorData);
-        } catch (e) {
-          console.error('Failed to parse error response:', e);
+        console.log('Get course response status:', response.status);
+        
+        if (!response.ok) {
+          toast.dismiss(loadingToast);
+          
+          let errorMessage = 'Failed to get course information';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+            console.error('Failed to get course:', errorData);
+          } catch (e) {
+            console.error('Failed to parse error response:', e);
+          }
+          
+          toast.error(errorMessage, {
+            style: {
+              border: '2px solid #F44336',
+              padding: '16px',
+              color: '#F44336',
+            },
+            duration: 4000,
+          });
+          return;
         }
         
-        toast.error(errorMessage, {
-          style: {
-            border: '2px solid #F44336',
-            padding: '16px',
-            color: '#F44336',
-          },
-          duration: 4000,
-        });
-        return;
+        const data = await response.json();
+        console.log('Course data retrieved:', data);
+        
+        if (!data?.courses || data.courses.length === 0) {
+          toast.dismiss(loadingToast);
+          toast.error("Course not found", {
+            style: {
+              border: '2px solid #F44336',
+              padding: '16px',
+              color: '#F44336',
+            },
+            duration: 4000,
+          });
+          router.push('/404');
+          return;
+        }
+        
+        setCourseId(data.courses[0]._id);
       }
       
-      const data = await response.json();
-      console.log('Course data retrieved:', data);
-      
-      if (!data?.courses || data.courses.length === 0) {
-        toast.dismiss(loadingToast);
-        toast.error("Course not found", {
-          style: {
-            border: '2px solid #F44336',
-            padding: '16px',
-            color: '#F44336',
-          },
-          duration: 4000,
-        });
-        router.push('/404');
-        return;
-      }
-      
-      const courseId = data.courses[0]._id;
       console.log('Course ID for update:', courseId);
       
       // Make the PUT request to update the course
@@ -252,6 +418,33 @@ const GamifiedCourse: React.FC = () => {
           },
           duration: 3000,
         });
+        
+        // Clear all related cache items
+        try {
+          // Clear this course's edit cache
+          sessionStorage.removeItem(cacheKey);
+          
+          // Clear course detail view cache
+          const titleForCache = encodeURIComponent(title.toLowerCase().replace(/ /g, '-'));
+          sessionStorage.removeItem(`course_${titleForCache}`);
+          
+          // Clear dashboard course list cache
+          sessionStorage.removeItem('course_list');
+          
+          // Clear any cached lesson content
+          const cachedItems = Object.keys(sessionStorage);
+          cachedItems.forEach(key => {
+            if (key.startsWith('lesson_') || key.startsWith('course_')) {
+              sessionStorage.removeItem(key);
+            }
+          });
+          
+          console.log('All course-related caches cleared');
+        } catch (e) {
+          console.error('Error clearing cache:', e);
+          // Continue even if cache clearing fails
+        }
+        
         // Use direct navigation for more reliable page change
         window.location.href = "/dashboard";
       } else {
@@ -380,12 +573,14 @@ const GamifiedCourse: React.FC = () => {
                 </label>
                 {editingLessonIndex === index ? (
                   <div className="mt-2">
-                    <Tiptap
-                      content={lesson.content}
-                      onChange={(newContent) =>
-                        handleLessonChange(index, "content", newContent)
-                      }
-                    />
+                    <Suspense fallback={<div className="p-4 bg-gray-800 text-white rounded">Loading editor...</div>}>
+                      <Tiptap
+                        content={lesson.content}
+                        onChange={(newContent) =>
+                          handleLessonChange(index, "content", newContent)
+                        }
+                      />
+                    </Suspense>
                     <button
                       onClick={() => setEditingLessonIndex(null)}
                       className="mt-2 p-2 text-white bg-[#666666] border-2 border-black rounded-md shadow-[2px_2px_0px_0px_#000000] hover:bg-[#555555] transition-all duration-200"
@@ -424,15 +619,9 @@ const GamifiedCourse: React.FC = () => {
         <div className="flex justify-end space-x-4">
           <button
             onClick={handleSaveCourse}
-            className="p-2 text-white bg-[#666666] border-2 border-black rounded-md shadow-[2px_2px_0px_0px_#000000] hover:bg-[#555555] transition-all duration-200"
-          >
-            Save Draft
-          </button>
-          <button
-            onClick={handleSaveCourse}
             className="p-2 text-white bg-[#9D4EDD] border-2 border-black rounded-md shadow-[2px_2px_0px_0px_#000000] hover:bg-[#7A3CB8] transition-all duration-200"
           >
-            {"Publish Course"}
+            Update Course
           </button>
         </div>
       </div>
