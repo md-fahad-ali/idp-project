@@ -128,6 +128,7 @@ const Tiptap = ({ content = '', onChange }: TiptapProps) => {
         defaultLanguage: 'javascript',
         HTMLAttributes: {
           class: 'bg-gray-900 border-4 border-black shadow-[8px_8px_0px_0px_black] text-white p-4 rounded-md font-mono overflow-auto my-4 not-prose',
+          'data-language': (attrs) => attrs.language || 'javascript',
         },
       }),
       Underline,

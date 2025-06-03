@@ -107,25 +107,27 @@ const WeeklyStreakCard: React.FC<WeeklyStreakCardProps> = ({ userId, token }) =>
     <div className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-4 md:p-6 h-full shadow-[var(--card-shadow)] relative overflow-hidden card">
       <div className="absolute -bottom-10 -left-10 w-20 h-20 rounded-full bg-[var(--pink-light)] opacity-30"></div>
       <div className="relative z-10">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
           <h2 className="text-xl font-bold text-[var(--text-color)] font-mono">Weekly Streaks</h2>
           {currentStreak > 0 ? (
-            <span className="text-xs bg-[var(--pink-light)] text-[var(--text-color)] font-medium p-1 px-2 rounded-full">
+            <span className="text-xs bg-[var(--pink-light)] text-[var(--text-color)] font-medium p-1 px-2 rounded-full whitespace-nowrap">
               🔥 {currentStreak} day streak!
             </span>
           ) : (
-            <span className="text-xs bg-[var(--card-bg)] text-[var(--text-color)] font-medium p-1 px-2 rounded-full border border-[var(--card-border)]">
+            <span className="text-xs bg-[var(--card-bg)] text-[var(--text-color)] font-medium p-1 px-2 rounded-full border border-[var(--card-border)] whitespace-nowrap">
               Start your streak!
             </span>
           )}
         </div>
-        <div className="flex justify-between">
+        <div className="flex justify-between w-full px-1 flex-wrap justify-evenly space-evenly">
           {streakData.map((isActive, i) => (
             <div key={i} className="flex flex-col items-center">
-              <div className={`w-8 h-8 flex items-center justify-center mb-1 ${isActive ? '' : 'opacity-50'}`}>
-                <span className="text-xl">{isActive ? '🔥' : '⚪'}</span>
+              <div 
+                className={`w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center mb-1 ${isActive ? '' : 'opacity-50'}`}
+              >
+                <span className="text-base sm:text-xl">{isActive ? '🔥' : '⚪'}</span>
               </div>
-              <span className="text-xs font-medium">{days[i]}</span>
+              <span className="text-[10px] sm:text-xs font-medium">{days[i]}</span>
             </div>
           ))}
         </div>

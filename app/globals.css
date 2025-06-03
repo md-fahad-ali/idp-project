@@ -531,54 +531,22 @@ html, body {
   white-space: nowrap;
 }
 
+/* Add improved code block styling for better display */
 .tiptap pre {
-  background-color: #1a1a2e;
-  color: #e6e6ff;
-  font-family: 'Courier New', Courier, monospace;
-  padding: 1.5rem;
-  border: 4px solid #000;
-  border-radius: 0;
-  box-shadow: 8px 8px 0px 0px #000;
-  overflow-x: auto;
-  margin: 2rem 0;
   position: relative;
-  z-index: 10;
-  transform: translateY(-5px);
-  transition: transform 0.3s ease;
-}
-
-.tiptap pre:hover {
-  transform: translateY(-10px);
-}
-
-/* .tiptap pre::before {
-  content: attr(data-language);
-  position: absolute;
-  top: -12px;
-  left: 10px;
-  background: #6016a7;
-  color: white;
-  padding: 2px 8px;
-  font-size: 12px;
-  font-weight: bold;
-  border: 2px solid #000;
-  text-transform: uppercase;
-} */
-
-.tiptap pre::after {
-  content: '';
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  width: 100%;
-  height: 100%;
+  margin: 1.5em 0;
+  padding: 1.5em;
   border-radius: 0.5rem;
-  background-color: rgba(255, 255, 255, 0.1);
-  z-index: -1;
+  border: 2px solid black;
+  box-shadow: 4px 4px 0px 0px #000000;
+  background-color: #1a1a2e !important;
+  overflow: auto;
+  font-family: 'Fira Code', 'Courier New', monospace;
 }
+
 .tiptap pre code {
   background-color: transparent;
-  color: inherit;
+  color: #f8f8f2;
   padding: 0;
   border: none;
   white-space: pre;
@@ -586,14 +554,55 @@ html, body {
   display: block;
 }
 
-/* Syntax highlighting */
-.tiptap pre .keyword { color: #ff79c6; }
-.tiptap pre .function { color: #50fa7b; }
-.tiptap pre .string { color: #f1fa8c; }
-.tiptap pre .number { color: #bd93f9; }
-.tiptap pre .comment { color: #6272a4; font-style: italic; }
-.tiptap pre .operator { color: #ff79c6; }
-.tiptap pre .variable { color: #8be9fd; }
+/* Display language label on code blocks */
+.tiptap pre[data-language]::before {
+  content: attr(data-language);
+  position: absolute;
+  top: -12px;
+  right: 10px;
+  background: #6016a7;
+  color: white;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: bold;
+  border: 2px solid #000;
+  text-transform: uppercase;
+  border-radius: 4px;
+}
+
+/* Syntax highlighting for code blocks */
+.tiptap pre .hljs-keyword { color: #ff79c6; }
+.tiptap pre .hljs-built_in { color: #8be9fd; }
+.tiptap pre .hljs-type { color: #8be9fd; }
+.tiptap pre .hljs-literal { color: #bd93f9; }
+.tiptap pre .hljs-number { color: #bd93f9; }
+.tiptap pre .hljs-regexp { color: #ff5555; }
+.tiptap pre .hljs-string { color: #f1fa8c; }
+.tiptap pre .hljs-subst { color: #f8f8f2; }
+.tiptap pre .hljs-symbol { color: #ff79c6; }
+.tiptap pre .hljs-class { color: #8be9fd; }
+.tiptap pre .hljs-function { color: #50fa7b; }
+.tiptap pre .hljs-title { color: #50fa7b; }
+.tiptap pre .hljs-params { color: #f8f8f2; }
+.tiptap pre .hljs-comment { color: #6272a4; font-style: italic; }
+.tiptap pre .hljs-doctag { color: #8be9fd; }
+.tiptap pre .hljs-meta { color: #50fa7b; }
+.tiptap pre .hljs-section { color: #50fa7b; }
+.tiptap pre .hljs-selector-class { color: #50fa7b; }
+.tiptap pre .hljs-selector-id { color: #50fa7b; }
+.tiptap pre .hljs-tag { color: #ff79c6; }
+
+/* Ensure code blocks also work in dark mode */
+.dark-theme .tiptap pre {
+  background-color: #0f172a !important;
+  color: #e6e6ff !important;
+  border: 2px solid #475569 !important;
+  box-shadow: 6px 6px 0px 0px #364155 !important;
+}
+
+.dark-theme .tiptap pre code {
+  color: #e2e8f0 !important;
+}
 
 /* Code block styling */
 pre[class*="language-"] {

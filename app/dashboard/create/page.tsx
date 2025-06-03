@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 
 import { useSearchParams } from "next/navigation";
-import Tiptap from "@/components/Tiptap";
 import { useDashboard } from "../../provider";
 import { useRouter } from "next/navigation";
 import Loading from "@/components/ui/Loading";
+
+// Lazy load the Tiptap component as it's heavy
+const Tiptap = lazy(() => import("@/components/Tiptap"));
 
 const GamifiedCourse: React.FC = () => {
   const searchParams = useSearchParams();
@@ -15,41 +17,19 @@ const GamifiedCourse: React.FC = () => {
 
   const { token } = useDashboard();
   const router = useRouter();
-  interface UserData {
-    user?: {
-      firstName?: string;
-      lastName?: string;
-      email?: string;
-      role?: string;
-    };
-  }
-
-  // interface CoursesData {
-  //   courses?: {
-  //     title?: string;
-  //     category?: string;
-  //     description?: string;
-  //     lessons?: {
-  //       title?: string;
-  //       content?: string;
-  //       points?: number;
-  //     }[];
-  //   }[];
-  // }
-
-  const [, setUserData] = useState<UserData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
   
-  // Move all state declarations here at the top
+  // Remove unnecessary API calls and simplify state
+  const [loading, setLoading] = useState<boolean>(true);
+  const [saving, setSaving] = useState<boolean>(false);
+  
+  // Course form state
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [lessons, setLessons] = useState([
     { title: "", content: "", points: 10 },
   ]);
-  const [editingLessonIndex, setEditingLessonIndex] = useState<number | null>(
-    null
-  );
+  const [editingLessonIndex, setEditingLessonIndex] = useState<number | null>(null);
 
   useEffect(() => {
     // Early return and redirect if no token
@@ -59,82 +39,31 @@ const GamifiedCourse: React.FC = () => {
       router.push('/auth/login');
       return;
     }
-
-    const fetchCourseData = async () => {
-      try {
-        setLoading(true);
-        console.log("Fetching course data with token:", token);
-        const response = await fetch(
-          `/api/course/get?title=${initialTitle}&category=${initialCategory}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            cache: 'no-store' // Prevent caching
-          }
-        );
-        if (!response.ok) {
-          console.log("Error fetching request");
-          // Redirect to login for unauthorized access
-          if (response.status === 401 || response.status === 403) {
-            router.push('/auth/login');
-            return;
-          }
-          setLoading(false);
-          return;
-        }
-        const data = await response.json();
-        console.log("Profile data:", data);
-        
-        // Set user data directly
-        setUserData(data?.user);
-        
-        // Redirect if course already exists
-        if (data?.courses?.length > 0) {
-          router.push("/dashboard");
-          return;
-        }
-        
-        // Initialize title and category after loading is complete (moved here from separate useEffect)
-        setTitle(generateTitle(initialTitle));
-        setCategory(initialCategory);
-        
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching profile:", error);
-        // Redirect to login if there's an authentication error
-        if (error instanceof Error && error.message.includes('unauthorized')) {
-          router.push('/auth/login');
-          return;
-        }
-        setLoading(false);
-      }
+    
+    // Set initial values directly without fetching all courses
+    const formatTitle = (slug: string) => {
+      return slug
+        .split("-")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
     };
-
-    fetchCourseData();
-  }, [initialCategory, initialTitle, router, token]);
+    
+    setTitle(initialTitle ? formatTitle(initialTitle) : "");
+    setCategory(initialCategory || "");
+    
+    // Finish loading immediately without API call
+    setLoading(false);
+    
+  }, [initialTitle, initialCategory, token, router]);
 
   // Prevent flash of content when redirecting
   if (!token) {
     return null;
   }
 
+  // Add loading screen
   if (loading) {
-    return (
-      <div className="flex justify-center items-center w-full h-[50dvh]">
-        <Loading/>
-      </div>
-    );
-  }
-
-  function generateTitle(slug: string) {
-    // Replace hyphens with spaces and capitalize the first letter of each word
-    return slug
-      .split("-") // Split the slug into words
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize each word
-      .join(" "); // Join the words with a space
+    return <Loading />;
   }
 
   // Handlers for lessons
@@ -143,31 +72,28 @@ const GamifiedCourse: React.FC = () => {
   };
 
   const handleRemoveLesson = (index: number) => {
-    setLessons(lessons.filter((_, i) => i !== index));
+    const newLessons = [...lessons];
+    newLessons.splice(index, 1);
+    setLessons(newLessons);
   };
 
   const handleLessonChange = (
     index: number,
-    field: string,
+    field: keyof typeof lessons[0],
     value: string | number
   ) => {
-    const newLessons = [...lessons];
-    newLessons[index] = { ...newLessons[index], [field]: value };
-    setLessons(newLessons);
+    const updatedLessons = lessons.map((lesson, i) => {
+      if (i === index) {
+        return { ...lesson, [field]: value };
+      }
+      return lesson;
+    });
+    setLessons(updatedLessons);
   };
 
   const handleOpenEditor = (index: number) => {
     setEditingLessonIndex(index);
   };
-
-  // const handleSaveContent = (newContent: string) => {
-  //   if (editingLessonIndex !== null) {
-  //     const newLessons = [...lessons];
-  //     newLessons[editingLessonIndex].content = newContent;
-  //     setLessons(newLessons);
-  //     setEditingLessonIndex(null);
-  //   }
-  // };
 
   // Handler for saving the course
   const handleSaveCourse = async () => {
@@ -186,20 +112,29 @@ const GamifiedCourse: React.FC = () => {
       lessons: updatedLessons,
     };
 
-    console.log(!title || !category);
-    if (
-      !title ||
-      !category ||
-      !description ||
-      courseData.lessons.some(
-        (lesson) => lesson.content.length === 0 || lesson.content.length === 7
-      )
-    ) {
-      alert("Please fill in all fields and ensure lesson content is valid.");
+    // Validate form data
+    if (!title || !category || !description) {
+      alert("Please fill in all course details (title, category, and description).");
       return;
     }
 
-    console.log(courseData);
+    if (courseData.lessons.length === 0) {
+      alert("Please add at least one lesson.");
+      return;
+    }
+
+    const emptyLessons = courseData.lessons.filter(
+      lesson => !lesson.title || !lesson.content || lesson.content.length < 10
+    );
+    
+    if (emptyLessons.length > 0) {
+      alert("Please ensure all lessons have titles and sufficient content.");
+      return;
+    }
+
+    // Show loading state
+    setSaving(true);
+
     try {
       const response = await fetch("/api/course/add", {
         method: "POST",
@@ -212,17 +147,17 @@ const GamifiedCourse: React.FC = () => {
 
       if (response.ok) {
         const result = await response.json();
-        console.log(result);
         alert("Course saved successfully!");
         router.push("/dashboard");
       } else {
         const error = await response.json();
-
-        alert("Failed to save course: " + error.error);
+        alert("Failed to save course: " + (error.error || "Unknown error"));
       }
     } catch (err) {
       console.error("Unexpected error:", err);
-      alert("An unexpected error occurred.");
+      alert("An unexpected error occurred. Please try again.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -319,12 +254,14 @@ const GamifiedCourse: React.FC = () => {
                 </label>
                 {editingLessonIndex === index ? (
                   <div className="mt-2">
-                    <Tiptap
-                      content={lesson.content}
-                      onChange={(newContent) =>
-                        handleLessonChange(index, "content", newContent)
-                      }
-                    />
+                    <Suspense fallback={<Loading />}>
+                      <Tiptap
+                        content={lesson.content}
+                        onChange={(newContent) =>
+                          handleLessonChange(index, "content", newContent)
+                        }
+                      />
+                    </Suspense>
                     <button
                       onClick={() => setEditingLessonIndex(null)}
                       className="mt-2 p-2 text-white bg-[#666666] border-2 border-black rounded-md shadow-[2px_2px_0px_0px_#000000] hover:bg-[#555555] transition-all duration-200"
@@ -363,15 +300,21 @@ const GamifiedCourse: React.FC = () => {
         <div className="flex justify-end space-x-4">
           <button
             onClick={handleSaveCourse}
-            className="p-2 text-white bg-[#666666] border-2 border-black rounded-md shadow-[2px_2px_0px_0px_#000000] hover:bg-[#555555] transition-all duration-200"
+            disabled={saving}
+            className={`p-2 text-white border-2 border-black rounded-md shadow-[2px_2px_0px_0px_#000000] transition-all duration-200 ${
+              saving ? 'bg-[#888888] opacity-70 cursor-not-allowed' : 'bg-[#666666] hover:bg-[#555555]'
+            }`}
           >
-            Save Draft
+            {saving ? "Saving..." : "Save Draft"}
           </button>
           <button
             onClick={handleSaveCourse}
-            className="p-2 text-white bg-[#9D4EDD] border-2 border-black rounded-md shadow-[2px_2px_0px_0px_#000000] hover:bg-[#7A3CB8] transition-all duration-200"
+            disabled={saving}
+            className={`p-2 text-white border-2 border-black rounded-md shadow-[2px_2px_0px_0px_#000000] transition-all duration-200 ${
+              saving ? 'bg-[#b47ae5] opacity-70 cursor-not-allowed' : 'bg-[#9D4EDD] hover:bg-[#7A3CB8]'
+            }`}
           >
-            {"Publish Course"}
+            {saving ? "Publishing..." : "Publish Course"}
           </button>
         </div>
       </div>

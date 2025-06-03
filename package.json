@@ -70,6 +70,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.5.2",
+    "react-icons": "^5.5.0",
     "react-tooltip": "^5.28.1",
     "sass": "^1.86.0",
     "socket.io": "^4.8.1",
