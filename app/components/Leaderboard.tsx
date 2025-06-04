@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Avatar from 'boring-avatars';
 
 interface LeaderboardEntry {
   _id: string;
@@ -156,10 +157,10 @@ export default function Leaderboard({ currentUserId, courseId, isAdmin }: Leader
 
                 {/* Avatar */}
                 <div className="flex-shrink-0 w-10 h-10 bg-[#9D4EDD] rounded-full overflow-hidden border-2 border-black">
-                  <img
-                    src={entry.avatarUrl || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${entry._id}`}
-                    alt={`${entry.firstName}'s avatar`}
-                    className="w-full h-full object-cover"
+                  <Avatar 
+                    name={`${entry.firstName} ${entry.lastName}`}
+                    variant="beam"
+                    size={36}
                   />
                 </div>
 

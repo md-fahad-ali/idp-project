@@ -168,7 +168,7 @@ export default function CourseDetailPage() {
       errorRetryCount: 2,
     }
   );
-
+  
   // Access course directly from response
   const course = courseData?.course;
   
@@ -223,7 +223,7 @@ export default function CourseDetailPage() {
 
   // Simple loading state
   const loading = (!courseData && !courseError);
-  
+
   // Show not found message if needed
   const [courseNotFound, setCourseNotFound] = useState(false);
   

@@ -81,13 +81,12 @@ export default function ChallengeQuiz() {
   const [totalExpectedQuestions, setTotalExpectedQuestions] = useState<number>(5);
   const [receivedQuestions, setReceivedQuestions] = useState<Set<string>>(new Set());
   const [uniqueQuestionCount, setUniqueQuestionCount] = useState<number>(0);
-  const [enforcedTotalQuestions] = useState<number>(5); // Always enforce 5 questions
-  const [preparingQuestions, setPreparingQuestions] = useState<boolean>(false);
-  const [questionNumber, setQuestionNumber] = useState<number>(0);
-  const [totalQuestions, setTotalQuestions] = useState<number>(0);
+  const [questionNumber, setQuestionNumber] = useState<number>(1);
+  const [totalQuestions, setTotalQuestions] = useState<number>(5);
   const [processedQuestionIds, setProcessedQuestionIds] = useState<string[]>([]);
   const [showConfirmExit, setShowConfirmExit] = useState<boolean>(false);
   const [leaveData, setLeaveData] = useState<any>(null);
+  const [preparingQuestions, setPreparingQuestions] = useState<boolean>(false);
   
   // Log roomId for debugging
   useEffect(() => {
@@ -138,7 +137,37 @@ export default function ChallengeQuiz() {
     // Listen for room data
     socket.on('room_data', (data: RoomData) => {
       console.log('[DEBUG] Room data received:', data);
-      setRoomData(data);
+      
+      // Make sure we have valid room data with player names
+      if (data && data.challenger && data.challenged) {
+        // Log player names for debugging
+        console.log('[DEBUG] Challenger name:', data.challenger.name);
+        console.log('[DEBUG] Challenged name:', data.challenged.name);
+        
+        // Update room data state
+        setRoomData(data);
+        
+        // Re-broadcast room data to ensure both sides have it
+        if (roomId && user?._id) {
+          // Only re-broadcast if we're the challenger to avoid loops
+          if (user._id === data.challenger.id) {
+            console.log('[DEBUG] Re-broadcasting room data as challenger');
+            socket.emit('sync_room_data', { roomId, data });
+          }
+        }
+      } else {
+        console.error('[DEBUG] Received invalid room data:', data);
+      }
+    });
+
+    // Listen for synchronized room data
+    socket.on('sync_room_data', (data: { roomId: string, data: RoomData }) => {
+      console.log('[DEBUG] Received synchronized room data:', data);
+      
+      // Only update if it's for our room
+      if (data.roomId === roomId) {
+        setRoomData(data.data);
+      }
     });
 
     return () => {
@@ -147,6 +176,7 @@ export default function ChallengeQuiz() {
       socket.off('disconnect');
       socket.off('error');
       socket.off('room_data');
+      socket.off('sync_room_data');
       clearInterval(identifyInterval);
     };
   }, [user]);
@@ -239,12 +269,18 @@ export default function ChallengeQuiz() {
     socket.on('both_answered', (data: { userAnswers: UserAnswer[], correctAnswer: string, scores: {[userId: string]: number} }) => {
       console.log('Both answered event received:', data);
       setBothAnswered(true);
+      
+      // Important: Replace the entire userAnswers array with the server's version
+      // This ensures both players see exactly the same answers
       setUserAnswers(data.userAnswers);
       setShowAnswers(true);
       
-      // Update scores
+      // Update scores with the server's version to ensure consistency
       if (data.scores) {
         setUserScores(data.scores);
+        
+        // Log scores for debugging
+        console.log('Updated scores from server:', data.scores);
       }
       
       // If we have current question info, update it with correct answer
@@ -260,6 +296,12 @@ export default function ChallengeQuiz() {
         clearInterval(timerRef.current);
       }
       
+      // Show a toast that both players have answered
+      toast.success('Both players have answered!', {
+        duration: 2000,
+        position: 'top-center'
+      });
+      
       // Start countdown to next question
       setNextQuestionCountdown(5);
       const countdownInterval = setInterval(() => {
@@ -273,10 +315,28 @@ export default function ChallengeQuiz() {
       }, 1000);
     });
     
-    // Listen for user answer broadcasts
+    // Listen for user answer broadcasts - Improve synchronization
     socket.on('user_answer', (data: UserAnswer) => {
       console.log('User answer received:', data);
-      setUserAnswers(prev => [...prev, data]);
+      
+      // Check if this answer is already in our state to avoid duplicates
+      setUserAnswers(prev => {
+        // Don't add duplicate answers
+        const answerExists = prev.some(ans => ans.userId === data.userId);
+        if (answerExists) {
+          return prev;
+        }
+        return [...prev, data];
+      });
+      
+      // Show toast notification when opponent answers
+      if (data.userId !== user?._id) {
+        toast(`${data.userName} has submitted an answer`, {
+          duration: 2000,
+          position: 'top-right',
+          icon: '📝'
+        });
+      }
     });
     
     // Listen for score broadcasts
@@ -315,10 +375,15 @@ export default function ChallengeQuiz() {
     });
     
     // Listen for time sync from server
-    socket.on('time_sync', (data: { timeLeft: number }) => {
-      console.log('Time sync received:', data);
-      // Set exact time left, no manipulation
+    socket.on('time_sync', (data: { timeLeft: number; questionNumber?: number }) => {
+      // Always prioritize server time to keep everyone in sync
       setTimeLeft(data.timeLeft);
+      
+      // Check if we need to update question number based on server state
+      if (data.questionNumber && data.questionNumber !== questionNumber) {
+        console.log('[DEBUG] Question number sync via time_sync:', data.questionNumber);
+        setQuestionNumber(data.questionNumber);
+      }
     });
     
     // Listen for new questions
@@ -382,16 +447,18 @@ export default function ChallengeQuiz() {
         return updated;
       });
       
-      // Update the question counter and use the new value directly
+      // Update the question counter but CRITICALLY use server-provided data when available
       setQuestionCounter(prev => {
-        const newCounter = prev + 1;
+        // IMPORTANT: Use the server's question number if provided, otherwise calculate locally
+        const serverQuestionNumber = data.questionNumber || data.question?.questionNumber;
+        const newCounter = serverQuestionNumber || (uniqueQuestionCount + (isDuplicate ? 0 : 1));
         
         // Log the counter for debugging
-        console.log(`Current question number: ${newCounter}`);
-        console.log(`Unique questions count: ${uniqueQuestionCount + (isDuplicate ? 0 : 1)}`);
+        console.log(`SERVER provided question number: ${serverQuestionNumber || 'not provided'}`);
+        console.log(`Using question number: ${newCounter}`);
         
         // Always use the enforced total questions for display
-        const totalQuestionsToDisplay = enforcedTotalQuestions;
+        const totalQuestionsToDisplay = data.totalQuestions || 5; // Use server total or fallback to 5
         
         console.log(`Displaying as: Question ${newCounter} of ${totalQuestionsToDisplay}`);
         
@@ -415,12 +482,27 @@ export default function ChallengeQuiz() {
           return prev;
         }
         
-        // Enhance question object with question number info
+        // Enhance question object with question number info - FIXED to use server values when possible
         const enhancedQuestion = {
-          ...questionToShow, // Use the validated question data
+          ...questionToShow,
           questionNumber: newCounter,
           totalQuestions: totalQuestionsToDisplay
         };
+        
+        // Update the global question number state too
+        setQuestionNumber(newCounter);
+        setTotalQuestions(totalQuestionsToDisplay);
+        
+        // Force a broadcast to sync question number with everyone else
+        if (roomId && user?._id) {
+          console.log('Broadcasting question number update:', newCounter);
+          socket.emit('sync_question', { 
+            roomId, 
+            userId: user._id, 
+            questionNumber: newCounter,
+            totalQuestions: totalQuestionsToDisplay
+          });
+        }
         
         console.log('Enhanced question with numbers:', enhancedQuestion);
         setCurrentQuestion(enhancedQuestion);
@@ -455,6 +537,31 @@ export default function ChallengeQuiz() {
       });
     });
     
+    // Listen for question synchronization - ADD THIS NEW HANDLER
+    socket.on('sync_question', (data: { questionNumber: number, totalQuestions?: number }) => {
+      console.log('Question sync received:', data);
+      
+      // Update our local state with the server's values
+      if (data.questionNumber && data.questionNumber !== questionNumber) {
+        setQuestionNumber(data.questionNumber);
+        console.log(`Synchronized question number to: ${data.questionNumber}`);
+      }
+      
+      if (data.totalQuestions && data.totalQuestions !== totalQuestions) {
+        setTotalQuestions(data.totalQuestions);
+        console.log(`Synchronized total questions to: ${data.totalQuestions}`);
+      }
+      
+      // Update current question display if we have one
+      if (currentQuestion) {
+        setCurrentQuestion({
+          ...currentQuestion,
+          questionNumber: data.questionNumber || currentQuestion.questionNumber,
+          totalQuestions: data.totalQuestions || currentQuestion.totalQuestions
+        });
+      }
+    });
+    
     // Let TypeScript infer the type from the socketService
     const cleanupUserAnswer = socketService.onUserAnswer((data) => {
       console.log('User answer received via helper:', data);
@@ -475,6 +582,7 @@ export default function ChallengeQuiz() {
       socket.off('time_sync');
       socket.off('score_broadcast');
       socket.off('challenge_started');
+      socket.off('sync_question');
       cleanupUserAnswer();
       cleanupTimeSync();
     };
@@ -524,8 +632,8 @@ export default function ChallengeQuiz() {
         }
         
         // Check if server is sending fewer questions than expected
-        if (uniqueCount < enforcedTotalQuestions) {
-          console.warn(`⚠️ SERVER SENT ONLY ${uniqueCount} UNIQUE QUESTIONS INSTEAD OF ${enforcedTotalQuestions}!`);
+        if (forceTotalQuestions !== null && uniqueCount < forceTotalQuestions) {
+          console.warn(`⚠️ SERVER SENT ONLY ${uniqueCount} UNIQUE QUESTIONS INSTEAD OF ${forceTotalQuestions}!`);
         }
       }
       
@@ -625,11 +733,14 @@ export default function ChallengeQuiz() {
     };
   }, [title, router]);
 
-  // Format time from seconds to display format
+  // Improved format time function to ensure consistent display
   const formatTime = (seconds: number): string => {
-    // Ensure seconds is a valid number
-    const validSeconds = Math.max(0, Math.round(seconds));
-    return `${validSeconds}s`;
+    // Ensure seconds is a positive number
+    const positiveSeconds = Math.max(0, seconds);
+    const mins = Math.floor(positiveSeconds / 60);
+    const secs = Math.floor(positiveSeconds % 60);
+    // Always show with leading zeros for consistent display
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
   
   const handleSubmit = (answer: string, answerIndex?: number) => {
@@ -756,6 +867,10 @@ export default function ChallengeQuiz() {
           if (success) {
             console.log(`[DEBUG] Successfully joined room ${roomId}`);
             setErrorMessage(null);
+            
+            // Request room data explicitly after joining
+            console.log('[DEBUG] Requesting room data');
+            socket.emit('request_room_data', { roomId });
           } else {
             console.error(`[DEBUG] Failed to join room ${roomId}`);
             setErrorMessage('Failed to join the challenge room. Please try refreshing the page.');
@@ -1004,83 +1119,20 @@ export default function ChallengeQuiz() {
     }
   }, [preparingQuestions, router, title]);
 
-  // Initialize socket listeners in useEffect
+  // Add more frequent ping for time sync
   useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
+    // Request time sync every second to keep timer accurate
+    const syncInterval = setInterval(() => {
+      if (roomId && user?._id && !bothAnswered) {
+        const socket = socketRef.current;
+        socket.emit('request_time_sync', { roomId, userId: user._id });
+      }
+    }, 1000);
     
-    // Handle system messages
-    socket.on('system_message', (data: { type: string; message: string }) => {
-      console.log('System message:', data);
-      
-      if (data.type === 'preparing_questions') {
-        setPreparingQuestions(true);
-      }
-    });
-    
-    // Add synchronization listener for question index
-    socket.on('sync_question_index', (data: { questionNumber: number; totalQuestions: number }) => {
-      console.log('[DEBUG] Syncing question index:', data);
-      // Force the component to update its question number
-      setQuestionNumber(data.questionNumber);
-      setTotalQuestions(data.totalQuestions);
-    });
-    
-    // Handle new question
-    socket.on('new_question', (data: any) => {
-      console.log('[DEBUG] Received new question:', data);
-      
-      // Clear preparation status
-      setPreparingQuestions(false);
-      setErrorMessage('');
-      
-      // Validate question data
-      if (!data.question || !data.question.id || !data.question.text || !Array.isArray(data.question.options)) {
-        console.error('Invalid question received:', data);
-        toast.error('Received invalid question data. Please report this issue.');
-        return;
-      }
-      
-      // Check if this question has already been received (prevent duplicates)
-      if (processedQuestionIds.includes(data.question.id)) {
-        console.warn('Duplicate question received:', data.question.id);
-        return;
-      }
-      
-      // Store this question ID to prevent duplicates
-      setProcessedQuestionIds(prev => [...prev, data.question.id]);
-      
-      // Force the question number to match what the server says
-      data.questionNumber = data.questionNumber || questionNumber;
-      data.totalQuestions = data.totalQuestions || totalQuestions;
-      
-      // Update state with new question
-      setCurrentQuestion(data);
-      setTimeLeft(data.timeLimit || 30);
-      setSelectedOption(null);
-      setBothAnswered(false);
-      setNextQuestionCountdown(null);
-      setIsLoading(false);
-    });
-
-    // Handle time sync
-    socket.on('time_sync', (data: { timeLeft: number; questionNumber?: number }) => {
-      // Check if we need to update question number based on server state
-      if (data.questionNumber && data.questionNumber !== questionNumber) {
-        console.log('[DEBUG] Question number sync via time_sync:', data.questionNumber);
-        setQuestionNumber(data.questionNumber);
-      }
-      
-      setTimeLeft(data.timeLeft);
-    });
-
     return () => {
-      socket.off('system_message');
-      socket.off('sync_question_index');
-      socket.off('new_question');
-      socket.off('time_sync');
+      clearInterval(syncInterval);
     };
-  }, [roomId, user?._id]);
+  }, [roomId, user?._id, bothAnswered]);
 
   // Replace the beforeunload effect with an empty one to fix the linter error
   useEffect(() => {
@@ -1161,7 +1213,7 @@ export default function ChallengeQuiz() {
         <div className="bg-[#2f235a] border-4 border-black rounded-lg w-full p-6 shadow-[8px_8px_0px_0px_#000000]">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-[#E6F1FF]">
-              Question {questionNumber || currentQuestion?.questionNumber || '...'} of {totalQuestions || currentQuestion?.totalQuestions || '...'}
+              Question {questionNumber || currentQuestion?.questionNumber || 1} of {totalQuestions || currentQuestion?.totalQuestions || 5}
             </h2>
             
             <div className={`text-2xl font-bold ${
