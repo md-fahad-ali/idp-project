@@ -403,7 +403,7 @@ export default function CoursesList({
                     >
                       {course.category}
                     </span>
-                    <span className="text-xs bg-[var(--yellow-light)] text-[var(--text-color)] px-2 py-1 rounded-full border border-[var(--card-border)]">
+                    <span className="text-xs bg-[#4CAF50] text-white font-bold px-2 py-1 rounded-full border border-[var(--card-border)] shadow-[1px_1px_0px_0px_var(--card-border)]">
                       {course.lessons.length} {course.lessons.length === 1 ? 'Lesson' : 'Lessons'}
                     </span>
                   </div>
@@ -466,7 +466,7 @@ export default function CoursesList({
             );
           })
         ) : pagination && pagination.totalItems > 0 ? (
-          <div className="col-span-1 md:col-span-2 lg:col-span-3 text-center bg-[var(--card-bg)] rounded-lg p-8 border border-[var(--card-border)]">
+          <div className="col-span-1 md:col-span-2 lg:col-span-3 text-center bg-[var(--card-bg)] rounded-lg p-6 border border-[var(--card-border)]">
             <p className="text-lg text-[var(--text-color)] font-medium mb-2">No courses on this page</p>
             <p className="text-sm text-[var(--text-color)] mb-4">Try going back to a previous page</p>
             <button
@@ -477,8 +477,8 @@ export default function CoursesList({
             </button>
           </div>
         ) : (
-          <div className="col-span-1 md:col-span-2 lg:col-span-3 text-center bg-[var(--card-bg)] rounded-lg p-8 border border-[var(--card-border)]">
-            <div className="text-5xl mb-3">📚</div>
+          <div className="col-span-1 md:col-span-2 lg:col-span-3 text-center bg-[var(--card-bg)] rounded-lg p-6 border border-[var(--card-border)]">
+            <div className="text-4xl mb-3">📚</div>
             <p className="text-lg text-[var(--text-color)] font-medium mb-2">No courses available</p>
             <p className="text-sm text-[var(--text-color)] mb-4">Start your learning journey by exploring available courses</p>
             <Link href="/courses" onClick={handleBrowseCatalogClick}>
@@ -501,7 +501,7 @@ export default function CoursesList({
 
       {/* Pagination - only show if pagination data is available */}
       {pagination && pagination.totalPages > 1 && (
-        <div className="flex justify-center mt-10">
+        <div className="flex justify-center mt-6">
           <div className="flex items-center bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-lg shadow-[4px_4px_0px_0px_var(--card-border)] p-1">
             {/* Previous page button */}
             <button
@@ -559,7 +559,7 @@ export default function CoursesList({
       
       {/* Pagination info */}
       {pagination && pagination.totalPages > 0 && (
-        <div className="text-center mt-4 text-sm text-[var(--text-color)]">
+        <div className="text-center mt-3 mb-1 text-sm text-[var(--text-color)]">
           Showing {pagination.totalItems > 0 ? (pagination.currentPage - 1) * pagination.itemsPerPage + 1 : 0} to {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems} courses
         </div>
       )}

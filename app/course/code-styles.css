@@ -13,21 +13,37 @@
   white-space: pre !important;
 }
 
+/* Regular text styling in lesson content */
+.prose p, .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6,
+.prose ul, .prose ol, .prose li, .prose blockquote, .prose table, .prose th, .prose td {
+  color: var(--text-color) !important;
+}
+
+/* Ensure all text elements inherit the proper text color */
+.prose * {
+  color: inherit;
+}
+
+/* Make sure dark theme text is visible */
+.dark-theme .prose p, .dark-theme .prose li, .dark-theme .prose h3, .dark-theme .prose h4 {
+  color: var(--text-color) !important;
+}
+
 .line-numbers .line-numbers-rows {
-  border-right: 2px solid #444 !important;
+  border-right: 2px solid var(--text-secondary) !important;
   padding-right: 10px !important;
 }
 
 /* CORE CODE STYLES - CONSISTENT ACROSS THEMES */
 /* Base Code Block Styling */
 pre, pre.hljs-line-numbers, pre[class*="language-"], .code-block pre {
-  background-color: #1a1a2e !important;
-  color: #e2e8f0 !important;
-  border: 2px solid #333 !important;
+  background-color: var(--code-bg, #1a1a2e) !important;
+  color: var(--code-text, #e2e8f0) !important;
+  border: 2px solid var(--card-border) !important;
   border-radius: 8px !important;
   padding: 1.5rem !important;
   margin: 1.5rem 0 !important;
-  box-shadow: 6px 6px 0px 0px #363748 !important;
+  box-shadow: 6px 6px 0px 0px var(--card-border) !important;
   overflow-x: auto !important;
   font-family: 'Menlo', 'Monaco', 'Courier New', monospace !important;
   line-height: 1.6 !important;
@@ -38,12 +54,42 @@ pre, pre.hljs-line-numbers, pre[class*="language-"], .code-block pre {
 /* Base Code Styling */
 code, code.hljs, pre code, .code-block code {
   background: transparent !important;
-  color: #e2e8f0 !important;
+  color: var(--code-text, #e2e8f0) !important;
   padding: 0 !important;
   font-size: 1em !important;
   line-height: 1.6 !important;
   font-family: 'Menlo', 'Monaco', 'Courier New', monospace !important;
   text-shadow: none !important;
+}
+
+/* DARK AND LIGHT THEME VARIABLES FOR CODE BLOCKS */
+:root {
+  --code-bg: #1a1a2e;
+  --code-text: #e2e8f0;
+  --code-comment: #8892b0;
+  --code-punctuation: #9CDCFE;
+  --code-keyword: #569CD6;
+  --code-string: #CE9178;
+  --code-function: #DCDCAA;
+  --code-variable: #9CDCFE;
+  --code-number: #FF9D00;
+  --code-operator: #D4D4D4;
+  --code-special: #4EC9B0;
+}
+
+/* Light theme overrides */
+:root:not(.dark-theme) {
+  --code-bg: #f8f9fc;
+  --code-text: #1e293b;
+  --code-comment: #6b7280;
+  --code-punctuation: #1e40af;
+  --code-keyword: #0369a1;
+  --code-string: #a21caf;
+  --code-function: #b45309;
+  --code-variable: #1e40af;
+  --code-number: #ca8a04;
+  --code-operator: #374151;
+  --code-special: #047857;
 }
 
 /* Syntax highlighting colors - Universal */
@@ -52,12 +98,12 @@ code, code.hljs, pre code, .code-block code {
 .token.doctype,
 .token.cdata,
 .hljs-comment {
-  color: #8892b0 !important;
+  color: var(--code-comment) !important;
 }
 
 .token.punctuation,
 .hljs-punctuation {
-  color: #9CDCFE !important;
+  color: var(--code-punctuation) !important;
 }
 
 .token.property,
@@ -68,7 +114,7 @@ code, code.hljs, pre code, .code-block code {
 .token.symbol,
 .hljs-number,
 .hljs-boolean {
-  color: #FF9D00 !important;
+  color: var(--code-number) !important;
 }
 
 .token.selector,
@@ -77,7 +123,7 @@ code, code.hljs, pre code, .code-block code {
 .token.char,
 .token.builtin,
 .hljs-string {
-  color: #CE9178 !important;
+  color: var(--code-string) !important;
 }
 
 .token.operator,
@@ -86,26 +132,26 @@ code, code.hljs, pre code, .code-block code {
 .language-css .token.string,
 .style .token.string,
 .hljs-operator {
-  color: #D4D4D4 !important;
+  color: var(--code-operator) !important;
 }
 
 .token.atrule,
 .token.attr-value,
 .token.keyword,
 .hljs-keyword {
-  color: #569CD6 !important;
+  color: var(--code-keyword) !important;
 }
 
 .token.function,
 .hljs-function {
-  color: #DCDCAA !important;
+  color: var(--code-function) !important;
 }
 
 .token.regex,
 .token.important,
 .token.variable,
 .hljs-variable {
-  color: #9CDCFE !important;
+  color: var(--code-variable) !important;
 }
 
 /* SPECIFIC SYNTAX PATTERNS */
@@ -115,7 +161,7 @@ code, code.hljs, pre code, .code-block code {
 span[class*="console"],
 .console-log .console,
 .console-log-example .console {
-  color: #4EC9B0 !important;
+  color: var(--code-special) !important;
 }
 
 .log, 
@@ -123,7 +169,7 @@ span[class*="console"],
 span[class*="log"],
 .console-log .log,
 .console-log-example .log {
-  color: #4EC9B0 !important;
+  color: var(--code-special) !important;
 }
 
 /* Print function specific */
@@ -131,7 +177,7 @@ span[class*="log"],
 [class*="print"],
 span[class*="print"],
 .print-example .print {
-  color: #4EC9B0 !important;
+  color: var(--code-special) !important;
 }
 
 /* String values */
@@ -140,7 +186,7 @@ span[class*="print"],
 span[class*="string"],
 .hello-world,
 .code .hello-world {
-  color: #CE9178 !important;
+  color: var(--code-string) !important;
 }
 
 /* JavaScript code block */
@@ -148,8 +194,8 @@ code .language-javascript,
 pre .language-javascript,
 code.language-javascript,
 pre.language-javascript {
-  background-color: #1a1a2e !important;
-  color: #e2e8f0 !important;
+  background-color: var(--code-bg) !important;
+  color: var(--code-text) !important;
 }
 
 /* Python code block */
@@ -157,18 +203,8 @@ code .language-python,
 pre .language-python,
 code.language-python, 
 pre.language-python {
-  background-color: #1a1a2e !important;
-  color: #e2e8f0 !important;
-}
-
-/* Make sure dark theme doesn't override these styles */
-.dark-theme pre,
-.dark-theme code,
-html body.dark-theme pre,
-html body.dark-theme code {
-  background-color: #1a1a2e !important;
-  color: #e2e8f0 !important;
-  border-color: #333 !important;
+  background-color: var(--code-bg) !important;
+  color: var(--code-text) !important;
 }
 
 /* Force these styles to apply everywhere */
@@ -176,18 +212,18 @@ html body.dark-theme code {
 .console-log-example pre code .log,
 pre code .console,
 pre code .log {
-  color: #4EC9B0 !important;
+  color: var(--code-special) !important;
 }
 
 .print-example pre code .print,
 pre code .print {
-  color: #4EC9B0 !important;
+  color: var(--code-special) !important;
 }
 
 .console-log-example pre code .string,
 .print-example pre code .string,
 pre code .string {
-  color: #CE9178 !important;
+  color: var(--code-string) !important;
 }
 
 /* Make sure strings are properly colored */
@@ -195,7 +231,7 @@ pre code span[class*="string"],
 pre code span[class*="console"],
 pre code span[class*="log"],
 pre code span[class*="print"] {
-  color: #CE9178 !important;
+  color: var(--code-string) !important;
 }
 
 /* Add more specific styles as needed */

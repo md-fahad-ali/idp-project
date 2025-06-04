@@ -5,6 +5,7 @@ import { Sparkles, BookOpen, BarChart } from 'lucide-react';
 interface IUser {
   firstName: string;
   lastName: string;
+  points?: number;
 }
 
 interface WelcomeCardProps {
@@ -44,9 +45,9 @@ export default function WelcomeCard({ user }: WelcomeCardProps) {
                 {getGreeting()}, {user.firstName}!
               </h1>
             </div>
-            <div className="bg-[var(--yellow-light)] border-2 border-[var(--card-border)] rounded-md py-1.5 px-3 shadow-[2px_2px_0px_0px_var(--card-border)] inline-flex items-center mt-2 md:mt-0">
-              <Sparkles size={16} className="mr-1" />
-              <span className="text-sm font-bold">175 points</span>
+            <div className="bg-[#FFD700] border-2 border-[var(--card-border)] rounded-md py-1.5 px-3 shadow-[4px_4px_0px_0px_var(--card-border)] inline-flex items-center mt-2 md:mt-0">
+              <Sparkles size={16} className="mr-1 text-black" />
+              <span className="text-sm font-bold text-black">{user.points || 0} points</span>
             </div>
           </div>
           
@@ -83,12 +84,12 @@ export default function WelcomeCard({ user }: WelcomeCardProps) {
           </div>
           
           <div className="flex flex-wrap gap-3 mt-auto">
-            <Link href="/dashboard/courses">
+            <Link href="/courses">
               <button className="bg-[var(--purple-primary)] text-white border-2 border-[var(--card-border)] rounded-md py-2 px-4 shadow-[2px_2px_0px_0px_var(--card-border)] hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_var(--card-border)] transition-all font-medium text-sm">
                 Browse Courses
               </button>
             </Link>
-            <Link href="/dashboard/progress">
+            <Link href="">
               <button className="bg-[var(--card-bg)] text-[var(--text-color)] border-2 border-[var(--card-border)] rounded-md py-2 px-4 shadow-[2px_2px_0px_0px_var(--card-border)] hover:translate-y-0.5 hover:shadow-[1px_1px_0px_0px_var(--card-border)] transition-all font-medium text-sm">
                 View Progress
               </button>

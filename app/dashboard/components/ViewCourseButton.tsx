@@ -131,7 +131,7 @@ export function LeaderboardButton({
     <Link
       href={getLeaderboardUrl()}
       onClick={handleLeaderboardClick}
-      className={`px-3 py-2 bg-[#4CAF50] text-white font-bold rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 text-sm ${className} ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+      className={`px-3 py-2 bg-[#4CAF50] text-white font-bold rounded-md border-2 border-[var(--card-border)] shadow-[2px_2px_0px_0px_var(--card-border)] hover:shadow-[4px_4px_0px_0px_var(--card-border)] transition-all duration-200 text-sm ${className} ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
     >
       {isLoading ? (
         <Loader2 size={14} className="inline mr-1 animate-spin" />
