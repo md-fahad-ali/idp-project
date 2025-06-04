@@ -148,10 +148,27 @@ export default function CourseDetailPage() {
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [completionMessage, setCompletionMessage] = useState<string>('');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Client-side rendering state
   const [isClient, setIsClient] = useState(false);
+
+  // Check authentication and redirect if not logged in
+  useEffect(() => {
+    if (isClient) {
+      if (!token) {
+        console.log('No authentication token found, redirecting to login page');
+        // Small delay to avoid flickering in case there's a token but it hasn't loaded yet
+        const redirectTimer = setTimeout(() => {
+          router.push('/auth/login?redirect=' + encodeURIComponent(window.location.pathname));
+        }, 500);
+        return () => clearTimeout(redirectTimer);
+      } else {
+        setIsAuthChecking(false);
+      }
+    }
+  }, [isClient, token, router]);
 
   useEffect(() => {
     setIsClient(true);
@@ -221,8 +238,8 @@ export default function CourseDetailPage() {
     }
   }, [progressData, course]);
 
-  // Simple loading state
-  const loading = (!courseData && !courseError);
+  // Update the loading check to include auth checking state
+  const loading = (!courseData && !courseError) || isAuthChecking;
 
   // Show not found message if needed
   const [courseNotFound, setCourseNotFound] = useState(false);
@@ -439,7 +456,9 @@ export default function CourseDetailPage() {
     return (
       <div className="min-h-screen pt-[100px] bg-[var(--background-color)] flex flex-col items-center justify-center text-[var(--text-color)]">
        <Loading />
-        <p className="mt-4 text-[var(--text-color)]">Loading course content...</p>
+        <p className="mt-4 text-[var(--text-color)]">
+          {isAuthChecking ? "Checking authentication..." : "Loading course content..."}
+        </p>
         <div className="w-64 h-2 bg-gray-200 rounded-full mt-4 overflow-hidden">
           <div className="h-full bg-[var(--purple-primary)] animate-pulse rounded-full"></div>
       </div>
