@@ -15,7 +15,8 @@ export default function GlobalError({
   }, [error]);
 
   return (
-
+    <html lang="en">
+      <body>
         <div className="min-h-screen flex items-center justify-center bg-[#2f235a] text-white p-4">
           <div className="bg-[#1d1433] border-4 border-black rounded-lg p-8 shadow-[8px_8px_0px_0px_#000000] max-w-md w-full">
             <div className="flex flex-col items-center mb-6">
@@ -50,6 +51,7 @@ export default function GlobalError({
             </button>
           </div>
         </div>
-    
+      </body>
+    </html>
   );
 } 
