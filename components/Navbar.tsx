@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import Avatar from "boring-avatars";
+import Image from "next/image";
 
 const Navbar = ({
   access_token,
@@ -26,6 +27,9 @@ const Navbar = ({
   
   // Store last auth timestamp to detect changes
   const [lastAuthTimestamp, setLastAuthTimestamp] = useState<string | null>(null);
+
+  // Get the appropriate logo based on theme
+  const logoSrc = isDarkMode ? "/logo-dark.svg" : "/logo-white.svg";
 
   const navItems = [
     { name: "Home", href: "/" },
@@ -168,8 +172,17 @@ const Navbar = ({
       {/* Desktop Menu */}
       <div className="hidden md:flex justify-between items-center max-w-7xl mx-auto px-4 py-4">
         <div className="flex items-center">
-          <Link href="/" className="text-2xl font-bold text-[var(--navbar-text)] font-mono mr-8">
-            SkillStreet
+          <Link href="/" className="mr-8 flex items-center">
+            <div className="h-12 w-12 relative">
+              <Image 
+                src={logoSrc}
+                alt="SkillStreet Logo" 
+                fill
+                sizes="48px"
+                priority
+                style={{ objectFit: 'contain' }}
+              />
+            </div>
           </Link>
           <div className="flex space-x-6">
             {navItems.map((item) => {
@@ -244,9 +257,18 @@ const Navbar = ({
       {/* Mobile Menu Button */}
       <div className="md:hidden flex justify-between items-center px-4 py-3">
         <div className="flex items-center overflow-x-auto scrollbar-hide w-3/4">
-          <a href="/" className="text-xl font-bold text-[var(--navbar-text)] font-mono whitespace-nowrap mr-4">
-            SkillStreet
-          </a>
+          <Link href="/" className="whitespace-nowrap mr-4 flex items-center">
+            <div className="h-10 w-30 sm:w-10 relative">
+              <Image 
+                src={logoSrc}
+                alt="SkillStreet Logo" 
+                fill
+                sizes="40px"
+                priority
+                style={{ objectFit: 'contain' }}
+              />
+            </div>
+          </Link>
           {/* Hide navigation links in mobile view */}
           <div className="hidden">
             {navItems.map((item) => {
@@ -324,9 +346,18 @@ const Navbar = ({
         <div className="flex flex-col h-full p-8">
           {/* Header with close button */}
           <div className="flex justify-between items-center mb-8">
-            <a href="/" className="text-3xl font-bold text-white">
-              SkillStreet
-            </a>
+            <Link href="/" className="text-3xl font-bold text-white flex items-center">
+              <div className="h-12 w-12 relative">
+                <Image 
+                  src="/logo-dark.svg" 
+                  alt="SkillStreet Logo"
+                  fill
+                  sizes="48px"
+                  priority
+                  style={{ objectFit: 'contain' }}
+                />
+              </div>
+            </Link>
             <button
               className="text-white"
               onClick={() => setIsOpen(false)}
