@@ -215,11 +215,15 @@ nextApp
             }
             // Update user activity status
             try {
+                const currentTime = new Date();
+                // Update UserActivity model
                 await UserActivity_1.default.findOneAndUpdate({ userId }, {
                     userId,
                     isActive: true,
-                    lastActive: new Date()
+                    lastActive: currentTime
                 }, { upsert: true });
+                // Also update User's lastActive field
+                await User_1.default.findByIdAndUpdate(userId, { lastActive: currentTime }, { new: true });
             }
             catch (error) {
                 console.error('Error updating user activity:', error);

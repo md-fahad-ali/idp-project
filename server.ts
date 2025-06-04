@@ -104,10 +104,23 @@ nextApp
     server.use(express.json());  // Use express.json() instead of bodyParser
     server.use(cookieParser.default());
 
-    // CORS configuration
+    // CORS configuration with support for Render domains
+    const corsOrigins = ['http://localhost:3000'];
+    
+    // In production, add Render domain
+    if (process.env.NODE_ENV === 'production') {
+      // Support any Render domain including custom domains
+      corsOrigins.push(process.env.RENDER_EXTERNAL_URL || '');
+      
+      // Add support for custom domains if configured
+      if (process.env.CUSTOM_DOMAIN) {
+        corsOrigins.push(`https://${process.env.CUSTOM_DOMAIN}`);
+      }
+    }
+    
     server.use(
       cors.default({
-        origin: ['http://localhost:3000'],
+        origin: corsOrigins,
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE'],
         allowedHeaders: ['Content-Type', 'Authorization'],
@@ -117,6 +130,11 @@ nextApp
 
     // Initialize Passport
     server.use(passport.initialize());
+
+    // Health check endpoint for Render
+    server.get('/api/health', (req, res) => {
+      res.status(200).json({ status: 'ok', message: 'Server is running' });
+    });
 
     // Check database connection
     try {

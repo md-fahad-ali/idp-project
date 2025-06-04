@@ -48,7 +48,8 @@ const UserSchema = new mongoose_1.Schema({
         brained: { type: Number, default: 0 }, // For challenge winners
         warrior: { type: Number, default: 0 }, // For tiebreaker winners who completed faster
         unbeatable: { type: Number, default: 0 } // For users with best score in a course
-    }
+    },
+    lastActive: { type: Date, default: Date.now } // Default to creation time
 });
 const User = mongoose_1.default.model('User', UserSchema);
 exports.default = User;
