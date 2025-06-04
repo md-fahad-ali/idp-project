@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
+
 const nextConfig = {
   typescript: {
     // !! WARN !!
@@ -59,7 +61,11 @@ const nextConfig = {
       {
         source: '/api/leaderboard',
         destination: '/api/leaderboard',
-      }
+      },
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:3000/api/:path*',
+      },
     ]
   },
   
@@ -87,7 +93,14 @@ const nextConfig = {
     
     // Return the modified config
     return config;
-  }
+  },
+  
+  // Disable 404 page pre-rendering specifically
+  pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
+  
+  sassOptions: {
+    includePaths: [path.join(__dirname, 'styles')],
+  },
 };
 
 module.exports = nextConfig; 
