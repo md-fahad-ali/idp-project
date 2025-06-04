@@ -16,8 +16,6 @@ const nextConfig = {
   },
   // Ensure clean URLs in dynamic routes
   cleanDistDir: true,
-  // Add output: 'standalone' for better deployment support
-  output: 'standalone',
   
   // Performance optimization flags
   reactStrictMode: false, // Disable strict mode in production for better performance
