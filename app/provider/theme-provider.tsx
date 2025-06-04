@@ -26,7 +26,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setMounted(true);
     
     try {
-      // Check for system preference if no saved preference
+      // Get current path
+      const currentPath = window.location.pathname;
+      
+      // Force dark mode on landing page
+      if (currentPath === '/') {
+        setTheme('dark');
+        applyTheme('dark');
+        // Optionally update localStorage to remember this setting
+        localStorage.setItem('darkMode', 'true');
+        return;
+      }
+      
+      // For other pages, follow normal theme logic
       const savedTheme = localStorage.getItem('darkMode');
       
       if (savedTheme === null && window.matchMedia) {

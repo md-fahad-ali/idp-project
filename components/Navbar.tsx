@@ -149,12 +149,12 @@ const Navbar = ({
 
     // Theme management
     if (typeof window !== 'undefined') {
-      // Force dark theme on homepage
-      if (pathname === '/') {
+      // No longer force dark theme on homepage
+      /*if (pathname === '/') {
         setIsDarkMode(true);
         document.documentElement.classList.add('dark-theme');
-      } else {
-        // For other pages, use saved preference
+      } else {*/
+        // For all pages, use saved preference
         const savedTheme = localStorage.getItem('darkMode') === 'true';
         setIsDarkMode(savedTheme);
         
@@ -163,7 +163,7 @@ const Navbar = ({
         } else {
           document.documentElement.classList.remove('dark-theme');
         }
-      }
+      //}
     }
   }, [access_token, fetchUserData, lastAuthTimestamp, pathname]);
 

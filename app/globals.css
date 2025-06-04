@@ -1293,3 +1293,18 @@ html {
   transform: translateY(0);
   box-shadow: 4px 4px 0px 0px var(--card-shadow);
 }
+
+/* Force dark theme on landing page */
+html:has(body > div[data-landing-page="true"]) {
+  --background-color: #130f40;
+  --text-color: #f5f6fa;
+  --navbar-bg: rgba(10, 10, 20, 0.8);
+  --navbar-text: #ffffff;
+  --card-bg: #1e272e;
+  --card-border: #2c3e50;
+  --card-shadow: 8px 8px 0px 0px #2c3e50;
+  --purple-primary: #9D4EDD;
+  --purple-secondary: #7B2CBF;
+  --purple-light: rgba(157, 78, 221, 0.1);
+  --text-secondary: #b2bec3;
+}
