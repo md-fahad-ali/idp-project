@@ -5,7 +5,7 @@ import Credits from '@/components/Credits'
 
 function Home() {
   return (
-    <div className="w-full">
+    <div className="w-full" data-landing-page="true">
       {/* Hero section - now scrollable */}
       <Hero />
       
