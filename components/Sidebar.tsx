@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { X, Menu } from 'lucide-react';
 import Link from 'next/link';
+import Avatar from 'boring-avatars';
 import { useDashboard } from '@/app/provider';
 
 interface User {
@@ -138,8 +139,12 @@ export default function Sidebar({ token }: { token: string | undefined }) {
             <div className="mt-auto border-t border-[var(--card-border)] pt-6">
               <div className={`${!isDarkMode ? 'bg-white shadow-[2px_2px_0px_0px_#ddd]' : 'bg-[var(--card-bg)]'} p-4 rounded-md border-2 ${!isDarkMode ? 'border-[#ddd]' : 'border-[var(--card-border)]'} mb-4 ${isDarkMode ? 'shadow-[2px_2px_0px_0px_var(--card-border)]' : ''}`}>
                 <div className="flex flex-col items-center mb-3">
-                  <div className="w-14 h-14 bg-[var(--purple-primary)] rounded-full flex items-center justify-center text-white font-bold text-lg mb-3">
-                    {user.firstName?.charAt(0) || 'U'}
+                  <div className="mb-3">
+                    <Avatar 
+                      name={`${user.firstName} ${user.lastName}`}
+                      variant="beam"
+                      size={56}
+                    />
                   </div>
                   <div className="text-center">
                     <h3 className="font-bold text-[var(--text-color)]">{user.firstName} {user.lastName}</h3>
@@ -187,8 +192,13 @@ export default function Sidebar({ token }: { token: string | undefined }) {
             <div className="mt-auto pt-6 border-t border-[var(--card-border)]">
               <div className={`${!isDarkMode ? 'bg-white shadow-[2px_2px_0px_0px_#ddd]' : 'bg-[var(--card-bg)]'} p-4 rounded-md border-2 ${!isDarkMode ? 'border-[#ddd]' : 'border-[var(--card-border)]'} ${isDarkMode ? 'shadow-[2px_2px_0px_0px_var(--card-border)]' : ''}`}>
                 <div className="flex flex-col items-center mb-3">
-                  <div className="w-16 h-16 bg-[var(--purple-primary)] rounded-full flex items-center justify-center text-white font-bold text-xl mb-3">
-                    {user.firstName?.charAt(0) || 'U'}
+                  <div className="mb-3">
+                    <Avatar 
+                      name={`${user.firstName} ${user.lastName}`}
+                      variant="beam"
+                      size={64}
+                      className=""
+                    />
                   </div>
                   <div className="text-center">
                     <h3 className="font-bold text-[var(--text-color)]">{user.firstName} {user.lastName}</h3>

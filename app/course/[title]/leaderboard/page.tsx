@@ -706,10 +706,13 @@ export default function CourseLeaderboardPage() {
     }
   };
 
-  // Update the renderChallengeButton function to check if user is online and hide for Ali Baset
+  // Update the renderChallengeButton function to check if user is online and hide for offline users
   const renderChallengeButton = (entry: EnhancedLeaderboardEntry) => {
-    // Don't show challenge button for Ali Baset
-    if (entry.firstName === 'Ali' && entry.lastName === 'Baset') {
+    // Check if user is active/online
+    const isOnline = isUserActive(entry._id);
+    
+    // Don't show challenge button for offline users
+    if (!isOnline) {
       return (
         <span className="text-xs text-[var(--text-secondary)] italic px-3 py-1">
           Offline
@@ -717,7 +720,7 @@ export default function CourseLeaderboardPage() {
       );
     }
     
-    // Always show Challenge button for all other users (for debugging)
+    // Show Challenge button only for online users
     return (
       <button 
         className="px-3 py-1 bg-[var(--yellow-light)] text-black text-sm font-bold rounded border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[2px_2px_0px_0px_var(--card-border)] transition-all duration-200"
@@ -987,20 +990,11 @@ export default function CourseLeaderboardPage() {
                       <span className="text-xl sm:text-2xl font-bold">#{userRank}</span>
                     </div>
                     <div className="flex-shrink-0 w-10 h-10 bg-[var(--purple-primary)] rounded-full overflow-hidden border-2 border-[var(--card-border)] ml-2">
-                      {dashboardUser && dashboardUser.avatarUrl ? (
-                        <img
-                          src={dashboardUser.avatarUrl}
-                          alt={`${dashboardUser.firstName}'s avatar`}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <Avatar
-                          size={40}
-                          name={dashboardUser._id || 'user'}
-                          variant="beam" 
-                          colors={['#92A1C6', '#146A7C', '#F0AB3D', '#C271B4', '#C20D90']}
-                        />
-                      )}
+                      <Avatar
+                        size={36}
+                        name={`${user.firstName} ${user.lastName}`}
+                        variant="beam"
+                      />
                     </div>
                     <div className="ml-4">
                       <h3 className="font-bold text-[var(--text-color)]">
@@ -1116,20 +1110,11 @@ export default function CourseLeaderboardPage() {
                     </div>
                     {/* Avatar */}
                     <div className="flex-shrink-0 w-10 h-10 bg-[var(--purple-primary)] rounded-full overflow-hidden border-2 border-[var(--card-border)] ml-2">
-                      {myEntry.avatarUrl ? (
-                        <img 
-                          src={myEntry.avatarUrl} 
-                          alt={`${myEntry.firstName}'s avatar`}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <Avatar
-                          size={40}
-                          name={myEntry._id}
-                          variant="pixel"
-                          colors={['#92A1C6', '#146A7C', '#F0AB3D', '#C271B4', '#C20D90']}
-                        />
-                      )}
+                      <Avatar
+                        size={36}
+                        name={`${myEntry.firstName} ${myEntry.lastName}`}
+                        variant="beam"
+                      />
                     </div>
                     {/* User Info */}
                     <div className="ml-3">
@@ -1222,20 +1207,11 @@ export default function CourseLeaderboardPage() {
                         </div>
                         {/* Avatar */}
                         <div className="flex-shrink-0 w-10 h-10 bg-[var(--purple-primary)] rounded-full overflow-hidden border-2 border-[var(--card-border)] ml-2">
-                          {entry.avatarUrl ? (
-                            <img 
-                              src={entry.avatarUrl} 
-                              alt={`${entry.firstName}'s avatar`}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <Avatar
-                              size={40}
-                              name={entry._id}
-                              variant="pixel"
-                              colors={['#92A1C6', '#146A7C', '#F0AB3D', '#C271B4', '#C20D90']}
-                            />
-                          )}
+                          <Avatar
+                            size={36}
+                            name={`${entry.firstName} ${entry.lastName}`}
+                            variant="beam"
+                          />
                         </div>
                         {/* User Info */}
                         <div className="ml-3">
@@ -1296,13 +1272,7 @@ export default function CourseLeaderboardPage() {
                       </div>
                       {/* Challenge button logic for others */}
                       <div className="mt-1">
-                        {entry.firstName === 'Ali' && entry.lastName === 'Baset' ? (
-                          <span className="text-xs text-[var(--text-secondary)] italic px-3 py-1">
-                            Offline
-                          </span>
-                        ) : (
-                          renderChallengeButton(entry)
-                        )}
+                        {renderChallengeButton(entry)}
                       </div>
                     </div>
                   </motion.div>

@@ -178,10 +178,9 @@ export default function RankingsPage() {
                         />
                       ) : (
                         <Avatar
-                          size={40}
-                          name={user._id}
+                          size={36}
+                          name={`${user.firstName} ${user.lastName}`}
                           variant="beam"
-                          colors={["#6016a7", "#9D4EDD", "#FFD700", "#5CDB95", "#E6F1FF"]}
                         />
                       )}
                     </div>
@@ -244,10 +243,9 @@ export default function RankingsPage() {
                         />
                       ) : (
                         <Avatar
-                          size={40}
-                          name={entry._id}
+                          size={36}
+                          name={`${entry.firstName} ${entry.lastName}`}
                           variant="beam"
-                          colors={["#6016a7", "#9D4EDD", "#FFD700", "#5CDB95", "#E6F1FF"]}
                         />
                       )}
                     </div>
