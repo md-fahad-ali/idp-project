@@ -59,6 +59,7 @@ const getCookies = async () => {
 const NavbarComponent = dynamic(() => import("@/components/Navbar"));
 const SidebarComponent = dynamic(() => import("@/components/Sidebar"));
 const ContentWrapper = dynamic(() => import("@/components/ContentWrapper"));
+const FooterComponent = dynamic(() => import("@/components/Footer"));
 
 export default async function RootLayout({
   children,
@@ -96,6 +97,7 @@ export default async function RootLayout({
               <ContentWrapper>
                 {children}
               </ContentWrapper>
+              {/* <FooterComponent /> */}
               <GlobalNotifications />
               <RoomControls />
             </ActivityProvider>
