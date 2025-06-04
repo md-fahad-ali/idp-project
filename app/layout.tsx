@@ -69,6 +69,24 @@ export default async function RootLayout({
   
   return (
     <html lang="en">
+      <head>
+        {/* Script to prevent flash of light theme on landing page */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            try {
+              // Check if we're on the landing page (root path)
+              if (window.location.pathname === '/' || window.location.pathname === '') {
+                // Immediately apply dark theme classes
+                document.documentElement.classList.add('dark-theme');
+                // Set localStorage to remember this setting
+                localStorage.setItem('darkMode', 'true');
+              }
+            } catch(e) {
+              console.error("Theme initialization error:", e);
+            }
+          })();
+        `}} />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} ${inter.className} ${dmMono.variable} antialiased`}>
         <ThemeWrapper>
           <DashboardProvider initialToken={token}>

@@ -1308,3 +1308,29 @@ html:has(body > div[data-landing-page="true"]) {
   --purple-light: rgba(157, 78, 221, 0.1);
   --text-secondary: #b2bec3;
 }
+
+/* Placeholder styles for dark mode */
+.dark-theme input::placeholder,
+.dark-theme textarea::placeholder {
+  color: #94a3b8 !important; /* slate-400 */
+  opacity: 1;
+}
+
+/* Add styles for when dark theme is applied through the html element */
+html.dark-theme input::placeholder,
+html.dark-theme textarea::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1;
+}
+
+/* Make all input fields in dark theme have proper styling */
+.dark-theme input[type="text"],
+.dark-theme input[type="email"],
+.dark-theme input[type="password"],
+.dark-theme input[type="search"],
+.dark-theme input[type="number"],
+.dark-theme textarea {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-color: #475569 !important;
+}
