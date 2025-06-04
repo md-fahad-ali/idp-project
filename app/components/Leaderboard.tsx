@@ -159,9 +159,9 @@ export default function Leaderboard({ currentUserId, courseId, isAdmin }: Leader
                 <div className="flex-shrink-0 w-10 h-10 bg-[#9D4EDD] rounded-full overflow-hidden border-2 border-black">
                   <Avatar 
                     name={`${entry.firstName} ${entry.lastName}`}
-                    variant="beam"
+                      variant="beam"
                     size={36}
-                  />
+                    />
                 </div>
 
                 {/* User Info */}

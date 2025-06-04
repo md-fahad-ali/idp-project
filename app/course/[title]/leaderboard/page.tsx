@@ -990,11 +990,11 @@ export default function CourseLeaderboardPage() {
                       <span className="text-xl sm:text-2xl font-bold">#{userRank}</span>
                     </div>
                     <div className="flex-shrink-0 w-10 h-10 bg-[var(--purple-primary)] rounded-full overflow-hidden border-2 border-[var(--card-border)] ml-2">
-                      <Avatar
+                        <Avatar
                         size={36}
                         name={`${user.firstName} ${user.lastName}`}
-                        variant="beam"
-                      />
+                          variant="beam" 
+                        />
                     </div>
                     <div className="ml-4">
                       <h3 className="font-bold text-[var(--text-color)]">
@@ -1110,11 +1110,11 @@ export default function CourseLeaderboardPage() {
                     </div>
                     {/* Avatar */}
                     <div className="flex-shrink-0 w-10 h-10 bg-[var(--purple-primary)] rounded-full overflow-hidden border-2 border-[var(--card-border)] ml-2">
-                      <Avatar
+                        <Avatar
                         size={36}
                         name={`${myEntry.firstName} ${myEntry.lastName}`}
-                        variant="beam"
-                      />
+                          variant="beam"
+                        />
                     </div>
                     {/* User Info */}
                     <div className="ml-3">
@@ -1207,7 +1207,7 @@ export default function CourseLeaderboardPage() {
                         </div>
                         {/* Avatar */}
                         <div className="flex-shrink-0 w-10 h-10 bg-[var(--purple-primary)] rounded-full overflow-hidden border-2 border-[var(--card-border)] ml-2">
-                          <Avatar
+                            <Avatar
                             size={36}
                             name={`${entry.firstName} ${entry.lastName}`}
                             variant="beam"
