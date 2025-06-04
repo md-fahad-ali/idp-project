@@ -169,11 +169,11 @@ export default function DashboardPage() {
     setCurrentPage(newPage);
     fetchCourses(newPage);
     
-    // Scroll to the courses section
-    const coursesElement = document.getElementById('courses-section');
-    if (coursesElement) {
-      coursesElement.scrollIntoView({ behavior: 'smooth' });
-    }
+    // Remove automatic scrolling to prevent jumping to the top
+    // const coursesElement = document.getElementById('courses-section');
+    // if (coursesElement) {
+    //   coursesElement.scrollIntoView({ behavior: 'smooth' });
+    // }
   };
 
   console.log(user);

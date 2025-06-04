@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useDashboard } from "../../provider";
@@ -199,7 +199,10 @@ export default function CourseDetailPage() {
 
   // Get current lesson, prioritize full content from lessonData if available
   const currentLesson = course?.lessons?.[activeLesson];
-  const currentLessonContent = lessonData?.lesson?.content || currentLesson?.content;
+  const currentLessonContent = useMemo(() => {
+    const content = lessonData?.lesson?.content || currentLesson?.content;
+    return content ? processHtmlContent(content) : null;
+  }, [lessonData?.lesson?.content, currentLesson?.content]);
 
   // Check if course is already completed
   useEffect(() => {
@@ -393,7 +396,7 @@ export default function CourseDetailPage() {
 
     // Set up mutation observer to catch dynamically inserted code blocks
     const observer = new MutationObserver((mutations) => {
-      highlightCodeBlocks();
+        highlightCodeBlocks();
     });
 
     const timeoutId = setTimeout(() => {
@@ -479,7 +482,7 @@ export default function CourseDetailPage() {
             transition={{ duration: 0.5 }}
           >
             <motion.div 
-              className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 shadow-[8px_8px_0px_0px_#000000] mb-8" 
+              className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-6 shadow-[8px_8px_0px_0px_var(--card-border)] mb-8" 
             >
               <div className="flex flex-col justify-between items-center mb-4">
                 <div className="flex flex-col space-y-2">
@@ -499,7 +502,7 @@ export default function CourseDetailPage() {
                   >
                     <Link
                       href={`/test/${titleSlug}`}
-                      className={`px-5 py-2.5 ${isDarkMode ? "bg-purple-700 hover:bg-purple-800 text-white" : "bg-[#FFD700] hover:bg-[#F0C800] text-black border-2 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] hover:-translate-y-1"} rounded-md font-medium transition-all duration-200 flex items-center space-x-1`}
+                      className={`px-5 py-2.5 ${isDarkMode ? "bg-[var(--purple-primary)] hover:bg-[var(--purple-secondary)] text-white" : "bg-[#FFD700] hover:bg-[#F0C800] text-black"} border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[6px_6px_0px_0px_var(--card-border)] hover:-translate-y-1 rounded-md font-medium transition-all duration-200 flex items-center space-x-1`}
                       prefetch={true}
                       data-tooltip-id="test-tooltip"
                       data-tooltip-content="AI will generate questions for you"
@@ -523,10 +526,10 @@ export default function CourseDetailPage() {
                   <motion.button
                     key={index}
                     onClick={() => setActiveLesson(index)}
-                    className={`w-full p-3 text-left border-2 border-black rounded-md transition-all duration-200 text-sm font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--purple-primary)] ${
+                    className={`w-full p-3 text-left border-2 border-[var(--card-border)] rounded-md transition-all duration-200 text-sm font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--purple-primary)] ${
                       activeLesson === index
-                        ? "bg-[var(--purple-primary)] text-white shadow-[4px_4px_0px_0px_#000000]"
-                        : "bg-[var(--card-bg)] text-[var(--text-color)] hover:bg-[var(--purple-light)] shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000]"
+                        ? "bg-[var(--purple-primary)] text-white shadow-[4px_4px_0px_0px_var(--card-border)]"
+                        : "bg-[var(--card-bg)] text-[var(--text-color)] hover:bg-[var(--purple-light)] shadow-[2px_2px_0px_0px_var(--card-border)] hover:shadow-[4px_4px_0px_0px_var(--card-border)]"
                     }`}
                     aria-label={`Select lesson: ${lesson.title}`}
                     tabIndex={0}
@@ -553,7 +556,7 @@ export default function CourseDetailPage() {
           >
             {/* Course Header */}
             <motion.div 
-              className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]" 
+              className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_var(--card-border)]" 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
@@ -572,7 +575,7 @@ export default function CourseDetailPage() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4, duration: 0.5 }}
               >
-                <span className="text-sm bg-[var(--card-bg)] text-[var(--text-color)] px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000] mr-3">
+                <span className="text-sm bg-[var(--card-bg)] text-[var(--text-color)] px-3 py-1 rounded-md border-2 border-[var(--card-border)] shadow-[2px_2px_0px_0px_var(--card-border)] mr-3">
                   {course.category}
                 </span>
                 <span className="text-xs text-[var(--text-color)]">
@@ -596,7 +599,7 @@ export default function CourseDetailPage() {
                 <div className="text-xs text-[var(--text-color)]">
                   Created: {new Date(course.createdAt).toISOString().split('T')[0]}
                 </div>
-                <div className="text-sm bg-[#FFD700] text-black px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
+                <div className="text-sm bg-[#FFD700] text-black px-3 py-1 rounded-md border-2 border-[var(--card-border)] shadow-[2px_2px_0px_0px_var(--card-border)]">
                   Lessons: {course.lessons.length}
                 </div>
               </motion.div>
@@ -604,7 +607,7 @@ export default function CourseDetailPage() {
 
             {/* Course Completion Section */}
             <motion.div 
-              className="bg-[var(--card-bg)] border-4 border-black rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_#000000]"
+              className="bg-[var(--card-bg)] border-4 border-[var(--card-border)] rounded-lg p-6 mb-8 shadow-[8px_8px_0px_0px_var(--card-border)]"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
@@ -652,12 +655,12 @@ export default function CourseDetailPage() {
                 <motion.button
                   onClick={handleCompleteCourse}
                   disabled={isCompleted || isCompleting}
-                  className={`px-4 py-2 border-2 border-black rounded-md shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 font-bold ${
+                  className={`px-4 py-2 border-2 border-[var(--card-border)] rounded-md shadow-[4px_4px_0px_0px_var(--card-border)] transition-all duration-200 font-bold ${
                     isCompleted
                       ? 'bg-[#5CDB95] text-black cursor-not-allowed'
                       : isCompleting
                       ? 'bg-[#8892B0] text-[var(--text-color)] cursor-wait'
-                      : 'bg-[#FFD700] text-black hover:bg-[#FFC000] hover:shadow-[6px_6px_0px_0px_#000000]'
+                      : 'bg-[#FFD700] text-black hover:bg-[#FFC000] hover:shadow-[6px_6px_0px_0px_var(--card-border)]'
                   }`}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -690,23 +693,23 @@ export default function CourseDetailPage() {
             >
               <motion.h2 
                 variants={itemVariants}
-                className="text-xl md:text-2xl font-bold mb-4 text-white"
+                className="text-xl md:text-2xl font-bold mb-4 text-[var(--text-color)]"
               >
                 {course.lessons[activeLesson]?.title || "Lesson Content"}
               </motion.h2>
 
               <motion.div 
                 variants={itemVariants}
-                className="p-4 sm:p-6 shadow-lg rounded-lg bg-[#1a2333] border-2 border-blue-500 h-full overflow-y-auto"
+                className="p-4 sm:p-6 shadow-lg rounded-lg bg-[var(--card-bg)] border-2 border-[var(--card-border)] h-full overflow-y-auto"
                 key={`lesson-container-${activeLesson}`}
               >
                 <div
-                  ref={contentRef}
-                  className="prose prose-invert max-w-none prose-headings:text-blue-300 prose-a:text-blue-400 prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0"
-                  suppressHydrationWarning={true}
+                ref={contentRef}
+                  className="prose max-w-none prose-headings:text-[var(--purple-primary)] prose-a:text-[var(--purple-primary)] prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0 text-[var(--text-color)] prose-p:text-[var(--text-color)] prose-strong:text-[var(--text-color)] prose-ol:text-[var(--text-color)] prose-ul:text-[var(--text-color)] prose-li:text-[var(--text-color)] prose-blockquote:text-[var(--text-color)] prose-figcaption:text-[var(--text-color)] prose-hr:border-[var(--text-color)]"
+                suppressHydrationWarning={true}
                   dangerouslySetInnerHTML={{ 
                     __html: currentLessonContent || 
-                      `<div class="text-center text-gray-400">
+                      `<div class="text-center text-[var(--text-secondary)]">
                         <p>No content available for this lesson.</p>
                         ${course && course.lessons && course.lessons[activeLesson] && !course.lessons[activeLesson]._hasFullContent ? 
                           `<p class="text-sm mt-2">Loading full lesson content...</p>` : ''}
@@ -722,13 +725,13 @@ export default function CourseDetailPage() {
                     className={`px-4 py-2 rounded-lg ${
                       activeLesson === 0
                         ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                        : "bg-blue-600 text-white hover:bg-blue-700"
-                    } transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+                        : "bg-[var(--purple-primary)] text-white hover:bg-[var(--purple-secondary)]"
+                    } transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--purple-primary)] focus:ring-opacity-50`}
                   >
                     ← Previous
                   </button>
                   <div className="text-center">
-                    <span className="text-gray-400 text-sm">
+                    <span className="text-[var(--text-secondary)] text-sm">
                       Lesson {activeLesson + 1} of {course?.lessons?.length || 0}
                     </span>
                   </div>
@@ -742,8 +745,8 @@ export default function CourseDetailPage() {
                     className={`px-4 py-2 rounded-lg ${
                       !course?.lessons || activeLesson >= course.lessons.length - 1
                         ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                        : "bg-blue-600 text-white hover:bg-blue-700"
-                    } transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+                        : "bg-[var(--purple-primary)] text-white hover:bg-[var(--purple-secondary)]"
+                    } transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--purple-primary)] focus:ring-opacity-50`}
                   >
                     Next →
                   </button>
@@ -793,7 +796,7 @@ function hastToHtml(node: any): string {
   }
   
   if (type === 'element') {
-    const attrs = properties ? Object.entries(properties)
+    let attrs = properties ? Object.entries(properties)
       .map(([key, val]) => {
         if (key === 'className' && Array.isArray(val)) {
           return `class="${val.join(' ')}"`;
@@ -804,6 +807,15 @@ function hastToHtml(node: any): string {
       })
       .filter(Boolean)
       .join(' ') : '';
+    
+    // Add theme text color to paragraph & heading elements
+    if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'span', 'div', 'table', 'th', 'td'].includes(tagName)) {
+      if (attrs.includes('class="')) {
+        attrs = attrs.replace('class="', 'class="text-[var(--text-color)] ');
+      } else {
+        attrs = 'class="text-[var(--text-color)]" ' + attrs;
+      }
+    }
     
     const openTag = attrs ? `<${tagName} ${attrs}>` : `<${tagName}>`;
     
@@ -819,4 +831,25 @@ function hastToHtml(node: any): string {
   }
   
   return '';
+}
+
+// Function to process HTML content and add theme color classes
+function processHtmlContent(html: string): string {
+  if (!html) return '';
+  
+  try {
+    // Add text color class to common elements
+    return html
+      .replace(/<p>/g, '<p class="text-[var(--text-color)]">')
+      .replace(/<h1>/g, '<h1 class="text-[var(--text-color)]">')
+      .replace(/<h2>/g, '<h2 class="text-[var(--text-color)]">')
+      .replace(/<h3>/g, '<h3 class="text-[var(--text-color)]">')
+      .replace(/<h4>/g, '<h4 class="text-[var(--text-color)]">')
+      .replace(/<li>/g, '<li class="text-[var(--text-color)]">')
+      .replace(/<span>/g, '<span class="text-[var(--text-color)]">')
+      .replace(/<div>/g, '<div class="text-[var(--text-color)]">');
+  } catch (error) {
+    console.error('Error processing HTML content:', error);
+    return html;
+  }
 }
