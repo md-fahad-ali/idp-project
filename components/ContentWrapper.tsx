@@ -25,8 +25,8 @@ export default function ContentWrapper({ children }: ContentWrapperProps) {
   
   // Set content class based on sidebar visibility and responsiveness
   const contentClass = shouldShowSidebar && !shouldHideSidebar 
-    ? "min-h-screen pt-16 md:pl-64 flex justify-center" // Only add left padding for sidebar on larger screens
-    : "min-h-screen pt-16 flex justify-center";          // Without sidebar padding but still centered
+    ? "min-h-screen pt-16 pb-16 md:pl-64 flex justify-center" // Added pb-16 for bottom padding
+    : "min-h-screen pt-16 pb-16 flex justify-center";          // Added pb-16 for bottom padding
   
   return (
     <div className={contentClass}>
