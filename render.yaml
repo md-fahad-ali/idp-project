@@ -1,0 +1,22 @@
+services:
+  # Web service
+  - type: web
+    name: skillstreet
+    runtime: node
+    plan: starter
+    buildCommand: pnpm install && pnpm run build
+    startCommand: pnpm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: ${RENDER_EXTERNAL_URL}
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: REFRESH_TOKEN_SECRET
+        sync: false
+      - key: NEXT_PUBLIC_SOCKET_URL
+        value: ${RENDER_EXTERNAL_URL}
+    healthCheckPath: /api/health 
