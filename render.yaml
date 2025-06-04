@@ -19,4 +19,6 @@ services:
         sync: false
       - key: NEXT_PUBLIC_SOCKET_URL
         value: ${RENDER_EXTERNAL_URL}
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=2048 --no-warnings"
     healthCheckPath: /api/health 
