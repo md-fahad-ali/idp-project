@@ -700,8 +700,9 @@ export default function CourseDetailPage() {
 
               <motion.div 
                 variants={itemVariants}
-                className="p-4 sm:p-6 shadow-lg rounded-lg bg-[var(--card-bg)] border-2 border-[var(--card-border)] h-full overflow-y-auto"
+                className="p-4 sm:p-6 shadow-lg rounded-lg bg-[var(--card-bg)] border-4 border-[var(--card-border)] shadow-[8px_8px_0px_0px_var(--card-border)] h-full overflow-y-auto"
                 key={`lesson-container-${activeLesson}`}
+                style={{ boxShadow: '8px 8px 0px 0px var(--card-border)' }}
               >
                 <div
                 ref={contentRef}
@@ -722,11 +723,11 @@ export default function CourseDetailPage() {
                   <button
                     onClick={() => setActiveLesson(Math.max(0, activeLesson - 1))}
                     disabled={activeLesson === 0}
-                    className={`px-4 py-2 rounded-lg ${
+                    className={`px-4 py-2 border-2 border-[var(--card-border)] ${
                       activeLesson === 0
                         ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                        : "bg-[var(--purple-primary)] text-white hover:bg-[var(--purple-secondary)]"
-                    } transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--purple-primary)] focus:ring-opacity-50`}
+                        : "bg-[var(--purple-primary)] text-white hover:bg-[var(--purple-secondary)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[6px_6px_0px_0px_var(--card-border)]"
+                    } transition-all duration-200 hover:-translate-y-1`}
                   >
                     ← Previous
                   </button>
@@ -742,11 +743,11 @@ export default function CourseDetailPage() {
                       }
                     }}
                     disabled={!course?.lessons || activeLesson >= course.lessons.length - 1}
-                    className={`px-4 py-2 rounded-lg ${
+                    className={`px-4 py-2 border-2 border-[var(--card-border)] ${
                       !course?.lessons || activeLesson >= course.lessons.length - 1
                         ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                        : "bg-[var(--purple-primary)] text-white hover:bg-[var(--purple-secondary)]"
-                    } transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--purple-primary)] focus:ring-opacity-50`}
+                        : "bg-[var(--purple-primary)] text-white hover:bg-[var(--purple-secondary)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[6px_6px_0px_0px_var(--card-border)]"
+                    } transition-all duration-200 hover:-translate-y-1`}
                   >
                     Next →
                   </button>
