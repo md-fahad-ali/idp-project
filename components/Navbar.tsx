@@ -173,14 +173,19 @@ const Navbar = ({
       <div className="hidden md:flex justify-between items-center max-w-7xl mx-auto px-4 py-4">
         <div className="flex items-center">
           <Link href="/" className="mr-8 flex items-center">
-            <div className="h-12 w-12 relative">
+            <div className="h-12 relative">
               <Image 
                 src={logoSrc}
                 alt="SkillStreet Logo" 
-                fill
+                width={48}
+                height={48}
                 sizes="48px"
                 priority
-                style={{ objectFit: 'contain' }}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  marginTop: '-6px' }}
               />
             </div>
           </Link>
@@ -347,7 +352,7 @@ const Navbar = ({
           {/* Header with close button */}
           <div className="flex justify-between items-center mb-8">
             <Link href="/" className="text-3xl font-bold text-white flex items-center">
-              <div className="h-12 w-12 relative">
+              <div className="h-10 w-30 sm:w-10 relative">
                 <Image 
                   src="/logo-dark.svg" 
                   alt="SkillStreet Logo"
