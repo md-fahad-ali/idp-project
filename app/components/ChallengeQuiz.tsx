@@ -145,7 +145,7 @@ export default function ChallengeQuiz() {
         console.log('[DEBUG] Challenged name:', data.challenged.name);
         
         // Update room data state
-        setRoomData(data);
+      setRoomData(data);
         
         // Re-broadcast room data to ensure both sides have it
         if (roomId && user?._id) {
@@ -1124,11 +1124,11 @@ export default function ChallengeQuiz() {
     // Request time sync every second to keep timer accurate
     const syncInterval = setInterval(() => {
       if (roomId && user?._id && !bothAnswered) {
-        const socket = socketRef.current;
+    const socket = socketRef.current;
         socket.emit('request_time_sync', { roomId, userId: user._id });
       }
     }, 1000);
-    
+
     return () => {
       clearInterval(syncInterval);
     };
