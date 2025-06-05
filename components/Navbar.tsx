@@ -168,7 +168,7 @@ const Navbar = ({
   }, [access_token, fetchUserData, lastAuthTimestamp, pathname]);
 
   return (
-    <nav className="fixed w-full z-50 bg-[var(--navbar-bg)] text-[var(--navbar-text)] transition-colors duration-300">
+    <nav className={`fixed w-full z-50 ${pathname === '/' ? 'bg-transparent' : 'bg-[var(--navbar-bg)]'} text-[var(--navbar-text)] transition-colors duration-300`}>
       {/* Desktop Menu */}
       <div className="hidden md:flex justify-between items-center max-w-7xl mx-auto px-4 py-4">
         <div className="flex items-center">
@@ -260,7 +260,7 @@ const Navbar = ({
       </div>
 
       {/* Mobile Menu Button */}
-      <div className="md:hidden flex justify-between items-center px-4 py-3">
+      <div className={`md:hidden flex justify-between items-center px-4 py-3 ${pathname === '/' ? 'bg-transparent' : ''}`}>
         <div className="flex items-center overflow-x-auto scrollbar-hide w-3/4">
           <Link href="/" className="whitespace-nowrap mr-4 flex items-center">
             <div className="h-10 w-30 sm:w-10 relative">
