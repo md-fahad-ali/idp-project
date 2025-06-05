@@ -160,10 +160,10 @@ body::before {
     var(--background-color);
 }
 
-nav {
+/* nav {
   background-color: var(--navbar-bg) !important;
   color: var(--navbar-text) !important;
-}
+} */
 
 .sidebar {
   color: var(--navbar-text) !important;
