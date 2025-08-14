@@ -38,4 +38,4 @@ next-env.d.ts
 
 
 #Env file igonre 
-.env
+config.bat

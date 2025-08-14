@@ -950,7 +950,7 @@ export default function CourseLeaderboardPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.5 }}
-                className="text-xl sm:text-2xl md:text-2xl font-bold text-[var(--text-color)] font-mono text-center sm:text-left"
+                className="text-xl sm:text-2xl md:text-2xl contents size-max font-bold text-[var(--text-color)] font-mono text-center sm:text-left"
               >
                 {courseData?.title} Leaderboard
               </motion.h1>
@@ -961,7 +961,7 @@ export default function CourseLeaderboardPage() {
               >
                 <Link 
                   href={`/course/${getTitleSlug(title)}`}
-                  className="px-3 py-1.5 flex w-full sm:px-4 sm:py-2 bg-[var(--yellow-light)] text-black font-bold rounded-md border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[6px_6px_0px_0px_var(--card-border)] transition-all duration-200"
+                  className="px-3 py-1.5 flex w-max sm:px-4 sm:py-2 bg-[var(--yellow-light)] text-black font-bold rounded-md border-2 border-[var(--card-border)] shadow-[4px_4px_0px_0px_var(--card-border)] hover:shadow-[6px_6px_0px_0px_var(--card-border)] transition-all duration-200"
                   prefetch={false}
                 >
                   Back to Course
