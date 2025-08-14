@@ -6,6 +6,8 @@
     "dev": "nodemon",
     "build": "next build && pnpm run build-server",
     "build-server": "tsc -p tsconfig.server.json",
+    "postinstall": "pnpm run build-server",
+    "netlify-build": "next build",
     "start": "NODE_ENV=production node dist/server.js",
     "start-server": "NODE_ENV=production node dist/server.js",
     "lint": "next lint"
@@ -104,6 +106,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.2.0",
+    "netlify-cli": "^23.0.0",
     "nookies": "^2.5.2",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",

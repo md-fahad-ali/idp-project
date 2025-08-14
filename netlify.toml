@@ -1,0 +1,14 @@
+[build]
+  command = "pnpm run netlify-build"
+  publish = ".next"
+
+[build.environment]
+  NODE_ENV = "production"
+  NEXT_PUBLIC_GROQ_API_KEY=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
+
+  JWT_SECRET=8f4b6c2a1e9d7f3b5a0c8e6d4a2b0f1e3c5a7d9b1f3e5a7c9d1b3f5e7a9c1d3b5f7
+  JWT_REFRESH_SECRET=7a3d1f5b9c2e8a0d6f4b2c8e0a1d3f5b7c9e1a3d5f7b9c1e3a5d7f9b1c3e5a7
+  MONGO_URI=mongodb+srv://education:Ee4a2yjrotlpqalG@cluster0.ugi7clf.mongodb.net/education
+
+  GROQ_API_KEY=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
+  RENDER_EXTERNAL_URL=https://idp-project-1.onrender.com

@@ -1527,7 +1527,8 @@ nextApp
             delete challengeRooms[roomId];
         }, 60000); // Keep for 1 minute then delete
     };
-    httpServer.listen(3000, () => {
+    const port = process.env.PORT || 3000;
+    httpServer.listen(port, () => {
         console.log("🚀 Custom server listening on http://localhost:3000");
     });
 })

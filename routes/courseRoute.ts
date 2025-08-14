@@ -312,9 +312,15 @@ router.get("/get", authenticateJWT, async (req, res): Promise<void> => {
     if(userRole == 'admin'){
       //show all courses that admin created
     // If the user is an admin, show only courses created by the admin (i.e., where user field matches admin's userId)
-    const adminQuery = {
+    const adminQuery: any = {
       user: userId
     };
+
+    // If specific title and category are provided, narrow down the admin query
+    if (title !== undefined && category !== undefined) {
+      adminQuery.title = title;
+      adminQuery.category = category;
+    }
     const adminCourses = await Course.find(adminQuery, {
       'lessons.content': 0 // Exclude lesson content to reduce response size
     })
