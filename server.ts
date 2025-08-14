@@ -18,6 +18,7 @@ import userRoute from './routes/userRoute';
 import ffRoute from './routes/ffRoute';
 import activityRoute from './routes/activityRoute';
 import challengeRoute from './routes/challengeRoute';
+import quizRoute from './routes/quizRoute';
 import connectDB from './routes/db'; // Import the db module
 import * as cookieParser from 'cookie-parser';
 import * as cors from 'cors';
@@ -166,6 +167,7 @@ nextApp
     server.use("/api/find_friends", ffRoute);
     server.use("/api/activity", activityRoute);
     server.use("/api/challenge", challengeRoute);
+    server.use("/api/quiz", quizRoute);
 
 
     // Handle all other routes with Next.js

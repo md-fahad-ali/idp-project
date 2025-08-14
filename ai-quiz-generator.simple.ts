@@ -37,7 +37,7 @@ export async function generateQuestionsForCourse(
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
       console.log("Missing GROQ API key");
-      return generateFallbackQuestions(courseContent, numQuestions);
+      throw new Error('AI_QUIZ_GENERATION_FAILED: Missing GROQ_API_KEY');
     }
     
     // Create Groq client
@@ -47,28 +47,27 @@ export async function generateQuestionsForCourse(
     const lessonsText = courseContent.lessons
       .map(lesson => `Lesson: ${lesson.title}\nContent: ${lesson.content || ''}`)
       .join('\n\n');
+
+    // Add per-call randomness to encourage diverse outputs
+    const nonce = uuidv4();
+    const styles = ['conceptual', 'practical', 'tricky', 'scenario-based', 'code-focused', 'analogy-driven'];
+    const style = styles[Math.floor(Math.random() * styles.length)];
+    const hasCode = /```|\bfunction\b|console\.|<[^>]+>|;\s*$/m.test(lessonsText);
+    const wantCodeQ = hasCode && Math.random() < 0.6; // ~60% of the time include a code-based question when code exists
     
-    // Create a simple prompt
+    // Prompt with explicit variability + optional code-question requirement
     const prompt = `
-    Create ${numQuestions} multiple-choice quiz questions based on this course:
-    
-    COURSE TITLE: ${courseContent.title}
-    COURSE CONTENT:
+    Create ${numQuestions} multiple-choice questions based on the course content below.
+    Return ONLY a JSON array. Each item must include keys: "text", "options" (exactly 4 strings), and "correctAnswer" (one of the options).
+
+    Requirements for variability:
+    - Every run must produce different questions. Change wording, focus, and order each time.
+    - Style: ${style}
+    - Nonce: ${nonce}
+    ${wantCodeQ ? '- Include at least ONE code-based question if possible (referencing provided code snippets).' : ''}
+
+    Course Content:
     ${lessonsText}
-    
-    Each question must have:
-    - A clear question text
-    - Exactly 4 answer options
-    - One correct answer
-    
-    Format as JSON array:
-    [
-      {
-        "text": "Question text here?",
-        "options": ["Option A", "Option B", "Option C", "Option D"],
-        "correctAnswer": "The correct option exactly as written in options"
-      }
-    ]
     `;
     
     // Make API request
@@ -85,7 +84,7 @@ export async function generateQuestionsForCourse(
           content: prompt
         }
       ],
-      temperature: 0.7,
+      temperature: 0.85,
       max_tokens: 2000
     });
     
@@ -143,135 +142,20 @@ export async function generateQuestionsForCourse(
       
       // Ensure we always return the requested number of questions
       if (formattedQuestions.length < numQuestions) {
-        const fallbackQuestions = generateFallbackQuestions(courseContent, numQuestions - formattedQuestions.length);
-        return [...formattedQuestions, ...fallbackQuestions];
+        throw new Error('AI_QUIZ_GENERATION_FAILED: Insufficient questions');
       }
       
       return formattedQuestions;
     } catch (error) {
       console.log("Failed to parse AI response:", error instanceof Error ? error.message : String(error));
-      // Return fallback questions
-      return generateFallbackQuestions(courseContent, numQuestions);
+      // Bubble up so UI can show error
+      throw new Error('AI_QUIZ_GENERATION_FAILED: Parse error');
     }
   } catch (error) {
     console.log("Error:", error instanceof Error ? error.message : String(error));
-    // Return fallback questions
-    return generateFallbackQuestions(courseContent, numQuestions);
+    // Bubble up so UI can show error
+    throw new Error('AI_QUIZ_GENERATION_FAILED');
   }
 }
 
-/**
- * Generate fallback questions when AI generation fails
- */
-function generateFallbackQuestions(courseContent: CourseContent, count: number = 5): Question[] {
-  console.log(`Generating ${count} fallback questions`);
-  const questions: Question[] = [];
-  
-  // Add a general course question
-  questions.push({
-    id: uuidv4(),
-    text: `What is the main topic of the ${courseContent.title} course?`,
-    options: [
-      `Understanding ${courseContent.title} fundamentals`,
-      `Advanced ${courseContent.title} applications`,
-      `${courseContent.title} history and development`,
-      `${courseContent.title} troubleshooting`
-    ],
-    correctAnswer: `Understanding ${courseContent.title} fundamentals`,
-    topic: 'General',
-    difficulty: 'EASY',
-    hasCodeExample: false
-  });
-  
-  // Add lesson-specific questions
-  let lessonIndex = 0;
-  
-  while (questions.length < count && lessonIndex < courseContent.lessons.length) {
-    const lesson = courseContent.lessons[lessonIndex];
-    
-    questions.push({
-      id: uuidv4(),
-      text: `What is taught in the "${lesson.title}" lesson?`,
-      options: [
-        `The core concepts of ${lesson.title}`,
-        `The history of ${lesson.title}`,
-        `Advanced applications of ${lesson.title}`,
-        `${lesson.title} in practice`
-      ],
-      correctAnswer: `The core concepts of ${lesson.title}`,
-      topic: lesson.title,
-      difficulty: 'EASY',
-      hasCodeExample: false
-    });
-    
-    lessonIndex++;
-  }
-  
-  // If we still need more questions, add generic ones
-  const genericQuestions = [
-    {
-      text: "Which learning approach is most effective for this course?",
-      options: [
-        "Practice and hands-on exercises",
-        "Memorization of facts",
-        "Skimming through material quickly",
-        "Watching videos only"
-      ],
-      correctAnswer: "Practice and hands-on exercises"
-    },
-    {
-      text: "What should you do if you get stuck on a concept?",
-      options: [
-        "Review the material and try again",
-        "Skip it entirely",
-        "Assume it's not important",
-        "Change to a different course"
-      ],
-      correctAnswer: "Review the material and try again"
-    },
-    {
-      text: "How can you apply knowledge from this course?",
-      options: [
-        "Through practical projects",
-        "By teaching others",
-        "In professional settings",
-        "All of the above"
-      ],
-      correctAnswer: "All of the above"
-    }
-  ];
-  
-  // Add generic questions if needed
-  let genericIndex = 0;
-  while (questions.length < count && genericIndex < genericQuestions.length) {
-    questions.push({
-      id: uuidv4(),
-      text: genericQuestions[genericIndex].text,
-      options: genericQuestions[genericIndex].options,
-      correctAnswer: genericQuestions[genericIndex].correctAnswer,
-      topic: 'General',
-      difficulty: 'EASY',
-      hasCodeExample: false
-    });
-    
-    genericIndex++;
-  }
-  
-  // If we still don't have enough, duplicate with variations
-  while (questions.length < count) {
-    const originalQuestion = questions[0];
-    
-    questions.push({
-      id: uuidv4(),
-      text: `IMPORTANT: ${originalQuestion.text}`,
-      options: originalQuestion.options,
-      correctAnswer: originalQuestion.correctAnswer,
-      topic: originalQuestion.topic,
-      difficulty: originalQuestion.difficulty,
-      hasCodeExample: originalQuestion.hasCodeExample
-    });
-  }
-  
-  console.log(`Generated ${questions.length} fallback questions`);
-  return questions;
-} 
+ 

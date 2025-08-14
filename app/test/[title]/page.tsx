@@ -6,7 +6,6 @@ import { useDashboard } from "../../provider";
 import { useTheme } from "../../provider/theme-provider";
 import confetti from 'canvas-confetti';
 import { Question, ICourse } from '../../../types';
-import { generateQuestionsFromLessons } from '../../utils/groq';
 import Loading from '../../../components/ui/Loading';
 import Link from "next/link";
 
@@ -94,13 +93,16 @@ export default function TestPage() {
         // Log the actual structure for debugging
         console.log('API Response data:', JSON.stringify(data).substring(0, 500) + '...');
         console.log('API Data structure:', Object.keys(data));
-        console.log('Looking for title slug:', searchSlug);
+        console.log('Looking for title slug (raw):', searchSlug);
         
         // Improved course matching with multiple strategies
         let matchingCourse = null;
         
         // Helper function to create a slug from a title
         const createSlug = (text: string): string => text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '');
+        // Normalize the incoming slug for strict comparison
+        const normalizedSearchSlug = createSlug(decodeURIComponent(searchSlug));
+        console.log('Normalized search slug:', normalizedSearchSlug);
         
         // Debug function to log which check is being performed
         const logMatch = (method: string, course: any, match: boolean): boolean => {
@@ -108,8 +110,7 @@ export default function TestPage() {
           return match;
         };
         
-        // EMERGENCY FALLBACK - If we can't find a match but there are courses, use the first one
-        let fallbackCourse = null;
+        // Remove previous fallback approach to avoid mismatches across courses
         
         // Strategy 1: Look for course in data.course (direct object)
         if (data && data.course) {
@@ -117,13 +118,11 @@ export default function TestPage() {
           const course = data.course;
           
           // Save as fallback
-          if (!fallbackCourse && course && course._id) {
-            fallbackCourse = course;
-          }
+          
           
           const courseSlug = course.slug || createSlug(course.title);
           
-          if (logMatch('Slug', course, courseSlug === searchSlug)) {
+          if (logMatch('Exact slug', course, courseSlug === normalizedSearchSlug)) {
             matchingCourse = course;
             console.log('Found matching course in data.course');
           }
@@ -133,113 +132,38 @@ export default function TestPage() {
         if (!matchingCourse && data && data.courses && Array.isArray(data.courses)) {
           console.log('Strategy 2: Searching in data.courses array, length:', data.courses.length);
           
-          // Save the first course as fallback if not already set
-          if (!fallbackCourse && data.courses.length > 0 && data.courses[0]._id) {
-            fallbackCourse = data.courses[0];
-          }
-          
-          // Try even more matching strategies:
-          
-          // 2.1: Direct slug match
+          // Direct slug match only (no fuzzy/contains)
           matchingCourse = data.courses.find((c: any) => {
             const courseSlug = c.slug || createSlug(c.title);
-            return logMatch('Exact slug', c, courseSlug === searchSlug);
+            return logMatch('Exact slug', c, courseSlug === normalizedSearchSlug);
           });
-          
-          // 2.2: Partial match or contains match
-          if (!matchingCourse) {
-            matchingCourse = data.courses.find((c: any) => {
-              const courseSlug = c.slug || createSlug(c.title);
-              return logMatch('Contains slug', c, searchSlug.includes(courseSlug) || courseSlug.includes(searchSlug));
-            });
-          }
-          
-          // 2.3: Title match - transform title to slug and compare
-          if (!matchingCourse) {
-            matchingCourse = data.courses.find((c: any) => {
-              return logMatch('Title slug compare', c, c.title && createSlug(c.title) === searchSlug);
-            });
-          }
-          
-          // 2.4: Title contains words from slug
-          if (!matchingCourse) {
-            const slugWords = searchSlug.split('-');
-            matchingCourse = data.courses.find((c: any) => {
-              if (!c.title) return false;
-              const titleLower = c.title.toLowerCase();
-              // Check if at least half of the words in the slug appear in the title
-              const matchingWords = slugWords.filter(word => titleLower.includes(word));
-              const matchRatio = matchingWords.length / slugWords.length;
-              return logMatch('Title words match', c, matchRatio >= 0.5);
-            });
-          }
+
         }
         
         // Strategy 3: Check if data itself is an array of courses
         if (!matchingCourse && data && Array.isArray(data)) {
           console.log('Strategy 3: Data is an array, length:', data.length);
           
-          // Save the first course as fallback if not already set
-          if (!fallbackCourse && data.length > 0 && data[0]._id) {
-            fallbackCourse = data[0];
-          }
-          
-          // First try exact slug match
+          // Exact slug match only
           matchingCourse = data.find((c: any) => {
             const courseSlug = c.slug || createSlug(c.title);
-            return logMatch('Exact slug', c, courseSlug === searchSlug);
+            return logMatch('Exact slug', c, courseSlug === normalizedSearchSlug);
           });
-          
-          // If no match, try partial match
-          if (!matchingCourse) {
-            matchingCourse = data.find((c: any) => {
-              const courseSlug = c.slug || createSlug(c.title);
-              return logMatch('Contains slug', c, searchSlug.includes(courseSlug) || courseSlug.includes(searchSlug));
-            });
-          }
         }
         
         // Strategy 4: Check if data itself is the course object
         if (!matchingCourse && data && data._id) {
           console.log('Strategy 4: Checking if data itself is the course');
           
-          // Save as fallback if not already set
-          if (!fallbackCourse) {
-            fallbackCourse = data;
-          }
-          
           const dataSlug = data.slug || createSlug(data.title);
           
-          if (logMatch('Data slug', data, dataSlug === searchSlug || searchSlug.includes(dataSlug) || dataSlug.includes(searchSlug))) {
+          if (logMatch('Data slug', data, dataSlug === normalizedSearchSlug)) {
             matchingCourse = data;
             console.log('Data itself is the matching course');
           }
         }
         
-        // Strategy 5: If we have JavaScript course in the URL, try fuzzy match with JS
-        if (!matchingCourse && searchSlug.includes('javascript')) {
-          console.log('Strategy 5: Special case for JavaScript course');
-          
-          const jsAliases = ['javascript', 'js', 'ecmascript'];
-          
-          const courseArray = Array.isArray(data.courses) ? data.courses : 
-                             Array.isArray(data) ? data : [];
-          
-          matchingCourse = courseArray.find((c: any) => {
-            // Try to find courses with JavaScript-related terms
-            const hasJSInTitle = c.title && jsAliases.some(alias => 
-              c.title.toLowerCase().includes(alias));
-            
-            return logMatch('JS fuzzy match', c, hasJSInTitle);
-          });
-        }
-        
-        // Last resort: Just use any available course if we found some courses but couldn't match
-        if (!matchingCourse && fallbackCourse) {
-          console.log('FALLBACK STRATEGY: Using first available course as no match was found');
-          matchingCourse = fallbackCourse;
-          console.log('Using fallback course:', matchingCourse.title);
-        }
+        // Remove JS-specific fuzzy matching and fallback-to-first to avoid cross-course confusion
         
         console.log('Final match result:', matchingCourse ? 'Course found' : 'No course found');
         
@@ -267,9 +191,20 @@ export default function TestPage() {
         try {
           // Important: Keep the loading state true during question generation
           
-          // Properly await the Promise returned by generateQuestionsFromLessons
-          const result = await generateQuestionsFromLessons(lessonData);
-          console.log('Questions generated:', result);
+          // Request server-side AI generation (keeps API key on server)
+          const resp = await fetch('/api/quiz/generate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ lessons: lessonData, numQuestions: 5 }),
+          });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err?.error || `Question generation failed: ${resp.status}`);
+          }
+          const result = await resp.json();
+          console.log('Questions generated (server):', result);
           
           const generatedQuestions = result.questions || [];
           

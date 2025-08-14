@@ -1,14 +1,15 @@
 import Groq from "groq-sdk";
 import { ILesson, Question } from '../../types';
 import { QuestionDifficulty } from "../types/index";
+import { v4 as uuidv4 } from 'uuid';
 
-// Add fallback key handling
+// Require API key explicitly (no hardcoded fallbacks)
 const API_KEY = process.env.NEXT_PUBLIC_GROQ_API_KEY || '';
 if (!API_KEY) {
-  console.warn('NEXT_PUBLIC_GROQ_API_KEY is not defined in environment variables, using mock data');
+  throw new Error('AI_QUIZ_GENERATION_FAILED: Missing NEXT_PUBLIC_GROQ_API_KEY');
 }
 
-// Create the SDK client with proper error handling
+// Create the SDK client or fail fast (no mock client)
 let groq: Groq;
 try {
   groq = new Groq({ 
@@ -17,32 +18,7 @@ try {
   });
 } catch (error) {
   console.error('Failed to initialize Groq client:', error);
-  // Create a dummy client that will return mock data if API doesn't work
-  groq = {
-    chat: {
-      completions: {
-        create: async () => ({
-          choices: [{ 
-            message: { 
-              content: JSON.stringify({
-                questions: [
-                  {
-                    id: 1,
-                    question: "What happened to the API connection?",
-                    options: ["Connection error", "API key issue", "Rate limiting", "Service unavailable"],
-                    correctAnswer: 0,
-                    explanation: "There was an error connecting to the AI service to generate questions.",
-                    difficulty: "medium",
-                    timeLimit: 45
-                  }
-                ]
-              })
-            }
-          }]
-        })
-      }
-    }
-  } as unknown as Groq;
+  throw new Error('AI_QUIZ_GENERATION_FAILED: Client initialization failed');
 }
 
 const SYSTEM_PROMPT = `You are a specialized AI for generating educational test questions. Generate multiple-choice questions based on the provided lesson content.
@@ -82,8 +58,7 @@ Rules:
 export async function generateQuestionsFromLessons(lessons: ILesson[]): Promise<any> {
   // Check if we have lessons to work with
   if (!lessons || !Array.isArray(lessons) || lessons.length === 0) {
-    console.warn('No lessons provided to generate questions from');
-    return { questions: [] };
+    throw new Error('AI_QUIZ_GENERATION_FAILED: No lessons provided');
   }
   
   try {
@@ -96,6 +71,23 @@ export async function generateQuestionsFromLessons(lessons: ILesson[]): Promise<
     console.log(`Generating questions for ${lessonContent.length} lessons`);
     
     try {
+      // Add per-call randomness and optional code-question requirement
+      const nonce = uuidv4();
+      const styles = ['conceptual', 'practical', 'tricky', 'scenario-based', 'code-focused', 'analogy-driven'];
+      const style = styles[Math.floor(Math.random() * styles.length)];
+      const rawText = lessonContent.map(l => `${l.title}\n${l.content}`).join('\n\n');
+      // Detect presence of code in lesson text
+      const hasCode = /```|\b(function|class|const|let|var)\b|=>|console\.|import\s+|export\s+|<[^>]+>/m.test(rawText);
+      // Extract fenced code blocks if present
+      const codeBlocks = Array.from(rawText.matchAll(/```[a-zA-Z0-9]*\n[\s\S]*?```/g)).map(m => m[0]).slice(0, 3);
+      // If no fenced blocks, heuristically extract short code-like lines
+      const heuristicCode = !codeBlocks.length
+        ? rawText.split('\n').filter(l => /;\s*$|=>|\b(function|class|const|let|var)\b|console\./.test(l)).slice(0, 8)
+        : [];
+      const codeContext = codeBlocks.length ? codeBlocks.join('\n\n') : heuristicCode.join('\n');
+      const wantCodeQ = hasCode; // now mandatory: include at least one code-based question when code exists
+      console.log('QuestionGen meta:', { nonce, style, wantCodeQ, hasCode, codeBlocks: codeBlocks.length });
+
       const completion = await groq.chat.completions.create({
         messages: [
           {
@@ -104,11 +96,24 @@ export async function generateQuestionsFromLessons(lessons: ILesson[]): Promise<
           },
           {
             role: "user",
-            content: `Generate test questions based on these lessons. Remember to return ONLY valid JSON: ${JSON.stringify(lessonContent)}`
+            content: `Create diverse multiple-choice questions based on these lessons. Return ONLY valid JSON as per the schema.
+
+Variability requirements:
+- Every run must produce different questions. Change wording, focus, and order each time.
+- Style: ${style}
+- Nonce: ${nonce}
+- Please dont ask question from outside the provided content 
+${wantCodeQ ? '- Include at least ONE code-based question that directly references the provided code. Prefer real identifiers and behaviors from the code.' : ''}
+
+Lessons:
+${JSON.stringify(lessonContent)}
+
+${hasCode ? `Code Snippets (for reference; use them to craft at least one question):\n${codeContext}` : ''}`
           }
         ],
         model: "llama-3.3-70b-versatile",
-        temperature: 0.1,
+        temperature: 0.95,
+        top_p: 0.9,
         max_tokens: 2000,
       });
 
@@ -116,30 +121,17 @@ export async function generateQuestionsFromLessons(lessons: ILesson[]): Promise<
       
       if (!content) {
         console.error('No content in API response');
-        return { questions: [] };
+        throw new Error('AI_QUIZ_GENERATION_FAILED: Empty response');
       }
 
       return parseQuestionsFromJson(content);
     } catch (apiError) {
       console.error('API error in groq.chat.completions.create:', apiError);
-      // Fall back to mock data
-      return { 
-        questions: [
-          {
-            id: 1,
-            question: "There was an error generating questions. What might be the cause?",
-            options: ["API key issue", "Network error", "Server unavailable", "Rate limit exceeded"],
-            correctAnswer: 0,
-            explanation: "The AI service encountered an error while generating questions.",
-            difficulty: "medium",
-            timeLimit: 45
-          }
-        ]
-      };
+      throw new Error('AI_QUIZ_GENERATION_FAILED: API error');
     }
   } catch (error) {
     console.error('Error in generateQuestionsFromLessons:', error);
-    return { questions: [] };
+    throw error instanceof Error ? error : new Error('AI_QUIZ_GENERATION_FAILED');
   }
 }
 
@@ -172,7 +164,7 @@ function parseQuestionsFromJson(content: string): { questions: Question[] } {
     // Validate the structure
     if (!questions.questions || !Array.isArray(questions.questions)) {
       console.error('Invalid questions structure:', questions);
-      return { questions: [] };
+      throw new Error('AI_QUIZ_GENERATION_FAILED: Invalid JSON structure');
     }
 
     // Clean and validate each question
@@ -203,13 +195,14 @@ function parseQuestionsFromJson(content: string): { questions: Question[] } {
     if (validQuestions.length === 0) {
       console.error('No valid questions after filtering');
       console.error('Original questions:', questions.questions);
+      throw new Error('AI_QUIZ_GENERATION_FAILED: No valid questions');
     }
 
     return { questions: validQuestions };
   } catch (e) {
     console.error('Error parsing questions JSON:', e);
     console.error('Raw content:', content);
-    return { questions: [] };
+    throw new Error('AI_QUIZ_GENERATION_FAILED: Parse error');
   }
 }
 
